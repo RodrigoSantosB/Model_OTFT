@@ -7,7 +7,7 @@ Transistores orgânicos de película fina (OTFTs) utilizam semicondutores orgân
 A aplicação visa a determinação dos parâmetros intrínsecos do transistor, utilizando dados experimentais de corrente e tensão. Por meio dessa abordagem, torna-se viável avaliar a qualidade do ajuste de curva, empregando métricas como o erro quadrático médio e o erro relativo. Essa análise reveste-se de significância particular na definição de um padrão de referência intra e intertecnologias, empregadas como substrato. Além disso, nossa alpicação tem o objetivo de ser de fácil uso por ter sido desenvolvida em python, adicionalmente pode ser executada no ambiente em nuvem (Google Colaboratory)
 
 
-## **OBJETIVOS**
+## **Objetivos**
 A otimização de parâmetros dos dispositivos TFTs é um processo crucial na fabricação de eletrônicos de filme fino. A principal razão para realizar essa otimização é melhorar o desempenho dos dispositivos, tornando-os mais eficientes, confiáveis e econômicos. O objetivo é otimizar parâmetros específicos dentro de um modelo que fornecerá os melhores resultados para a produção desses dispositivos. Uma forma simplificada de como o modelo opera pode ser descrita pela relação $I_D = F(V_{GS}, V_{DS})$, onde:
 
 - **$I_D$**: Corrente elétrica que flui entre os terminais da fonte e do dreno de um transistor de filme fino (TFT).
@@ -18,7 +18,7 @@ As tensões $V_{GS}$ e $V_{DS}$ são fundamentais para a operação do transisto
 
 A otimização dos parâmetros é realizada empregando um solucionador de mínimos quadrados não linear, que permite ajustar os parâmetros de forma eficiente e sem ambiguidade. Dessa maneira, é possível obter uma melhor compreensão do comportamento do dispositivo TFT e otimizar sua operação para aplicações específicas. Além disso, a otimização dos parâmetros é fundamental para garantir a qualidade e confiabilidade do dispositivo, bem como sua integração em circuitos eletrônicos complexos.
 
-## **DESCRIÇÃO DO MODELO**
+## **Descrição do Modelo**
 TFTs são chaves eletrônicas onde a corrente flui da fonte para o terminal de dreno, controlada pela tensão aplicada ao terminal da porta, veja a Fig. 1. Os modelos de referência devem reproduzir consistentemente as características de corrente-tensão dos TFTs com um número mínimo de parâmetros. Isto significa que os parâmetros do modelo podem ser extraídos de forma confiável e inequívoca das curvas experimentais.
 
 A representação física mais simples da corrente de dreno em um TFT envolve cargas móveis moduladas pela tensão porta-fonte, VGS, movendo-se a uma velocidade influenciada pela tensão dreno-fonte, VDS. Para campos elétricos fonte-dreno muito altos, a velocidade do portador de carga satura. À medida que os transportadores se movem da fonte para o dreno, eles encontram uma barreira potencial, que atua como um gargalo para o transporte de carga. A taxa limitada de injeção de carga no topo desta barreira potencial pode ser descrita como uma fonte virtual (VS).
@@ -70,10 +70,10 @@ A capacitância do isolador da porta depende da constante dielétrica ε e da es
 O potencial da interface se torna independente de VGS quando atinge um valor de polarização $ψ.V_S$, também conhecido como tensão limiar. Isso permite parametrizar o controle da barreira de potencial pela polarização da porta em TFTs. O parâmetro $ψ.V_S$ representa a polarização crítica para a qual o potencial em $V_S$ se torna independente da tensão da porta. Durante o acúmulo de lacunas na interface do isolador da porta, os parâmetros n e $l$ descrevem o carregamento dos estados de armadilhas, e a escala de tensão para o aumento exponencial da corrente de dreno com a polarização da porta é dada por $(\frac{n}{l}).V_T$ no modelo VSED. O parâmetro $δ$ não representa necessariamente um DIBL (drain-induced barrier lowering).
 
 A velocidade de injeção de cargas $Q_{free}$ no canal do transistor é representada por $V_{inj} = V_{sat}.F_{sat}$. É comum estimar a corrente de dreno em TFTs como um movimento de deriva dos portadores de carga injetados, mas isso pode levar a uma conclusão equivocada sobre a velocidade de saturação $V_{sat}$. Enquanto em regiões de alto campo elétrico a velocidade de saturação é igual à velocidade de saturação no corpo do semicondutor, em regiões de baixo campo elétrico a velocidade de saturação é definida pela velocidade térmica unidirecional do quase potencial de Fermi e não do potencial eletrostático. Este conceito é discutido em [10]:
-$$V_{sat} = \frac{2D}{\bar{λ}_{free}}$$ = $$\frac{2.μ.V_T}{\bar{λ}_{free}}$$
+$$V_{sat}=\frac{2D}{\bar{λ}_{free}}=\frac{2.μ.V_T}{\bar{λ}\_{free}}$$ 
 
 que é aqui parametrizado pelo coeficiente de difusão $D$ e pode estar relacionado com a mobilidade de deriva $μ$ através da relação de Einstein. Em baixa polarização de dreno, a difusão do portador de carga é o mecanismo de transporte dominante em grande parte do TFT e não apenas no $V_S$. O comprimento característico na Eq. (5) não será mais dado pelo caminho livre
-médio $\bar{λ}_{free}$ mas pelo comprimento de difusão. Uma vez que apenas portadores de carga de um único tipo são injetados em um semicondutor basicamente intrínseco, o comprimento de difusão pode ser muito grande e comparável à dimensão do dispositivo dada pelo comprimento da porta $L_G$. $F_{sat}$ introduz uma escala de comprimento $λ = \frac{L_G}{\bar{λ}_{free}}$ , que efetivamente substitui ${\bar{λ}_{free}}$ → $L_G$ em baixa polarização de drenagem.
+médio $\bar{λ}\_{free}$ mas pelo comprimento de difusão. Uma vez que apenas portadores de carga de um único tipo são injetados em um semicondutor basicamente intrínseco, o comprimento de difusão pode ser muito grande e comparável à dimensão do dispositivo dada pelo comprimento da porta $L\_G$. $F\_{sat}$ introduz uma escala de comprimento $λ = \frac{L_G}{\bar{λ}_{free}}$ , que efetivamente substitui ${\bar{λ}\_{free}}$ → $L\_G$ em baixa polarização de drenagem.
 
 A função restante $F_{sat}$ descreve a drenagem das lacunas acumulados. Para TFTs de canal longo, a teoria de difusão e emissão [11, 5] representa uma abordagem interessante para determinar $F_{sat}$:
 
@@ -106,13 +106,23 @@ Compreendendo a relação e a composição de cada equação, podemos implementa
 
 Definições dos coeficientes:
 
-- **$J_T$** (Coeficiente de temperatura de Junção): Representa a variação da temperatura na junção de um dispositivo eletrônico, importante para o projeto e operação adequados desses dispositivos.
-- **$V_{tho}$** (Tensão de Threshold): A tensão mínima necessária para iniciar a condução de corrente em dispositivos como transistores MOSFET, determinada pelas propriedades do material semicondutor.
-- **$\delta$** (Espessura da camada de difusão): A espessura da camada de material semicondutor dopado depositada na superfície de um substrato semicondutor.
-- **$l$** (Comprimento de difusão): A distância que a dopagem do material semicondutor se difunde na superfície do substrato durante a fabricação.
-- **$n$** (Coeficiente de idealidade do diodo): Descreve a relação entre corrente elétrica e tensão em um diodo, usado para calcular a queda de tensão em diferentes níveis de corrente.
-- **$\lambda$** (Coeficiente de queda de tensão): Descreve a queda de tensão em um dispositivo eletrônico em relação à corrente elétrica que passa por ele.
-- **$V_{crit}$** (Tensão crítica): A tensão máxima que um dispositivo pode suportar sem danificar sua estrutura, determinada pelas propriedades dos materiais semicondutores.
+- ``**$J_T$** `(Coeficiente de temperatura de Junção):` Representa a variação da temperatura na junção de um dispositivo eletrônico, importante para o projeto e operação adequados desses dispositivos.
+- **$V_{tho}$** `(Tensão de Threshold):` A tensão mínima necessária para iniciar a condução de corrente em dispositivos como transistores MOSFET, determinada pelas propriedades do material semicondutor.
+- **$\delta$** `(Espessura da camada de difusão):` A espessura da camada de material semicondutor dopado depositada na superfície de um substrato semicondutor.
+- **$l$** `(Comprimento de difusão):` A distância que a dopagem do material semicondutor se difunde na superfície do substrato durante a fabricação.
+- **$n$** `(Coeficiente de idealidade do diodo):` Descreve a relação entre corrente elétrica e tensão em um diodo, usado para calcular a queda de tensão em diferentes níveis de corrente.
+- **$\lambda$** `(Coeficiente de queda de tensão):` Descreve a queda de tensão em um dispositivo eletrônico em relação à corrente elétrica que passa por ele.
+- **$V_{crit}$** `(Tensão crítica):` A tensão máxima que um dispositivo pode suportar sem danificar sua estrutura, determinada pelas propriedades dos materiais semicondutores.
+
+# Tecnologias utilizadas
+- Google Colaboratory
+- Python
+- Curve-Fit (função de otimização)
+
+## **COMO USAR O MODELO (VERSÃO LOCAL):**
+
+
+## **COMO USAR O MODELO (VERSÃO EM NUVEM):**
 
 
 
