@@ -126,7 +126,7 @@ Where:
 - Curve-Fit (função de otimização)
 - Mean Square 
 ## Visualization
-- Ploty (gráficos)
+- Ploty (graphics)
 - Matplotlib
 - ipywidgets
 - IPython
@@ -134,7 +134,7 @@ Where:
 
 # How to run the project
 ## Local environment (VS Code)
-###Setting up the environment
+### Setting up the environment
 #### Prerequisites: Python 3.10.12 or higher
 ---
 
@@ -173,6 +173,10 @@ pip3 install -r requirements.txt
 It's beneficial to use the Jupyter Notebook extension in VS Code for interactive work. You can download it from the VS Code extension marketplace by searching for `Jupyter`. After downloading, make sure to select the created virtual environment in the `kernel` dropdown menu in VS Code.
 
 --- 
+
+Depois de ter preparado todo o ambiente, devemos ajustar os caminhos script para que corresponda a máquina local.
+
+
 
 
 
