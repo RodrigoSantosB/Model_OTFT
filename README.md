@@ -18,7 +18,7 @@ The voltages $V_{GS}$ and $V_{DS}$ are fundamental for the operation of the TFT 
 Parameter optimization is performed using a nonlinear least squares solver, which enables efficient and unambiguous adjustment of the parameters. This approach provides a better understanding of the TFT's behavior and optimizes its operation for specific applications. Moreover, parameter optimization is essential to ensure the quality and reliability of the device, as well as its integration into complex electronic circuits.
 
 ## **Conceptual schema**
-![CONCEPT_MODEL](https://github.com/RodrigoSantosB/speech-recognition/blob/main/images/concept_model.png)
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/squematic.png)
 
 ## **Model Description**
 TFTs are electronic switches where the current flows from the source to the drain terminal, controlled by the voltage applied to the gate terminal, as shown in Fig. 1. Reference models must consistently reproduce the current-voltage characteristics of TFTs with a minimal number of parameters. This means that the model parameters can be reliably and unambiguously extracted from experimental curves.
@@ -114,17 +114,65 @@ Where:
 - **$V_{crit}$** `(Critical Voltage):` The maximum voltage a device can withstand without damaging its structure, determined by the properties of the semiconductor materials.
 
   
-## Tecnologias utilizadas
+# Technologies Applied
+## Development Environment
 - Google Colaboratory
-- Python
+- Visual Studio Code
+## Data Processing
+- Numpy
+- Pandas
+- Math
+## Optimization Function
 - Curve-Fit (função de otimização)
+- Mean Square 
+## Visualization
+- Ploty (gráficos)
+- Matplotlib
+- ipywidgets
+- IPython
+- Tabulate
 
-## **COMO USAR O MODELO (VERSÃO LOCAL):**
+# How to run the project
+## Local environment (VS Code)
+###Setting up the environment
+#### Prerequisites: Python 3.10.12 or higher
+---
 
+Make sure to add the experimental current and voltage data that you wish to use into the `datas` folder within the project folder. Additionally, replace the current path with the path to the data in the `.JSON` file that you intend to execute in the model.
 
-## **COMO USAR O MODELO (VERSÃO EM NUVEM):**
+```bash
+## NOTE: If the global version of Python is not set as the system default, set it as the default.
+# Navigate to the Desktop, create a folder named `workspace`
 
+# Create and enter the project folder
+cd Desktop
+mkdir workspace && cd workspace
 
+# Clone repository into workspace: [e.g., C:\Users\your-user\workspace
+https:
+git clone https://github.com/RodrigoSantosB/Model_OTFT.git
+
+ssh:
+git clone git@github.com:RodrigoSantosB/Model_OTFT.git
+
+# Create virtual environment in Python 3.10.11
+python -m venv "environment-name"
+
+# Activate the environment
+Windows:
+  .\environment-name\Scripts\Activate
+
+Linux:
+  source environment-name/bin/activate
+
+# Execute the requirements.txt file to install dependencies
+pip3 install -r requirements.txt
+
+```
+
+It's beneficial to use the Jupyter Notebook extension in VS Code for interactive work. You can download it from the VS Code extension marketplace by searching for `Jupyter`. After downloading, make sure to select the created virtual environment in the `kernel` dropdown menu in VS Code.
+
+--- 
 
 
 
