@@ -6,7 +6,7 @@ Organic thin-film transistors (OTFTs) use organic semiconductors to generate ele
 
 The application aims to determine the intrinsic parameters of the transistor using experimental data of current and voltage. This approach makes it possible to evaluate the quality of curve fitting using metrics such as mean squared error and relative error. Such analysis is particularly significant in establishing an intra- and inter-technology reference standard, employed as a substrate. Furthermore, our application is designed to be user-friendly as it has been developed in Python, additionally capable of execution in a cloud environment (Google Colaboratory).
 
-# **Objective**
+## **Objective**
 The optimization of parameters for TFT devices is a crucial process in the manufacture of thin-film electronics. The primary reason for performing this optimization is to enhance the performance of the devices, making them more efficient, reliable, and cost-effective. The goal is to optimize specific parameters within a model that will provide the best results for the production of these devices. A simplified way to describe how the model operates can be given by the relationship $I_D = F(V_{GS}, V_{DS})$, where:
 
 - **$I_D$**: Electric current flowing between the source and drain terminals of a thin-film transistor (TFT).
@@ -17,7 +17,10 @@ The voltages $V_{GS}$ and $V_{DS}$ are fundamental for the operation of the TFT 
 
 Parameter optimization is performed using a nonlinear least squares solver, which enables efficient and unambiguous adjustment of the parameters. This approach provides a better understanding of the TFT's behavior and optimizes its operation for specific applications. Moreover, parameter optimization is essential to ensure the quality and reliability of the device, as well as its integration into complex electronic circuits.
 
-# **Model Description**
+## **Conceptual schema**
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/speech-recognition/blob/main/images/concept_model.png)
+
+## **Model Description**
 TFTs are electronic switches where the current flows from the source to the drain terminal, controlled by the voltage applied to the gate terminal, as shown in Fig. 1. Reference models must consistently reproduce the current-voltage characteristics of TFTs with a minimal number of parameters. This means that the model parameters can be reliably and unambiguously extracted from experimental curves.
 
 The simplest physical representation of the drain current in a TFT involves mobile charges modulated by the gate-source voltage, $V_{GS}$, moving at a speed influenced by the drain-source voltage, $V_{DS}$. For very high source-drain electric fields, the carrier velocity saturates. As the carriers move from the source to the drain, they encounter a potential barrier, which acts as a bottleneck for charge transport. The limited rate of charge injection at the top of this potential barrier can be described as a virtual source (VS).
@@ -111,7 +114,7 @@ Where:
 - **$V_{crit}$** `(Critical Voltage):` The maximum voltage a device can withstand without damaging its structure, determined by the properties of the semiconductor materials.
 
   
-# Tecnologias utilizadas
+## Tecnologias utilizadas
 - Google Colaboratory
 - Python
 - Curve-Fit (função de otimização)
