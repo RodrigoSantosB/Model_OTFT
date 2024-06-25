@@ -7,7 +7,7 @@ class ReadData:
     self.factor_correction = factor_correction
 
 
-  # AGRUPA PATHS, TIPO DE DADOS E TENSÂO EM TUPLAS
+  # AGRUPA PATHS, TIPO DE DADOS E TENSÃO EM TUPLAS
   def _load_paths_in_tuple_data(self, path_voltages, voltage, count):
     """
       Groups paths, data type, and voltage into tuples.
@@ -30,7 +30,7 @@ class ReadData:
           [('path1', 0, 3.0), ('path2', 1, 4.0)]
     """
 
-    # count é a quantida de dados de transferencia da amostra
+    # count é a quantidade de dados de transferencia da amostra
     paths = []
     for i in range(len(path_voltages)):
       if i < count:

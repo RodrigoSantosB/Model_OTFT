@@ -12,7 +12,6 @@ import numpy             as np
 import itertools
 import csv
 import os
-import os
 import re
 import ipywidgets as widgets
 import plotly.graph_objs as go
