@@ -2,84 +2,84 @@
 [![NPM](https://img.shields.io/npm/l/react)](https://github.com/RodrigoSantosB/speech-recognition-signal-project/blob/main/LICENSE) 
 
 # About The Project 
-Transistores orgânicos de película fina (OTFTs) utilizam semicondutores orgânicos para gerar respostas eletrônicas. Operando com três terminais, esses dispositivos controlam o fluxo de corrente entre os eletrodos de fonte e dreno, aplicando tensão a um eletrodo de porta. A tecnologia OTFT é avaliada por meio de relatórios de parâmetros importantes, como tensão limite, mobilidade do portador de carga e resistência em série. No entanto, os métodos convencionais de extração de parâmetros adaptados para transistores de silício podem produzir resultados imprecisos para OTFTs.
+Organic thin-film transistors (OTFTs) use organic semiconductors to generate electronic responses. Operating with three terminals, these devices control the flow of current between the source and drain electrodes by applying voltage to a gate electrode. OTFT technology is assessed through reports on important parameters such as threshold voltage, carrier mobility, and series resistance. However, conventional parameter extraction methods tailored for silicon transistors may yield inaccurate results for OTFTs.
 
-A aplicação visa a determinação dos parâmetros intrínsecos do transistor, utilizando dados experimentais de corrente e tensão. Por meio dessa abordagem, torna-se viável avaliar a qualidade do ajuste de curva, empregando métricas como o erro quadrático médio e o erro relativo. Essa análise reveste-se de significância particular na definição de um padrão de referência intra e intertecnologias, empregadas como substrato. Além disso, nossa alpicação tem o objetivo de ser de fácil uso por ter sido desenvolvida em python, adicionalmente pode ser executada no ambiente em nuvem (Google Colaboratory)
+The application aims to determine the intrinsic parameters of the transistor using experimental data of current and voltage. This approach makes it possible to evaluate the quality of curve fitting using metrics such as mean squared error and relative error. Such analysis is particularly significant in establishing an intra- and inter-technology reference standard, employed as a substrate. Furthermore, our application is designed to be user-friendly as it has been developed in Python, additionally capable of execution in a cloud environment (Google Colaboratory).
 
+# **Objective**
+The optimization of parameters for TFT devices is a crucial process in the manufacture of thin-film electronics. The primary reason for performing this optimization is to enhance the performance of the devices, making them more efficient, reliable, and cost-effective. The goal is to optimize specific parameters within a model that will provide the best results for the production of these devices. A simplified way to describe how the model operates can be given by the relationship $I_D = F(V_{GS}, V_{DS})$, where:
 
-## **Objetivos**
-A otimização de parâmetros dos dispositivos TFTs é um processo crucial na fabricação de eletrônicos de filme fino. A principal razão para realizar essa otimização é melhorar o desempenho dos dispositivos, tornando-os mais eficientes, confiáveis e econômicos. O objetivo é otimizar parâmetros específicos dentro de um modelo que fornecerá os melhores resultados para a produção desses dispositivos. Uma forma simplificada de como o modelo opera pode ser descrita pela relação $I_D = F(V_{GS}, V_{DS})$, onde:
+- **$I_D$**: Electric current flowing between the source and drain terminals of a thin-film transistor (TFT).
+- **$V_{GS}$**: Voltage applied to the gate terminal of the transistor, controlling the current flowing between the source and drain terminals.
+- **$V_{DS}$**: Voltage applied to the drain terminal of the transistor, determining the current flowing between the source and drain terminals when the gate voltage is held constant.
 
-- **$I_D$**: Corrente elétrica que flui entre os terminais da fonte e do dreno de um transistor de filme fino (TFT).
-- **$V_{GS}$**: Tensão aplicada ao terminal da porta do transistor, que controla a corrente que flui entre o terminal da fonte e o terminal do dreno.
-- **$V_{DS}$**: Tensão aplicada ao terminal do dreno do transistor, que determina a corrente que flui entre os terminais da fonte e do dreno quando a tensão da porta é mantida constante.
+The voltages $V_{GS}$ and $V_{DS}$ are fundamental for the operation of the TFT and for the optimization of its parameters, which can be obtained from the device's transfer and output curves. From these operations, it is possible to derive information about its parameters such as $V_{tho}$, $l$, $n$, $J_D$, $\delta$, $R_S$, $\lambda$, and $V_{crit}$. The model, by constraining these parameters, allows for the simultaneous adjustment of all values.
 
-As tensões $V_{GS}$ e $V_{DS}$ são fundamentais para a operação do transistor TFT e para a otimização de seus parâmetros, que podem ser obtidos a partir das curvas de transferência e saída do dispositivo. A partir dessas operações, é possível obter informações sobre seus parâmetros, como $V_{tho}$, $l$, $n$, $J_D$, $\delta$, $R_S$, $\lambda$ e $V_{crit}$. O modelo, ao limitar esses parâmetros, permite ajustar todos os valores simultaneamente.
+Parameter optimization is performed using a nonlinear least squares solver, which enables efficient and unambiguous adjustment of the parameters. This approach provides a better understanding of the TFT's behavior and optimizes its operation for specific applications. Moreover, parameter optimization is essential to ensure the quality and reliability of the device, as well as its integration into complex electronic circuits.
 
-A otimização dos parâmetros é realizada empregando um solucionador de mínimos quadrados não linear, que permite ajustar os parâmetros de forma eficiente e sem ambiguidade. Dessa maneira, é possível obter uma melhor compreensão do comportamento do dispositivo TFT e otimizar sua operação para aplicações específicas. Além disso, a otimização dos parâmetros é fundamental para garantir a qualidade e confiabilidade do dispositivo, bem como sua integração em circuitos eletrônicos complexos.
+# **Model Description**
+TFTs are electronic switches where the current flows from the source to the drain terminal, controlled by the voltage applied to the gate terminal, as shown in Fig. 1. Reference models must consistently reproduce the current-voltage characteristics of TFTs with a minimal number of parameters. This means that the model parameters can be reliably and unambiguously extracted from experimental curves.
 
-## **Descrição do Modelo**
-TFTs são chaves eletrônicas onde a corrente flui da fonte para o terminal de dreno, controlada pela tensão aplicada ao terminal da porta, veja a Fig. 1. Os modelos de referência devem reproduzir consistentemente as características de corrente-tensão dos TFTs com um número mínimo de parâmetros. Isto significa que os parâmetros do modelo podem ser extraídos de forma confiável e inequívoca das curvas experimentais.
-
-A representação física mais simples da corrente de dreno em um TFT envolve cargas móveis moduladas pela tensão porta-fonte, VGS, movendo-se a uma velocidade influenciada pela tensão dreno-fonte, VDS. Para campos elétricos fonte-dreno muito altos, a velocidade do portador de carga satura. À medida que os transportadores se movem da fonte para o dreno, eles encontram uma barreira potencial, que atua como um gargalo para o transporte de carga. A taxa limitada de injeção de carga no topo desta barreira potencial pode ser descrita como uma fonte virtual (VS).
+The simplest physical representation of the drain current in a TFT involves mobile charges modulated by the gate-source voltage, $V_{GS}$, moving at a speed influenced by the drain-source voltage, $V_{DS}$. For very high source-drain electric fields, the carrier velocity saturates. As the carriers move from the source to the drain, they encounter a potential barrier, which acts as a bottleneck for charge transport. The limited rate of charge injection at the top of this potential barrier can be described as a virtual source (VS).
 
 <p align="center">
 <img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/semicondutor.png" alt="Fig 1 Seções transversais esquemáticas de (a) um coplanar e (b) um OTFT escalonado. As linhas tracejadas mostram os caminhos atuais esperados." height="300" width="800">
 </p>
 
-O modelo matemático ao qual os dados experimentais serão submetidos consiste em um conjunto de equações, onde cada variável possui seu grau de importância e contribuição. A seguir, apresenta-se a prototipagem deste modelo, juntamente com a descrição de cada parâmetro:
+The mathematical model to which the experimental data will be subjected consists of a set of equations, where each variable has its degree of importance and contribution. Below is the prototype of this model, along with the description of each parameter:
 
-A corrente de dreno de um TFT consiste em cargas móveis $Q_{free}$ moduladas pela tensão de porta, que se movem com uma velocidade modulada pela tensão de dreno. Em altos campos elétricos de fonte para dreno, a velocidade dos portadores de carga satura em um valor $V_{sat}$. No entanto, os portadores de carga precisam superar uma barreira potencial no caminho da fonte para o dreno, representando um gargalo para o transporte dos portadores de carga. A taxa limitada de injeção de carga no topo da barreira de potencial de estrangulamento pode ser denominada como uma fonte virtual (VS). O modelo $V_{sed}$ modificado sugere uma forma específica da corrente de dreno por largura de porta $W$ na VS:
+The drain current of a TFT consists of mobile charges $Q_{free}$ modulated by the gate voltage, which move with a speed modulated by the drain voltage. In high source-to-drain electric fields, the velocity of the charge carriers saturates at a value $V_{sat}$. However, the charge carriers need to overcome a potential barrier on their path from the source to the drain, representing a bottleneck for charge carrier transport. The limited rate of charge injection at the top of the potential barrier can be described as a virtual source (VS). The modified $V_{sed}$ model suggests a specific form of the drain current per gate width $W$ at the VS:
 
 $$J_D = \frac{I_D}{W} = V_{sat}.F_{sat}.Q_{free} $$
 
-onde:
+where:
 
-- $J_D$ é a densidade de corrente de dreno por unidade de largura,
-- $I_D$ é a corrente de dreno,
-- $W$ é a largura da porta,
-- $V_{sat}$ é a velocidade de saturação dos portadores de carga,
-- $F_{sat}$ é o fator de saturação,
-- $Q_{free}$ são as cargas livres móveis moduladas pela tensão de porta.
+- $J_D$ is the drain current density per unit width,
+- $I_D$ is the drain current,
+- $W$ is the gate width,
+- $V_{sat}$ is the saturation velocity of the charge carriers,
+- $F_{sat}$ is the saturation factor,
+- $Q_{free}$ are the free mobile charges modulated by the gate voltage.
 
-Este modelo destaca a importância da velocidade de saturação dos portadores de carga e da barreira potencial como fatores críticos no desempenho dos TFTs.
+This model highlights the importance of the saturation velocity of charge carriers and the potential barrier as critical factors in the performance of TFTs.
 
-Algumas partículas carregadas não são móveis. Em certos casos, uma cauda exponencial de estados de aprisionamento, que se estende da borda da banda de valência até o band gap, pode relacionar a densidade livre e total de portadores de carga por uma lei de potência. Isso ocorre porque todos os estados são ocupados de acordo com o mesmo quase-nível de Fermi, como mostrado na Equação (B4) em [8] e sua derivação anterior. Assim, a equação é expressa como:
+Some charged particles are not mobile. In certain cases, an exponential tail of trap states, extending from the valence band edge into the band gap, can relate the free and total charge carrier densities through a power law. This occurs because all states are occupied according to the same quasi-Fermi level, as shown in Equation (B4) in [8] and its preceding derivation. Thus, the equation is expressed as:
 
 $$Q_{free} = q.σ_v.\biggl(\frac{Q_{tot}}{q.σ_{traps}}\biggr)^l$$
 
-onde:
+where:
 
-- $Q_{free}$ é a densidade de portadores de carga livres,
-- $Q_{tot}$ é a densidade total de portadores de carga,
-- $q$ é a carga elementar,
-- $\sigma_v$ é um fator de proporcionalidade relacionado aos estados livres,
-- $\sigma_{traps}$ é um fator de proporcionalidade relacionado aos estados de aprisionamento,
-- $l$ é um expoente característico que descreve a relação entre os estados livres e aprisionados.
+- $Q_{free}$ is the free charge carrier density,
+- $Q_{tot}$ is the total charge carrier density,
+- $q$ is the elementary charge,
+- $\sigma_v$ is a proportionality factor related to the free states,
+- $\sigma_{traps}$ is a proportionality factor related to the trap states,
+- $l$ is a characteristic exponent that describes the relationship between the free and trapped states.
 
-Esta equação ilustra a dependência da densidade de portadores de carga livres em relação à densidade total de portadores, modulada pelos fatores de proporcionalidade $\sigma_v$ e $\sigma_{traps}$, e o expoente $l$, refletindo a distribuição dos estados de aprisionamento no material.
+This equation illustrates the dependence of the free charge carrier density on the total charge carrier density, modulated by the proportionality factors $\sigma_v$ and $\sigma_{traps}$, and the exponent $l$, reflecting the distribution of trap states in the material.
 
-Neste contexto,  $σ_V$ e $σ_{traps}$  representam a densidade dos estados de valência e armadilhas em uma única camada do semicondutor no $V_S$, respectivamente. O valor do expoente $l$ é determinado pela razão da "temperatura" efetiva que define a distribuição exponencial de energia dos estados de armadilhas e a temperatura do dispositivo, originada da distribuição de energia de Boltzmann dos portadores de carga livre. No entanto, como a distribuição exata de armadilhas é geralmente desconhecida, $l$ é tratado como um parâmetro do modelo. A distinção entre portadores de carga livres e aprisionados, conforme apresentado na Equação (2), é a principal adaptação do framework VSED para materiais de filmes finos proposto neste trabalho.
+In this context, $\sigma_v$ and $\sigma_{traps}$ represent the density of valence states and trap states in a single layer of the semiconductor at the virtual source (VS), respectively. The value of the exponent $l$ is determined by the ratio of the effective "temperature" that defines the exponential energy distribution of the trap states and the device temperature, originating from the Boltzmann energy distribution of the free charge carriers. However, since the exact distribution of traps is generally unknown, $l$ is treated as a model parameter. The distinction between free and trapped charge carriers, as presented in Equation (2), is the primary adaptation of the VSED framework for thin-film materials proposed in this work.
 
-Para um semicondutor esgotado, espera­se um acúmulo exponencial de lacunas (cargas positivas) com o aumento do campo de porta, que cessa quando a blindagem substancial pela folha de carga acumulada se estabelece. A seguinte expressão fenomenológica proposta pela primeira vez em [9] é empregada:
+For a depleted semiconductor, an exponential accumulation of holes (positive charges) is expected with the increase of the gate field, which ceases when substantial shielding by the accumulated charge sheet is established. The following phenomenological expression, first proposed in [9], is employed:
+
 $$Q_{tot} = C_I.n.V_T.ln \biggr[ 1 + e^{ψ.V_S − V_{GS}} . n . V_T \biggr],$$
 $$ψ.V_S = V_{tho} + |δ|.V_{DS}$$
 
-A capacitância do isolador da porta depende da constante dielétrica ε e da espessura tI do isolador: $C_I = \frac{ε}{t_I}$. A tensão térmica é representada por $V_T = \frac{kT}{q}$. A transição da acumulação fraca para forte é modelada pelos parâmetros $n, V_{th0}$ e $δ$ , sendo que o parâmetro $n$ é influenciado pelo carregamento da região semicondutora adjacente à interface do isolador da porta, preenchendo estados de superfície e afetando a taxa de flexão de banda com a polarização da porta.
+The gate insulator capacitance depends on the dielectric constant $\varepsilon$ and the insulator thickness $t_I$: $C_I = \frac{\varepsilon}{t_I}$. The thermal voltage is represented by $V_T = \frac{kT}{q}$. The transition from weak to strong accumulation is modeled by the parameters $n$, $V_{th0}$, and $\delta$, where the parameter $n$ is influenced by the charging of the semiconductor region adjacent to the gate insulator interface, filling surface states and affecting the band bending rate with gate biasing.
 
-O potencial da interface se torna independente de VGS quando atinge um valor de polarização $ψ.V_S$, também conhecido como tensão limiar. Isso permite parametrizar o controle da barreira de potencial pela polarização da porta em TFTs. O parâmetro $ψ.V_S$ representa a polarização crítica para a qual o potencial em $V_S$ se torna independente da tensão da porta. Durante o acúmulo de lacunas na interface do isolador da porta, os parâmetros n e $l$ descrevem o carregamento dos estados de armadilhas, e a escala de tensão para o aumento exponencial da corrente de dreno com a polarização da porta é dada por $(\frac{n}{l}).V_T$ no modelo VSED. O parâmetro $δ$ não representa necessariamente um DIBL (drain-induced barrier lowering).
+The interface potential becomes independent of $V_{GS}$ when it reaches a bias value $\psi \cdot V_S$, also known as the threshold voltage. This allows for parameterizing the potential barrier control by gate bias in TFTs. The parameter $\psi \cdot V_S$ represents the critical bias at which the potential at $V_S$ becomes independent of the gate voltage. During the accumulation of holes at the gate insulator interface, the parameters $n$ and $l$ describe the charging of trap states, and the voltage scale for the exponential increase of the drain current with gate bias is given by $\left( \frac{n}{l} \right) \cdot V_T$ in the VSED model. The parameter $\delta$ does not necessarily represent DIBL (drain-induced barrier lowering).
 
-A velocidade de injeção de cargas $Q_{free}$ no canal do transistor é representada por $V_{inj} = V_{sat}.F_{sat}$. É comum estimar a corrente de dreno em TFTs como um movimento de deriva dos portadores de carga injetados, mas isso pode levar a uma conclusão equivocada sobre a velocidade de saturação $V_{sat}$. Enquanto em regiões de alto campo elétrico a velocidade de saturação é igual à velocidade de saturação no corpo do semicondutor, em regiões de baixo campo elétrico a velocidade de saturação é definida pela velocidade térmica unidirecional do quase potencial de Fermi e não do potencial eletrostático. Este conceito é discutido em [10]:
+The injection velocity of charges $Q_{free}$ into the transistor channel is represented by $V_{inj} = V_{sat} \cdot F_{sat}$. It is common to estimate the drain current in TFTs as a drift motion of the injected charge carriers, but this can lead to a mistaken conclusion about the saturation velocity $V_{sat}$. While in high electric field regions the saturation velocity equals the saturation velocity in the bulk semiconductor, in low electric field regions the saturation velocity is defined by the unidirectional thermal velocity of the quasi-Fermi potential and not the electrostatic potential. This concept is discussed in [10]:
 $$V_{sat}=\frac{2D}{\bar{λ}_{free}}=\frac{2.μ.V_T}{\bar{λ}\_{free}}$$ 
 
-que é aqui parametrizado pelo coeficiente de difusão $D$ e pode estar relacionado com a mobilidade de deriva $μ$ através da relação de Einstein. Em baixa polarização de dreno, a difusão do portador de carga é o mecanismo de transporte dominante em grande parte do TFT e não apenas no $V_S$. O comprimento característico na Eq. (5) não será mais dado pelo caminho livre
-médio $\bar{λ}\_{free}$ mas pelo comprimento de difusão. Uma vez que apenas portadores de carga de um único tipo são injetados em um semicondutor basicamente intrínseco, o comprimento de difusão pode ser muito grande e comparável à dimensão do dispositivo dada pelo comprimento da porta $L\_G$. $F\_{sat}$ introduz uma escala de comprimento $λ = \frac{L_G}{\bar{λ}_{free}}$ , que efetivamente substitui ${\bar{λ}\_{free}}$ → $L\_G$ em baixa polarização de drenagem.
+which is parameterized here by the diffusion coefficient $D$ and can be related to the drift mobility $\mu$ through the Einstein relation. At low drain bias, charge carrier diffusion is the dominant transport mechanism in much of the TFT, not just at the virtual source $V_S$. The characteristic length in Eq. (5) will no longer be given by the mean free path $\bar{\lambda}_{free}$ but by the diffusion length. Since only one type of charge carrier is injected into an essentially intrinsic semiconductor, the diffusion length can be very large and comparable to the device dimension given by the gate length $L_G$. $F_{sat}$ introduces a length scale $\lambda = \frac{L_G}{\bar{\lambda}_{free}}$, which effectively replaces $\bar{\lambda}_{free}$ with $L_G$ at low drain bias.
 
-A função restante $F_{sat}$ descreve a drenagem das lacunas acumulados. Para TFTs de canal longo, a teoria de difusão e emissão [11, 5] representa uma abordagem interessante para determinar $F_{sat}$:
+The remaining function $F_{sat}$ describes the depletion of the accumulated holes. For long-channel TFTs, the diffusion and emission theory [11, 5] represents an interesting approach to determine $F_{sat}$:
 
 $$F_{sat} = \frac{1}{1 + 2t}.\frac{1-e^{\Bigl(\frac{-V_{SD}}{V_T}\Bigl)}}{1+e^{\Bigl(\frac{-V_{SD}}{V_T}\Bigl)}.\frac{1}{1+2t}}$$
 
-Para uma polarização de dreno que exceda significativamente a tensão térmica, a função de transição é descrita por $F_{sat} = \frac{1}{1 + 2t}$. O fator de probabilidade crítico $t$ é determinado por um fator de Boltzmann médio na região do canal controlada pela porta e pode ser obtido a partir do perfil de potencial específico. Para dispositivos de canal longo, uma forma analítica foi proposta, que pode ser encontrada nas equações (4) a (12) do artigo [11].
+For a drain bias that significantly exceeds the thermal voltage, the transition function is described by:
+$$F_{sat} = \frac{1}{1 + 2t}$$ The critical probability factor $t$ is determined by an average Boltzmann factor in the gate-controlled channel region and can be derived from the specific potential profile. For long-channel devices, an analytical form has been proposed, which can be found in equations (4) to (12) of the article [11].
 
 $$ t = \frac{2.λ}{m^{2}(1-η^{2})}.\Bigl[(1-m.η).e^{-m(1-η)} -(1-m) \Bigl]$$
 
@@ -89,31 +89,28 @@ $$m = \frac{2.\frac{V_{Gt}}{V_T}}{1+ \sqrt{\frac{2.V_{Gt}}{{V_{crit}}}}}$$
 
 $$ V_{Gt} = \frac{Q_{tot}}{CI}$$
 
+Note that an increase in the transistor's overdrive leads to a spacious diffusion region and shifts the onset of saturation to a higher drain bias. At high gate bias, the necessary increase in the saturation voltage diminishes and transitions into square root growths for $V_{Gt} > V_{crit}$. Note that the saturation velocity given by Eq. (5) is only achieved for both, large $V_{SG}$ (low barrier) and large $V_{SD}$ (charge sink). Generally, the critical length for diffusion, which replaces $\lambda_{free}$ in Eq. (5), is a fraction of $L_G$ dependent on the gate voltage. The $V_{Gt}$ necessary to reach the maximum injection velocity given by the unidirectional thermal velocity decreases with $L_G$.
 
-Note que, um aumento no overdrive do transistor leva a uma região de difusão espaçosa e muda o início da saturação para uma polarização de dreno maior. Na polarização de porta grande, o aumento necessário na tensão de saturação diminui e se transforma em crescimentos de raiz quadrada para $V_{Gt} > V_{crit}$. Observe que a velocidade de saturação dada pela Eq. (5) só é alcançada para
-ambos, grande $V_{SG}$ (baixa barreira) e grande $V_{SD}$ (carga afundar). Em geral, o comprimento crítico para difusão que substitui $λ_{free}$ na Eq. (5) é uma fração de $L_G$ dependente na tensão da porta. O $V_{Gt}$ necessário para atingir a velocidade máxima de injeção dada pela velocidade térmica unidirecional diminui com $L_G$.
+1. The first equation is used to calculate the average lifetime of an unstable particle. It relates the average lifetime ($t$) of an unstable particle with its mass ($m$), its binding energy ($\lambda$), and its damping factor ($\eta$). The equation is a mathematical expression of the particle's exponential decay law.
 
+2. The second equation is used to calculate the reflection coefficient of a wave in a MOSFET (metal-oxide-semiconductor field-effect transistor). The equation relates the reflection coefficient ($\eta$) with the potential difference between the drain and the source ($V_{SD}$), the ambient temperature ($V_T$), and a device parameter ($m$).
 
-* A primeira equação é usada para calcular o tempo de vida médio de uma partícula instável. Ela relaciona o tempo de vida médio ($t$) de uma partícula instável com sua massa (m), sua energia de ligação ($λ$) e seu fator de amortecimento ($η$). A equação é uma expressão matemática da lei de decaimento exponencial da partícula.
+3. The third equation is used in semiconductor devices to calculate the slope factor of a MOSFET. The slope factor is a measure of the transistor's efficiency in switching on and off quickly. The equation relates the slope factor ($m$) with the transistor's threshold voltage ($V_{GT}$), a critical voltage constant ($V_{crit}$), and the ambient temperature ($V_T$).
 
-* A segunda equação é usada para calcular o coeficiente de reflexão de uma onda em um transistor MOSFET (transistor de efeito de campo de porta isolada metal-óxido-semicondutor). A equação relaciona o coeficiente de reflexão ($η$) com a diferença de potencial entre o dreno e a fonte ($V_{SD}$), a temperatura ambiente ($V_T$) e um parâmetro do dispositivo (m).
+4. The fourth equation is used to calculate the threshold voltage of a MOSFET. The threshold voltage is the minimum voltage required to turn the transistor on. The equation relates the threshold voltage ($V_{GT}$) with the total charge ($Q_{tot}$) stored in the transistor's gate, the gate capacitance ($C$), and the current ($I$) applied to the gate.
 
-* A terceira equação é usada em dispositivos semicondutores para calcular o fator de inclinação de um transistor MOSFET. O fator de inclinação é uma medida da eficiência do transistor em ligar e desligar rapidamente. A equação relaciona o fator de inclinação (m) com a tensão de limiar do transistor ($V_{GT}$), uma constante crítica de tensão ($V_{crit}$) e a temperatura ambiente ($V_T$).
+Understanding the relationship and composition of each equation, we can implement these mathematical expressions in code to analyze the results obtained. The objective is to optimize the coefficients $J_T$, $V_{tho}$, $\delta$, $l$, $n$, $\lambda$, and $V_{crit}$, which are fundamental in modeling the equations.
+Where:
 
-* A quarta equação é usada para calcular a tensão de limiar de um transistor MOSFET. A tensão de limiar é a tensão mínima necessária para ligar o transistor. A equação relaciona a tensão de limiar ($V_{GT}$) com a carga total ($Q_{tot}$) armazenada na porta do transistor, a capacitância ($C$) da porta e a corrente ($I$) aplicada à porta.
+- **$J_T$** `(Junction Temperature Coefficient):` Represents the variation in temperature at the junction of an electronic device, crucial for the proper design and operation of these devices.
+- **$V_{tho}$** `(Threshold Voltage):` The minimum voltage required to initiate current conduction in devices like MOSFET transistors, determined by the properties of the semiconductor material.
+- **$\delta$** `(Diffusion Layer Thickness):` The thickness of the doped semiconductor material layer deposited on the surface of a semiconductor substrate.
+- **$l$** `(Diffusion Length):` The distance over which the doping of the semiconductor material diffuses on the substrate surface during fabrication.
+- **$n$** `(Diode Ideality Coefficient):` Describes the relationship between electric current and voltage in a diode, used to calculate the voltage drop at different current levels.
+- **$\lambda$** `(Voltage Drop Coefficient):` Describes the voltage drop in an electronic device relative to the electric current passing through it.
+- **$V_{crit}$** `(Critical Voltage):` The maximum voltage a device can withstand without damaging its structure, determined by the properties of the semiconductor materials.
 
-Compreendendo a relação e a composição de cada equação, podemos implementar essas expressões matemáticas em código para analisar os resultados obtidos. O objetivo é otimizar os coeficientes $J_T$, $V_{tho}$, $\delta$, $l$, $n$, $\lambda$, e $V_{crit}$, que são fundamentais na modelagem das equações.
-
-Definições dos coeficientes:
-
-- ``**$J_T$** `(Coeficiente de temperatura de Junção):` Representa a variação da temperatura na junção de um dispositivo eletrônico, importante para o projeto e operação adequados desses dispositivos.
-- **$V_{tho}$** `(Tensão de Threshold):` A tensão mínima necessária para iniciar a condução de corrente em dispositivos como transistores MOSFET, determinada pelas propriedades do material semicondutor.
-- **$\delta$** `(Espessura da camada de difusão):` A espessura da camada de material semicondutor dopado depositada na superfície de um substrato semicondutor.
-- **$l$** `(Comprimento de difusão):` A distância que a dopagem do material semicondutor se difunde na superfície do substrato durante a fabricação.
-- **$n$** `(Coeficiente de idealidade do diodo):` Descreve a relação entre corrente elétrica e tensão em um diodo, usado para calcular a queda de tensão em diferentes níveis de corrente.
-- **$\lambda$** `(Coeficiente de queda de tensão):` Descreve a queda de tensão em um dispositivo eletrônico em relação à corrente elétrica que passa por ele.
-- **$V_{crit}$** `(Tensão crítica):` A tensão máxima que um dispositivo pode suportar sem danificar sua estrutura, determinada pelas propriedades dos materiais semicondutores.
-
+  
 # Tecnologias utilizadas
 - Google Colaboratory
 - Python
