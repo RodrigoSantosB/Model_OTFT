@@ -135,7 +135,7 @@ Where:
 # How to run the project
 ## Local environment (VS Code)
 ### Setting up the environment
-#### Prerequisites: Python 3.10.12 or higher
+#### `Prerequisites: Python 3.10.12 or higher`
 ---
 
 Make sure to add the experimental current and voltage data that you wish to use into the `datas` folder within the project folder. Additionally, replace the current path with the path to the data in the `.JSON` file that you intend to execute in the model.
@@ -408,13 +408,22 @@ By following this documentation, you can accurately configure the `input.json` f
 
 After making all these configurations, go to the `_config.py` module and modify the path titled `PATH_JSON` to the path of the JSON file you are working with. See the example image below:
 
-![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/squematic.png)
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/jason_path.png)
 
 Then, simply run the notebook cells and observe the output. It is important to note that the model should only be executed after some attempts at manual adjustment have been made, as the optimizer tends to perform better when the initial guess is good enough to guide it to the best values. Below, observe the figure of the experiment present in this repository, with the given values and the result before and after executing the model.
-#### FineTune
-![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/squematic.png)
 
-Optimization
-![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/squematic.png)
+### `FineTune`
+**Transfer curve**
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/transfer_curv.png)
 
+**Output curve**
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/output_curv.png)
+
+
+### `Optimization`
+**Transfer curve**
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/transfe_fit.png)
+
+**Output curve**
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/output_fit.png)
 
