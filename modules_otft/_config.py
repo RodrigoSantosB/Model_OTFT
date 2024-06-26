@@ -1,3 +1,1 @@
-
-
-PATH_JASON = 'inputs\inputs_fig_ab.json'
+PATH_JASON = 'inputs/inputs_fig_ab.json'

@@ -56,7 +56,7 @@ class TFTGraphicsPlot():
     iterador = itertools.cycle(volt_data)
     repeticoes = 2
     if compare:
-        title_update = '<b>Model Vs Model Optimazed<b>'
+        title_update = '<b>Model Vs Model Optimized<b>'
         volt_data = [next(iterador) for _ in range(repeticoes * len(volt_data))]
     else:
         title_update = '<b>Experimental Datas Vs Model<b>'
