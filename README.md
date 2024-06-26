@@ -250,8 +250,13 @@ Once this task is complete, ensure the `.JSON` file is correctly configured. Thi
 
 ]
 ```
-The most important thing for now is to ensure that the path to the experimental data is correct. To do this, navigate to the folder, right-click to copy the absolute path, and paste it into the `.JSON` path. This way, it will be mapped correctly. Additionally, each parameter is explained below, including all limits and the values they assume. Configure them as needed:
+The most important thing for now is to ensure that the path to the experimental data is correct. To do this, navigate to the folder, right-click to copy the absolute path, and paste it into the `.JSON` path, according to show image below. This way, it will be mapped correctly. Additionally, each parameter is explained below, including all limits and the values they assume. Configure them as needed:
 Make sure to replace the paths with the actual absolute paths to your data files. Adjust the interval values and optimizer according to the specific requirements of your project.
+
+<p align="center">
+<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/input.png" alt="" height="150" width="800">
+</p>
+
 
 ---
 ## Model Parameters Documentation
