@@ -140,10 +140,10 @@ Where:
 
 Make sure to add the experimental current and voltage data that you wish to use into the `datas` folder within the project folder. Additionally, replace the current path with the path to the data in the `.JSON` file that you intend to execute in the model.
 
-```bash
-## NOTE: If the global version of Python is not set as the system default, set it as the default.
-# Navigate to the Desktop, create a folder named `workspace`
+NOTE: If the global version of Python is not set as the system default, set it as the default.
+Navigate to the Desktop, create a folder named `workspace`
 
+```bash
 # Create and enter the project folder
 cd Desktop
 mkdir workspace && cd workspace
@@ -154,6 +154,9 @@ git clone https://github.com/RodrigoSantosB/Model_OTFT.git
 
 ssh:
 git clone git@github.com:RodrigoSantosB/Model_OTFT.git
+
+# Enter the Model_OTFT folder
+cd Model_OTFT
 
 # Create virtual environment in Python 3.10.11
 python -m venv "environment-name"
@@ -174,10 +177,229 @@ It's beneficial to use the Jupyter Notebook extension in VS Code for interactive
 
 --- 
 
-Depois de ter preparado todo o ambiente, devemos ajustar os caminhos script para que corresponda a máquina local.
+Depois de ter preparado todo o ambiente, devemos ajustar os caminhos do script para que corresponda a máquina local. Primeiramente, na pasta de `datas` é interessanete que se mantenha um padrão de nomenclatura, assim como separação do tipo de transitor que representa os dados. Então, por exemplor, na pasta `data` os arquivos estão organizados em amostras de tensão e correntes do tipo p e do tipo n, nessas pastas há um padrão de leitura que é estabelecida pelo nome, ou seja, todos os elementos de dados que estivem dentro da pasta serão lidos desde que esse dados sejão nomeados como `transfer-voltage_do_experimento` e `output-voltage_do_experimento` dessa maneira quando esses dados passarem pelo modulo do processamento de dados, serão correntamente dimensionados. 
 
+Uma vez completa esse tarefa, é preciso se certificar de que o arquivo `.JSON` está corretamente configurado. Esse arquivo basimente define todas as variáveis as quais o modelo precisa para se executado, portanto os valores dos parametros, caminhos, intervalos, otimizador. Tudo é definido por ele. Dessa forma, é de extrema importância que ele seja carregado corretamente. Abaixo está um amostra de como esse .JSON é configurado e como cada variável desse se comporta:
 
+```json
+[{
+    "path"                              : "/home/rsb6/Desktop/SBmicro/Model_OTFT/datas",
+    "experimental_data_scale_transfer"  : "A",
+    "experimental_data_scale_output"    : "A",
+    "current_typic"                     : "uA",
+    "loaded_voltages"                   : "-40, -20, -40, -60, -80",
+    "curves_transfer"                   :  0,
+    "type_curve_plot"                   : "logarithmic",
+    "type_read_data_exp"                : "read original data",
+    "shift_volt_data"                   : "0, -1, -2, -6",
+    "select_files"                      : "1,2,3,4"
+    
+},
 
+{
+    "resistance_scale"                  : "1e4",
+    "current_carry"                     : "1e-6",
+    "with_transistor"                   : "0.1",
+    "type_of_transistor"                : "pFET",
+    
+    "loaded_parameters"                 :{ "VTHO"   : 9,  
+                                            "DELTA" : 0.0123,
+                                            "N"     : 108,  
+                                            "L"     : 3.18,   
+                                            "LAMBDA": 1.49e03,
+                                            "VGCRIT": 32.3,   
+                                            "JTH"   :1,
+                                            "RS"    :1
+                                            },
+                                            
+    "idleak_mode"                       : "unique idleak value",
+    "loaded_idleak"                     : "2e-11"
+},
 
+{
+    "image_size_width"                  : null,
+    "image_size_height"                 : null,
+    
+    "upper_bounds": {
+        "ub_VTHO"   : 10,
+        "ub_DELTA"  : 0.2,
+        "ub_N"      : 130,
+        "ub_L"      : 4.1,
+        "ub_LAMBDA" : 10000,
+        "ub_VGCRIT" : 80,
+        "ub_JTH"    : 10,
+        "ub_RS"     : 10
+    },
+    
+    "lower_bounds": {
+        "lb_VTHO"   : 5,
+        "lb_DELTA"  : 0,
+        "lb_N"      : 10,
+        "lb_L"      : 1,
+        "lb_LAMBDA" : 100,
+        "lb_VGCRIT" : 10,
+        "lb_JTH"    : 0,
+        "lb_RS"     : 0
+    },    
+    
+    "default_bounds"                    :  "yes",
+    "optimization_method"               :  "trf",
+    "tolerance_factor"                  :  "4e-9"
+    
+}
 
+]
+```
+O mais importante por hora é garantir que o caminho para os dados experimentais esteja corrento, para isso basta ir até a pasta, copiar o caminho absoluto, com o botão direito do mouse e colar no path do .JSON. Dessa forma ele será mapeado. Além disso, cada parametro está explicado abaixo, com todos os limites e quais valores eles assumem, configurem conforme necessário:
 
+---
+## Model Parameters Documentation
+
+### Overview
+This documentation provides a comprehensive explanation of the model parameters for configuring the `input.json` file. The input file follows a key-value pattern, and it is crucial not to change the keys (variable names) as they are essential for the script's functionality. Only provide the required values in their respective formats (e.g., int, str, etc.).
+
+### Input Parameters
+
+#### `path` (str)
+- **Description**: Stores the data path for simulation (current and voltage).
+- **Usage**: Provide the full path where your experimental data is located.
+- **Example**: `/home/rsb6/Desktop/SBmicro/Model_OTFT/datas`
+
+#### `experimental_data_scale_transfer` (str)
+- **Description**: Stores the order of magnitude for the current data.
+- **Options**: `A` (Amperes), `mA` (milliAmperes), `uA` (microAmperes), `nA` (nanoAmperes), `pA` (picoAmperes)
+- **Usage**: Used for scale correction purposes.
+
+#### `experimental_data_scale_output` (str)
+- **Description**: Similar to `experimental_data_scale_transfer`, but for output currents.
+- **Options**: `A`, `mA`, `uA`, `nA`, `pA`
+- **Usage**: Used for scale correction purposes.
+
+#### `current_typic` (str)
+- **Description**: Typical current based on experimental points.
+- **Options**: `A`, `mA`, `uA`, `nA`, `pA`
+- **Usage**: Parameterizes input and output data considering the scales.
+
+#### `loaded_voltages` (str)
+- **Description**: Stores a list of voltages at which experimental points were obtained.
+- **Format**: Comma-separated string of values.
+- **Example**: `"-5, -8, -6, ..." `
+
+#### `curves_transfer` (int)
+- **Description**: Number of transfer curves in the experiment.
+- **Usage**: Defines the number of curves to be simulated accurately.
+
+#### `type_curve_plot` (str)
+- **Description**: Defines the type of reading for experiments.
+- **Options**: `linear`, `logarithmic`
+- **Usage**: Determines the plot type on the graph.
+
+#### `type_read_data_exp` (str)
+- **Description**: Defines the data treatment type.
+- **Options**: `read original data`, `read interpolated data`
+- **Usage**: Choose based on the sufficiency and behavior of experimental points.
+
+#### `shift_volt_data` (str)
+- **Description**: Defines if input voltages have any shift values.
+- **Usage**: Provide values in the format `"value1, value2, ..."`.
+- **Example**: `"-1, -5, 6"`
+
+#### `select_files` (str)
+- **Description**: Filters files to read only those of interest.
+- **Format**: Comma-separated indices of the experiment curves.
+- **Example**: `"0, 3, 5"`
+
+### Model Parameters
+
+#### `resistance_scale` (str)
+- **Default**: `"1e4"`
+
+#### `current_carry` (str)
+- **Default**: `"1e-6"`
+
+#### `with_transistor` (str)
+- **Default**: `"0.1"`
+
+#### `type_of_transistor` (str)
+- **Default**: `"pFET"`
+- **Options**: `pFET`, `nFET`
+
+#### `loaded_parameters` (dict)
+- **Default**:
+  ```json
+  {
+    "VTHO": 10,
+    "DELTA": 0.0123,
+    "N": 108,
+    "L": 3.18,
+    "LAMBDA": 1.49e03,
+    "VGCRIT": 32.3,
+    "JTH": 1,
+    "RS": 1
+  }
+  ```
+
+#### `idleak_mode` (str)
+- **Description**: Defines IdLeak value mode.
+- **Options**: `more than one idleak value`, `unique idleak`
+
+#### `loaded_idleak` (str)
+- **Description**: Loads idleak value.
+- **Usage**: 
+  - For `unique idleak`: Single value string.
+  - For `more than one idleak value`: Comma-separated string of values.
+
+### Plot Parameters
+
+#### `image_size_width` (int)
+- **Default**: `1100`
+
+#### `image_size_height` (int)
+- **Default**: `600`
+
+### Optimization Parameters
+
+#### `upper_bounds` (dict)
+- **Default**:
+  ```json
+  {
+    "ub_VTHO": 12,
+    "ub_DELTA": 0.2,
+    "ub_N": 130,
+    "ub_L": 4.1,
+    "ub_LAMBDA": 10000,
+    "ub_VGCRIT": 80,
+    "ub_JTH": 10,
+    "ub_RS": 10
+  }
+  ```
+
+#### `lower_bounds` (dict)
+- **Default**:
+  ```json
+  {
+    "lb_VTHO": 8,
+    "lb_DELTA": 0,
+    "lb_N": 10,
+    "lb_L": 1,
+    "lb_LAMBDA": 100,
+    "lb_VGCRIT": 10,
+    "lb_JTH": 0,
+    "lb_RS": 0
+  }
+  ```
+
+#### `default_bounds` (str)
+- **Description**: Specifies whether to use default limits.
+- **Options**: `yes`, `no`
+
+#### `optimization_method` (str)
+- **Options**:
+  - `trf`: Trust Region Framework method.
+  - `dogbox`: Bound-constrained optimization algorithm.
+
+#### `tolerance_factor` (str)
+- **Description**: Minimum relative change in the objective function for optimization convergence.
+- **Example**: `"4e-7"`
+
+By following this documentation, you can accurately configure the `input.json` file for your model, ensuring proper functionality and consistent results.
