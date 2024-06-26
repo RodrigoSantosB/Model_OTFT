@@ -176,10 +176,10 @@ pip3 install -r requirements.txt
 It's beneficial to use the Jupyter Notebook extension in VS Code for interactive work. You can download it from the VS Code extension marketplace by searching for `Jupyter`. After downloading, make sure to select the created virtual environment in the `kernel` dropdown menu in VS Code.
 
 --- 
+After setting up the entire environment, we must adjust the script paths to match the local machine. First, in the `datas` folder, it's essential to maintain a consistent naming convention and separate data by the type of transistor they represent. For example, in the `datas` folder, files are organized into samples of p-type and n-type voltage and currents. There's a naming convention for reading files, meaning all data elements within the folder will be read as long as they are named `transfer-voltage_of_the_experiment` and `output-voltage_of_the_experiment`. This way, when these data pass through the data processing module, they will be correctly dimensioned.
 
-Depois de ter preparado todo o ambiente, devemos ajustar os caminhos do script para que corresponda a máquina local. Primeiramente, na pasta de `datas` é interessanete que se mantenha um padrão de nomenclatura, assim como separação do tipo de transitor que representa os dados. Então, por exemplor, na pasta `data` os arquivos estão organizados em amostras de tensão e correntes do tipo p e do tipo n, nessas pastas há um padrão de leitura que é estabelecida pelo nome, ou seja, todos os elementos de dados que estivem dentro da pasta serão lidos desde que esse dados sejão nomeados como `transfer-voltage_do_experimento` e `output-voltage_do_experimento` dessa maneira quando esses dados passarem pelo modulo do processamento de dados, serão correntamente dimensionados. 
+Once this task is complete, ensure the `.JSON` file is correctly configured. This file basically defines all the variables the model needs to run, such as parameter values, paths, intervals, and optimizer. Therefore, it is extremely important that it is loaded correctly. Below is a sample of how this `.JSON` is configured and how each variable behaves:
 
-Uma vez completa esse tarefa, é preciso se certificar de que o arquivo `.JSON` está corretamente configurado. Esse arquivo basimente define todas as variáveis as quais o modelo precisa para se executado, portanto os valores dos parametros, caminhos, intervalos, otimizador. Tudo é definido por ele. Dessa forma, é de extrema importância que ele seja carregado corretamente. Abaixo está um amostra de como esse .JSON é configurado e como cada variável desse se comporta:
 
 ```json
 [{
@@ -250,7 +250,8 @@ Uma vez completa esse tarefa, é preciso se certificar de que o arquivo `.JSON` 
 
 ]
 ```
-O mais importante por hora é garantir que o caminho para os dados experimentais esteja corrento, para isso basta ir até a pasta, copiar o caminho absoluto, com o botão direito do mouse e colar no path do .JSON. Dessa forma ele será mapeado. Além disso, cada parametro está explicado abaixo, com todos os limites e quais valores eles assumem, configurem conforme necessário:
+The most important thing for now is to ensure that the path to the experimental data is correct. To do this, navigate to the folder, right-click to copy the absolute path, and paste it into the `.JSON` path. This way, it will be mapped correctly. Additionally, each parameter is explained below, including all limits and the values they assume. Configure them as needed:
+Make sure to replace the paths with the actual absolute paths to your data files. Adjust the interval values and optimizer according to the specific requirements of your project.
 
 ---
 ## Model Parameters Documentation
@@ -403,3 +404,17 @@ This documentation provides a comprehensive explanation of the model parameters 
 - **Example**: `"4e-7"`
 
 By following this documentation, you can accurately configure the `input.json` file for your model, ensuring proper functionality and consistent results.
+
+
+After making all these configurations, go to the `_config.py` module and modify the path titled `PATH_JSON` to the path of the JSON file you are working with. See the example image below:
+
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/squematic.png)
+
+Then, simply run the notebook cells and observe the output. It is important to note that the model should only be executed after some attempts at manual adjustment have been made, as the optimizer tends to perform better when the initial guess is good enough to guide it to the best values. Below, observe the figure of the experiment present in this repository, with the given values and the result before and after executing the model.
+#### FineTune
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/squematic.png)
+
+Optimization
+![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/squematic.png)
+
+
