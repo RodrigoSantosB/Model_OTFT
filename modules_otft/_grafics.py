@@ -56,7 +56,7 @@ class TFTGraphicsPlot():
     iterador = itertools.cycle(volt_data)
     repeticoes = 2
     if compare:
-        title_update = '<b>Model Vs Model Optimized<b>'
+        title_update = '<b>Model Vs Model Optimized (OPT)<b>'
         volt_data = [next(iterador) for _ in range(repeticoes * len(volt_data))]
     else:
         title_update = '<b>Experimental Datas Vs Model<b>'
@@ -158,7 +158,8 @@ class TFTGraphicsPlot():
           exp_data (list): A list of experimental data.
           shift_list (list): A list of voltage shift values.
           j (int): The current index for which the legend text is being generated.
-          no_shift (bool, optional): Indicates whether the voltage shift should not be included in the legend text (default is False).
+          no_shift (bool, optional): Indicates whether the voltage shift should not be 
+          included in the legend text (default is False).
 
       Returns:
           list: A list containing the generated legend text.
@@ -335,50 +336,42 @@ class TFTGraphicsPlot():
     else:
         print("ERROR in type_data")
 
+    cor_index = 0  # color index
+
     # ------------------------------------------------------------------------
     # MODEL PLOT
     # Iterate through model data ---------------------------------------------
     for i, data in enumerate(model_data):
         name = ''
-
+        dash_style = ''
         if scale == 'log' and type_data == curv_transfer:
-          y_data = 10**(data[1])
+            y_data = 10**(data[1])
         else:
-          y_data = data[1]
+            y_data = data[1]
 
-        if type_data == curv_transfer:
+        
+        if type_data == curv_transfer or type_data == curv_out:
             if i < (len(volt_data) // 2) or not compare:
+                cor = list_colors[cor_index]
+                cor_index = (cor_index + 1) % len(list_colors)
+                dash_style = 'dash'  # Linha pontilhada para modelos aproximados
                 name = '<b>Model OVSED<b>'
             elif i >= (len(volt_data) // 2) and compare:
+                cor = 'black'  # The first color aways black
+                dash_style = 'solid'  # Linha sólida para modelos otimizados
                 name = '<b>Model OPT<b>'
 
             fig.add_trace(go.Scatter(x=data[0], y=y_data,
                                     mode='lines+text',
                                     name=name + ' ' + f'<b>{volt_data[i]}' + 'V<b>',
-                                    line=dict(color='black'),
+                                    line=dict(color=cor,  dash=dash_style),  # Use the choice color
                                     text=[f'{volt_data[i]}V'],
                                     textposition='bottom center',
                                     textfont=dict(
                                         family="Times New Roman",
                                         size=13,
-                                        color="black")))
+                                        color=cor)))  # use the same color in text
 
-
-        elif type_data == curv_out:
-            if i < (len(volt_data) / 2) or not compare:
-                name = '<b>Model OVSED<b>'
-            elif i >= (len(volt_data) / 2) and compare:
-                name = '<b>Model OPT<b>'
-
-            fig.add_trace(go.Scatter(x=data[0], y=data[1],
-                                    mode='lines+text',
-                                    name=name + ' ' + f'<b>{volt_data[i]}' + 'V<b>',
-                                    line=dict(color='black'),
-                                    textposition='bottom center',
-                                    textfont=dict(
-                                        family="Times New Roman",
-                                        size=13,
-                                        color="black")))
         else:
             print("ERROR TYPE OF DATA")
     # ------------------------------------------------------------------------
