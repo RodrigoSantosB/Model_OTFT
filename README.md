@@ -133,7 +133,19 @@ Where:
 - Tabulate
 
 # How to run the project
-## Local environment (VS Code)
+## In cloud environment (Google Colaboratory)
+### Setting up the environment
+---
+
+Make sure you have an account on the [Google platform](https://colab.research.google.com/). You can do this by following this [tutorial](https://medium.com/lean-in-women-in-tech-india/google-colab-the-beginners-guide-5ad3b417dfa)
+
+Once you have created the account, simply copy one of the notebooks below. The first considers the $λ$ parameter, the second does not consider it because it does not impact certain experiments. Evaluate each case, we recommend starting with the model that has the &λ& parameter, if you notice that its value always tends to the maximum value given as a ceiling for the objective function, then you should use the model without it and observe how the result changes
+
+[Model 1 ]()
+[Model 2]()
+
+## In local environment (VS Code)
+
 ### Setting up the environment
 #### `Prerequisites: Python 3.10.12 or higher`
 ---
