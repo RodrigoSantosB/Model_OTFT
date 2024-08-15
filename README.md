@@ -147,7 +147,7 @@ Once you have created the account, simply copy one of the notebooks below. The f
 The second thing to do after opening the model in Google Collaboratory is to add the correct path pointing to the directory where your experimental current and voltage data are located, as shown in the figure below. It is worth noting that all pre-processing is already performed by the reading module present in the repository, so the only care to be taken here is with the minimum number of sample points that will be given to the model, in other words, the greater the number of points collected, the more accurate the model will be in predicting the parameters. In addition, be careful with the type of data that is being given to the model, as it is necessary to make sure whether they are from `type N` or `type P` transistors, as the model operates differently for each of these subtypes.
 
 <p align="center">
-<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/semicondutor.png" alt="Fig 1 Seções transversais esquemáticas de (a) um coplanar e (b) um OTFT escalonado. As linhas tracejadas mostram os caminhos atuais esperados." height="300" width="800">
+<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/jason_config.png" alt="Fig 2" height="300" width="800">
 </p>
 
 ## In local environment (VS Code)
