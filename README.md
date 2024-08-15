@@ -66,6 +66,7 @@ In this context, $\sigma_v$ and $\sigma_{traps}$ represent the density of valenc
 For a depleted semiconductor, an exponential accumulation of holes (positive charges) is expected with the increase of the gate field, which ceases when substantial shielding by the accumulated charge sheet is established. The following phenomenological expression, first proposed in [9], is employed:
 
 $$Q_{tot} = C_I.n.V_T.ln \biggr[ 1 + e^{ψ.V_S − V_{GS}} . n . V_T \biggr],$$
+
 $$ψ.V_S = V_{tho} + |δ|.V_{DS}$$
 
 The gate insulator capacitance depends on the dielectric constant $\varepsilon$ and the insulator thickness $t_I$: $C_I = \frac{\varepsilon}{t_I}$. The thermal voltage is represented by $V_T = \frac{kT}{q}$. The transition from weak to strong accumulation is modeled by the parameters $n$, $V_{th0}$, and $\delta$, where the parameter $n$ is influenced by the charging of the semiconductor region adjacent to the gate insulator interface, filling surface states and affecting the band bending rate with gate biasing.
@@ -84,13 +85,13 @@ $$F_{sat} = \frac{1}{1 + 2t}.\frac{1-e^{\Bigl(\frac{-V_{SD}}{V_T}\Bigl)}}{1+e^{\
 For a drain bias that significantly exceeds the thermal voltage, the transition function is described by:
 $$F_{sat} = \frac{1}{1 + 2t}$$ The critical probability factor $t$ is determined by an average Boltzmann factor in the gate-controlled channel region and can be derived from the specific potential profile. For long-channel devices, an analytical form has been proposed, which can be found in equations (4) to (12) of the article [11].
 
-$$ t = \frac{2.λ}{m^{2}(1-η^{2})}.\Bigl[(1-m.η).e^{-m(1-η)} -(1-m) \Bigl]$$
+$$t = \frac{2.λ}{m^{2}(1-η^{2})}.\Bigl[(1-m.η).e^{-m(1-η)} -(1-m) \Bigl]$$
 
-$$ η = 1 − tanh\Bigl(\frac{V_{SD}}{mV_T}\Bigl)$$
+$$η = 1 − tanh\Bigl(\frac{V_{SD}}{mV_T}\Bigl)$$
 
 $$m = \frac{2.\frac{V_{Gt}}{V_T}}{1+ \sqrt{\frac{2.V_{Gt}}{{V_{crit}}}}}$$
 
-$$ V_{Gt} = \frac{Q_{tot}}{CI}$$
+$$V_{Gt} = \frac{Q_{tot}}{CI}$$
 
 Note that an increase in the transistor's overdrive leads to a spacious diffusion region and shifts the onset of saturation to a higher drain bias. At high gate bias, the necessary increase in the saturation voltage diminishes and transitions into square root growths for $V_{Gt} > V_{crit}$. Note that the saturation velocity given by Eq. (5) is only achieved for both, large $V_{SG}$ (low barrier) and large $V_{SD}$ (charge sink). Generally, the critical length for diffusion, which replaces $\lambda_{free}$ in Eq. (5), is a fraction of $L_G$ dependent on the gate voltage. The $V_{Gt}$ necessary to reach the maximum injection velocity given by the unidirectional thermal velocity decreases with $L_G$.
 
@@ -147,7 +148,7 @@ Once you have created the account, simply copy one of the notebooks below. The f
 The second thing to do after opening the model in Google Collaboratory is to add the correct path pointing to the directory where your experimental current and voltage data are located, as shown in the figure below. It is worth noting that all pre-processing is already performed by the reading module present in the repository, so the only care to be taken here is with the minimum number of sample points that will be given to the model, in other words, the greater the number of points collected, the more accurate the model will be in predicting the parameters. In addition, be careful with the type of data that is being given to the model, as it is necessary to make sure whether they are from `type N` or `type P` transistors, as the model operates differently for each of these subtypes.
 
 <p align="center">
-<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/jason_config.png" alt="Fig 2" height="300" width="800">
+<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/jason_config.png" alt="Fig 2" height="120" width="800">
 </p>
 
 ## In local environment (VS Code)
@@ -201,7 +202,7 @@ Once this task is complete, ensure the `.JSON` file is correctly configured. Thi
 
 ```json
 [{
-    "path"                              : "/home/rsb6/Desktop/SBmicro/Model_OTFT/datas",
+    "path"                              : "/home/user/your/path/files/datas",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "A",
     "current_typic"                     : "uA",
@@ -272,7 +273,7 @@ The most important thing for now is to ensure that the path to the experimental 
 Make sure to replace the paths with the actual absolute paths to your data files. Adjust the interval values and optimizer according to the specific requirements of your project.
 
 <p align="center">
-<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/input.png" alt="" height="150" width="800">
+<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/input.png" alt="" height="120" width="800">
 </p>
 
 
