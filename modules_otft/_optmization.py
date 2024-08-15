@@ -1,7 +1,7 @@
 from ._imports import *
 from ._read_data import ReadData
 
-class ModelOptimization(ReadData):
+class ModelOptmization(ReadData):
     """
     Class for optimizing models based on experimental data.
 

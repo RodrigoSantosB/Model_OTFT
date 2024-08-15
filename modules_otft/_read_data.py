@@ -7,7 +7,7 @@ class ReadData:
     self.factor_correction = factor_correction
 
 
-  # AGRUPA PATHS, TIPO DE DADOS E TENSÃO EM TUPLAS
+  # GROUP DATA IN TUPLE OF TRANSFER AND OUTPUT
   def _load_paths_in_tuple_data(self, path_voltages, voltage, count):
     """
       Groups paths, data type, and voltage into tuples.
@@ -30,14 +30,12 @@ class ReadData:
           [('path1', 0, 3.0), ('path2', 1, 4.0)]
     """
 
-    # count é a quantidade de dados de transferencia da amostra
+    # count is the number of transfer data in the sample
     paths = []
     for i in range(len(path_voltages)):
       if i < count:
-        # voltage = input("Voltage do experimento transfer \n")
         paths.append((path_voltages[i], 0 , voltage[i]))
       else:
-        # voltage = input("Voltage do experimento out \n")
         paths.append((path_voltages[i], 1 , voltage[i]))
     return paths
 
@@ -66,7 +64,7 @@ class ReadData:
           0.001
     """
 
-    # Identificar a escala dos dados (mA ou uA)
+    # Identify the scale of the data (mA or uA)
     correction_factor = 0
     unite = {  'A': 1,
               'mA': 1e-3,
@@ -75,29 +73,30 @@ class ReadData:
               'pA': 1e-12
                           }
 
-    # Verificar se a escala existe no dicionário
+    # Check if the scale exists in the dictionary
     if scale in unite:
         correction_factor = unite[scale]
-        # print(correction_factor )
     else:
-        raise ValueError("Escala de dados inválida!")
+        raise ValueError("Invalid data scale!")
     return correction_factor
 
 
   def read_files_experimental(  self, directory, list_tension, selected_files=None,
                                 transfer_pattern=r'transfer', output_pattern=r'output'):
     """
-      Reads experimental files in a directory and returns a list of paths and associated information.
+      Reads experimental files in a directory and returns a list of paths and 
+      associated information.
 
       Args:
-          directory (str): The directory containing the experimental files.
-          list_tension (list): A list of voltages corresponding to the experiments.
+          directory (str): The      directory     containing the experimental files.
+          list_tension (list): A  list of voltages corresponding to the experiments.
           selected_files (list): An optional list of selected file names to consider.
           transfer_pattern (str): The name pattern for transfer files.
           output_pattern (str): The name pattern for output files.
 
       Returns:
-          list: A list of tuples containing information about the files, where each tuple is in the format:
+          list: A list of tuples containing information about the files, where each tuple 
+          is in the format:
               (file path, curve type (0 for transfer, 1 for output), associated voltage).
 
       Example:
@@ -109,43 +108,42 @@ class ReadData:
           [('data_folder/transfer-1V.csv', 0, 1.0), ('data_folder/output-2V.csv', 1, 2.0)]
     """
 
-    # Obter lista de todos os arquivos no diretório
+    # Get list of all files in directory
     files = os.listdir(directory)
 
-    # Criar padrões de nome para "transfer" e "output" com base nos parâmetros
+    # Create name patterns for "transfer" and "output" based on parameters
     transfer_pattern_file = re.compile(fr'{transfer_pattern}-\d+V.csv')
     output_pattern_file = re.compile(fr'{output_pattern}-\d+V.csv')
 
-    # Filtrar arquivos com os padrões de nome de transfer e output
+    # Filter files with transfer and output name patterns
     transfer_files = [f for f in files if transfer_pattern_file.match(f)]
     output_files = [f for f in files if output_pattern_file.match(f)]
 
     if selected_files is not None:
         transfer_files = [f for f in transfer_files if f in selected_files]
         output_files = [f for f in output_files if f in selected_files]
-
-    # Criar listas para armazenar as curvas transfer e output ordenadas por tensão,
-    # tipo de curva (0: transfer, 1: output) e tensões associadas
+    # Create lists to store transfer and output curves ordered by voltage,
+    # type of curve (0: transfer, 1: output) and associated voltages
     curves = []
     curve_types = []
     voltages = []
     count_transfer = 0
     count_output = 0
 
-    # Adicionar as curvas transfer à lista, ordenando-as por tensão
+    # Add transfer curves to the list, ordering them by voltage
     transfer_files.sort(key=lambda f: int(re.findall(r'\d+', f)[0]))
     for transfer_file in transfer_files:
         curves.append(os.path.join(directory, transfer_file))
-        curve_types.append(0)  # Tipo 0 para curva transfer
+        curve_types.append(0)  # Type 0 for transfer curve
         voltage = int(re.findall(r'\d+', transfer_file)[0])
         voltages.append(voltage)
         count_transfer += 1
 
-    # Adicionar as curvas output à lista, ordenando-as por tensão
+    # Add the output curves to the list, ordering them by voltage
     output_files.sort(key=lambda f: int(re.findall(r'\d+', f)[0]))
     for output_file in output_files:
         curves.append(os.path.join(directory, output_file))
-        curve_types.append(1)  # Tipo 1 para curva output
+        curve_types.append(1)  # Type 1 for output curve
         voltage = int(re.findall(r'\d+', output_file)[0])
         voltages.append(voltage)
         count_output += 1
@@ -155,7 +153,7 @@ class ReadData:
     return paths
 
 
-  ###__FUNÇÃO DE LEITURA SEM INTERPORLAÇÂO
+  ### READING FUNCTION WITHOUT INTERPOLATION
   def read_pure_data(self, *args, current_typic='A', scale_transfer='A', scale_output='A', curve='linear'):
     """
       Reads experimental data, without noise (as provided), from multiple files and returns voltage and current arrays.
@@ -203,11 +201,11 @@ class ReadData:
     n_points   =  []
 
 
-    # Obtem a quantidade de cada curva
+    # Get the quantity of each curve
     count_transfer = 0
     count_output   = 0
 
-    # obtem o número de pontos da amostra
+    # get the number of points in the sample
     def get_points(args, transfer, out):
       for arg in args:
         data = np.loadtxt(arg[0], delimiter=',')
@@ -237,10 +235,10 @@ class ReadData:
 
           if arg[1] == curv_out:
             '''
-            verifica se o segundo elemento (arg[1]) da tupla arg é igual a 1.
-            Se for, isso indica que o tipo de dado é do tipo saída. Em seguida,
-            lê os dados de um arquivo CSV usando pd.read_csv, onde arg[0]
-            contém o caminho do arquivo
+            checks whether the second element (arg[1]) of the tuple arg is equal to 1.
+            If so, this indicates that the data type is of the output type. Right away,
+            reads data from a CSV file using pd.read_csv, where arg[0]
+            contains the file path
             '''
             data = pd.read_csv(arg[0], header=None)
             Vv_temp = data[0].values[:min_value]
@@ -253,10 +251,10 @@ class ReadData:
           elif arg[1] == curv_transfer:
               data = pd.read_csv(arg[0], header=None)
 
-              #aloca em Vv_temp apenas os pontos até min_value
+              #allocates in Vv_temp only the points up tomin_value
               Vv_temp = data[0].values[:min_value]
 
-              #aloca em Id_temp o log10 das correntes
+              #allocate the log10 of currents in Id_temp
               if curve == 'log':
                 Id_temp = np.log10(abs((data[1].values[:min_value])))
 
@@ -270,16 +268,15 @@ class ReadData:
               list_type_transfer.append(arg[2])
               count_transfer += 1
           else:
-              raise ValueError(f"Tipo de dado desconhecido: {arg[1]}")
+              raise ValueError(f"Unknown data type: {arg[1]}")
 
       except ValueError as err:
           if "divide by zero encountered in log10" or "invalid value encountered in log10" in str(err):
-              print("Possivelmente a entrada é 'Out' e não 'Transfer'.")
+              print("Possibly the input is 'Out' and not 'Transfer'.")
           else:
               raise err
 
-    # verifica se o conjunto de pontos passado da amostra possui - ou + dados do que foi passado por nv
-    # se for - ou + ele completa com
+    # checks if the set of points passed from the sample has - or + data than what was passed by nv    # se for - ou + ele completa com
     def process_type(type_, Vv, Id, nv):
       for v, i in type_:
           if len(v) > nv:
@@ -304,8 +301,7 @@ class ReadData:
 
     return Vv, Id, voltage, n_points, count_transfer, count_output
 
-
-  # FAZ A LEITURA DOS DADOS E INTERPOLA COM O VALOR DA MAIOR QTDE DE PONTOS QUE ENCONTRA
+  # READ THE DATA AND INTERPOLATE WITH THE VALUE OF THE BIGGEST QTY OF POINTS IT FINDS
   def read_interpoll_datas(self, *args, current_typic='A', scale_transfer='A', scale_output='A', curve='linear'):
     """
       Reads experimental data from multiple files, interpolates to the maximum number of points, and returns voltage and current arrays.
@@ -351,12 +347,12 @@ class ReadData:
     list_type_out = []
     n_points   =  []
 
-    # Obtem a quantidade de cada curva
+    # Get the quantity of each curve
     count_transfer = 0
     count_output   = 0
 
 
-    # Obtem o número de pontos da amostra
+    # Get the number of points in the sample
     def get_points(args, transfer, out):
       for arg in args:
         data = np.loadtxt(arg[0], delimiter=',')
@@ -400,13 +396,13 @@ class ReadData:
             Vv_temp = np.linspace(Vmin, Vmax, nv)
             Id_temp = np.interp(Vv_temp, data[:,0], data[:,1])
 
-            #plotar dados em escala log ou linear só para o caso em que vamos otimizar linear também
+            #plot data on log or linear scale just for the case where we are going to optimize linear as well
             if curve == 'log':
               Id_temp = np.log10(abs(Id_temp))
 
             elif curve == 'linear':
-              # olhar esse multiplicação por -1 (ajustar)
-              #usar um factor value 2 para diferenciar as duas curvas (em A)
+              # look at this multiplication by -1 (adjust)
+              #use a factor value 2 to differentiate the two curves (in A)
               Id_temp = (-1)*abs((Id_temp * sc_transfer / curr_typic))
               # Id_temp = abs(Id_temp / max_value)
             else:
@@ -416,16 +412,15 @@ class ReadData:
             list_type_transfer.append(arg[2])
             count_transfer+=1
         else:
-            raise ValueError(f"Tipo de dado desconhecido: {arg[1]}")
+            raise ValueError(f"Unknown data type: {arg[1]}")
 
       except ValueError as err:
         if "divide by zero encountered in log10" or "invalid value encountered in log10" in str(err):
-            print("Possivelmente a entrada é 'Out' e não 'Transfer'.")
+            print("Possibly the input is 'Out' and not 'Transfer'.")
         else:
             raise err
-
-    # verifica se o conjunto de pontos passado da amostra possui - ou + dados do que foi passado por nv
-    # se for - ou + ele completa com
+    # checks if the set of points passed from the sample has - or + data than what was passed by nv
+    # if it is - or + it completes with
     def process_type(type_, Vv, Id, nv):
       for v, i in type_:
           if len(v) > nv:
@@ -449,8 +444,7 @@ class ReadData:
     # n_points = np.max(n_points)
     return Vv, Id, voltage, nv, count_transfer, count_output
 
-###############_FUNÇÔES AUXILIARES PARA AGRUPAR DADOS PARA PLOTAGEM DO GRAFICO_####################################
-
+###############_AUXILIARY FUNCTIONS TO GROUP DATA FOR GRAPH PLOT######################### ##########
   def group_by_trasfer(self, count_transfer, Vv, Id, model_id, model_id_opt=[], compare=False):
     """
       Groups transfer data for analysis and comparison purposes.
@@ -483,18 +477,18 @@ class ReadData:
 
     in_model_data = []
     in_exp_data = []
-
-    # Cria in_model_data de forma iterativa
+    
+    # Create in_model_data iteratively
     for i in range(count_transfer):
       in_model_data.append((Vv[:, i], model_id[i]))
 
 
-    # Adiciona a in_model_data os dados otimizados
+    # Add optimized data to in_model_data
     if compare:
       for i in range(count_transfer):
         in_model_data.append((Vv[:, i], model_id_opt[i]))
 
-    # Cria in_exp_data de forma iterativa
+    # Create in_exp_data iteratively
     if count_transfer >= 2:
       for i in range(0, count_transfer, 2):
           in_exp_data.extend([Vv[:, i], Id[:, i], Vv[:, i+1], Id[:, i+1]])
@@ -511,7 +505,7 @@ class ReadData:
     return in_model_data, in_exp_data
 
 
-  # AGRUPA DOS DADOS DE SAÍDA
+  # GROUPING THE OUTPUT DATA
   def group_by_output(self, count_output, count_transfer, Vv, Id, model_id, model_id_opt=[], compare=False):
     """
       Groups output data for analysis and comparison purposes.
@@ -545,7 +539,7 @@ class ReadData:
     out_model_data = []
     out_exp_data = []
 
-    # Cria out_model_data de forma iterativa
+    # Create out_model_data iteratively
     max_data = ( int(count_output) + int(count_transfer) )
     for i in range(count_transfer, max_data):
       out_model_data.append((Vv[:, i], model_id[i]))
@@ -556,13 +550,13 @@ class ReadData:
         out_model_data.append((Vv[:, i], model_id_opt[i]))
 
 
-    # Cria out_exp_data de forma iterativa
+    # Create out_exp_data iteratively
     for i in range(count_transfer, max_data):
       out_exp_data.extend([ Vv[:, i], Id[:, i] ])
     return out_model_data, out_exp_data
 
 
-  # CRIA INSTÂNCIAS DO MODELO
+  # CREATE MODEL INSTANCES
   def create_models_datas(self, model, n_points, type_curve, parameters, tensions, Vv, idleak,
                           w, count, tp_tst, current_typic='A', scale_factor='A',
                           res=None, curr=None):
@@ -621,7 +615,7 @@ class ReadData:
     # input datas Transfer
     Model_data = []
 
-    # Calcula modelo baseado no idleak estático
+    # Calculate model based on static idleak
     def idleak_int(value, i, select=True):
       if select:
         Modelo = model( tensions[i], n_points, type_curve, current_typic,
@@ -629,7 +623,7 @@ class ReadData:
                         with_transistor=w, sr_resistance=res, curr_carry=curr,
                         type_transitor=tp_tst)
 
-        # Chama modelo
+        # Call model
         Model_data.append(Modelo.calc_model(Vv[:,i], *parameters))
 
       elif not select:
@@ -638,7 +632,7 @@ class ReadData:
                         with_transistor=w, sr_resistance=res, curr_carry=curr,
                         type_transitor=tp_tst)
 
-        # Chama modelo
+        # Call model
         Model_data.append(Modelo.calc_model(Vv[:,i], *parameters))
 
 
@@ -646,7 +640,7 @@ class ReadData:
         ValueError(" 'select possible 'True' or 'False' ")
 
 
-    # Calcula modelo baseado no idleak dinâmico
+    # Calculate model based on dynamic idleak
     def idleak_list(value, i, select=True):
       if select:
         Modelo = model( tensions[i], n_points, type_curve, current_typic,
@@ -654,7 +648,7 @@ class ReadData:
                         with_transistor=w, sr_resistance=res, curr_carry=curr,
                         type_transitor=tp_tst)
 
-        # Chama modelo
+        # Call model
         Model_data.append(Modelo.calc_model(Vv[:,i], *parameters))
 
       elif not select:
@@ -663,7 +657,7 @@ class ReadData:
                         with_transistor=w, sr_resistance=res, curr_carry=curr,
                         type_transitor=tp_tst)
 
-        # Chama modelo
+        # Call model
         Model_data.append(Modelo.calc_model(Vv[:,i], *parameters))
 
       else:
@@ -693,7 +687,7 @@ class ReadData:
     return Model_data
 
 
-  # Faz o deslocamento de tensão na lista de tensões para as curvas de saída
+  # Makes the voltage shift in the voltage list for the output curves
   def apply_shifts(self, count_transfer, shift_tesion, list_tension):
     """
       Applies a voltage shift to the list of voltages for the output curves.
@@ -835,7 +829,7 @@ class ReadData:
     new_values_tension = []
     new_list_tension= []
 
-    # ordena a lista de escolhas
+    # sort the list of choices
     select_files = sorted(select_files)
 
     for i in select_files:

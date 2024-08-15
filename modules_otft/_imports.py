@@ -3,7 +3,7 @@
 # from google.colab import drive
 #drive.mount('/content/gdrive')
 import sys
-#sys.path.append('/content/gdrive/MyDrive/ICs/beTFT/update models')
+#sys.path.append('/content/gdrive/your/path/repository')
 
 # Loading Libraries
 import matplotlib.pyplot as plt
