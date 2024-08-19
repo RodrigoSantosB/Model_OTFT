@@ -1,5 +1,5 @@
 # Robust Benchmarking Strategy for Organic Thin-Film Transistors
-[![NPM](https://img.shields.io/npm/l/react)](https://github.com/RodrigoSantosB/speech-recognition-signal-project/blob/main/LICENSE) 
+[![NPM](https://img.shields.io/npm/l/react)](https://github.com/RodrigoSantosB/Model_OTFT/new/master) 
 
 # About The Project 
 Organic thin-film transistors (OTFTs) use organic semiconductors to generate electronic responses. Operating with three terminals, these devices control the flow of current between the source and drain electrodes by applying voltage to a gate electrode. OTFT technology is assessed through reports on important parameters such as threshold voltage, carrier mobility, and series resistance. However, conventional parameter extraction methods tailored for silicon transistors may yield inaccurate results for OTFTs.
