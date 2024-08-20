@@ -142,7 +142,7 @@ Make sure you have an account on the [Google platform](https://colab.research.go
 
 Once you have created the account, simply copy one of the notebooks below. The first considers the $λ$ parameter, the second does not consider it because it does not impact certain experiments. Evaluate each case, we recommend starting with the model that has the $λ$ parameter, if you notice that its value always tends to the maximum value given as a ceiling for the objective function, then you should use the model without it and observe how the result changes
 
-- [Model 1 ](https://colab.research.google.com/drive/1WWjBh4H12pfhUjef3fwpcYEP3fq65oir?usp=sharing)
+- [Model 1 ](https://drive.google.com/drive/folders/11lxa6Hn41b1Vgy08w7oBK7dQMi0pgx2L?usp=sharing)
 - [Model 2](https://colab.research.google.com/drive/1jn7FG7-EbUg_ML-UP7r_G7MXgxdVknz1?usp=sharing)
 
 The second thing to do after opening the model in Google Collaboratory is to add the correct path pointing to the directory where your experimental current and voltage data are located, as shown in the figure below. It is worth noting that all pre-processing is already performed by the reading module present in the repository, so the only care to be taken here is with the minimum number of sample points that will be given to the model, in other words, the greater the number of points collected, the more accurate the model will be in predicting the parameters. In addition, be careful with the type of data that is being given to the model, as it is necessary to make sure whether they are from `type N` or `type P` transistors, as the model operates differently for each of these subtypes.
