@@ -451,3 +451,15 @@ Then, simply run the notebook cells and observe the output. It is important to n
 **Output curve**
 ![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/output_fit.png)
 
+
+## DEMO
+![DEMO](figures/demo.gif)
+
+## REFERENCES
+
+
+# Author
+
+Rodrigo Santos Batista
+
+www.linkedin.com/in/rodrigo-santos-16029986

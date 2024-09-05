@@ -129,11 +129,14 @@ def initialize_graphics_plot(image_size_width, image_size_height):
     return TFTGraphicsPlot(image_size_height, image_size_width)
 
 
-def instance_model(read, TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv, load_idleak, width_t, 
-                            count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current):
+def instance_model(read, TFTModel, n_points, type_curve_plot, load_parameters, 
+                   input_voltage, Vv, load_idleak, width_t, count_transfer, 
+                   tp_tst, experimental_data_scale_transfer, current_typic, 
+                   resistance, current):
     """Creates an instance of the model with the provided data."""
-    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv,
-                                    load_idleak, width_t, count_transfer, tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
+    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters, 
+                                    input_voltage, Vv, load_idleak, width_t, count_transfer, 
+                                    tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
                                     current_typic=current_typic, res=resistance, curr=current)
 
 
@@ -200,7 +203,8 @@ def optimize_model(optimizer, model_id, load_parameters, *path_voltages):
 
 
 
-def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt, coeff_error, current_typic, resistance):
+def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt, 
+                                    coeff_error, current_typic, resistance):
     '''
     Function to show the optimized parameters of the model.
     '''
@@ -217,17 +221,20 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt, co
       menu.print_values(coeff_error)
 
     elif option == 'Show the table of values opt':
-      menu.show_table_info(load_parameters, load_parameters, coeff_opt, coeff_error, current_typic, resistance)
+      menu.show_table_info(load_parameters, load_parameters, coeff_opt, 
+                           coeff_error, current_typic, resistance)
 
     print('\n\n\n')
 
 
-def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt, input_voltage, Vv, load_idleak, width_t, 
-                           count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current):
+def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt, 
+                           input_voltage, Vv, load_idleak, width_t, count_transfer, 
+                           tp_tst, experimental_data_scale_transfer, 
+                           current_typic, resistance, current):
     """Creates the model with the optimized coefficients."""
-    return read.create_models_datas(TFTModel, n_points, type_curve_plot, coeff_opt, input_voltage, Vv,
-                                    load_idleak, width_t, count_transfer, tp_tst=tp_tst, 
-                                    scale_factor=experimental_data_scale_transfer,
+    return read.create_models_datas(TFTModel, n_points, type_curve_plot, coeff_opt, 
+                                    input_voltage, Vv, load_idleak, width_t, count_transfer, 
+                                    tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
                                     current_typic=current_typic, res=resistance, curr=current)
     
 
@@ -247,40 +254,67 @@ def get_model_data(read, count_transfer, count_output, Vv, Id, model_opt, model=
 
 
 
-def plot_curves(option, plot, list_tension, list_tension_shift, count_transfer, in_model_data, out_model_data, 
-                in_exp_data, out_exp_data, shift_list, select_files, current_typic, type_curve_plot, compare=False):
+def plot_curves(option, plot, list_tension, list_tension_shift, count_transfer, 
+                in_model_data, out_model_data, in_exp_data, out_exp_data, shift_list, 
+                select_files,current_typic, type_curve_plot, compare=False):
     """Plots the curves according to the selected option."""
     clear_output(wait=True)  # clear displayed content
     if option == 'Show Transfer curve opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, in_model_data, shift_list, select_files, *in_exp_data, sample_unit=current_typic, plot_type=type_curve_plot)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_list, select_files, *in_exp_data, 
+                          sample_unit=current_typic, plot_type=type_curve_plot)
     
     elif option == 'Show output curve opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, out_model_data, shift_list, select_files, *out_exp_data, sample_unit=current_typic)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_list, select_files, *out_exp_data, 
+                          sample_unit=current_typic)
     
     elif option == 'show both curves opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, in_model_data, shift_list, select_files, *in_exp_data, sample_unit=current_typic, plot_type=type_curve_plot)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_list, select_files, *in_exp_data, 
+                          sample_unit=current_typic, plot_type=type_curve_plot)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, out_model_data, shift_list, select_files, *out_exp_data, sample_unit=current_typic)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_list, select_files, *out_exp_data, 
+                          sample_unit=current_typic)
     
     elif option == 'Show Transfer curve comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, in_model_data, shift_list, select_files, *in_exp_data, sample_unit=current_typic, plot_type=type_curve_plot, compare=True)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_list, select_files, *in_exp_data, 
+                          sample_unit=current_typic, plot_type=type_curve_plot, 
+                          compare=True)
     
     elif option == 'Show output curve comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, out_model_data, shift_list, select_files, *out_exp_data, sample_unit=current_typic, compare=True)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_list, select_files, *out_exp_data, 
+                          sample_unit=current_typic, compare=True)
     
     elif option == 'show both curves comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, in_model_data, shift_list, select_files, *in_exp_data, sample_unit=current_typic, plot_type=type_curve_plot, compare=True)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_list, select_files, *in_exp_data, 
+                          sample_unit=current_typic, plot_type=type_curve_plot, 
+                          compare=True)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, out_model_data, shift_list, select_files, *out_exp_data, sample_unit=current_typic, compare=True)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_list, select_files, *out_exp_data, 
+                          sample_unit=current_typic, compare=True)
     
     elif option == 'Show Transfer curve':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, in_model_data, shift_list, select_files, *in_exp_data, sample_unit=current_typic, plot_type=type_curve_plot)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_list, select_files, *in_exp_data, 
+                          sample_unit=current_typic, plot_type=type_curve_plot)
     elif option == 'Show output curve':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, out_model_data, shift_list, select_files, *out_exp_data, sample_unit=current_typic, plot_type='linear')
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_list, select_files, *out_exp_data, 
+                          sample_unit=current_typic, plot_type='linear')
     elif option == 'show both curves':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, in_model_data, shift_list, select_files, *in_exp_data, sample_unit=current_typic, plot_type=type_curve_plot)
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_list, select_files, *in_exp_data, 
+                          sample_unit=current_typic, plot_type=type_curve_plot)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, out_model_data, shift_list, select_files, *out_exp_data, sample_unit=current_typic, plot_type='linear')
+        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_list, select_files, *out_exp_data, 
+                          sample_unit=current_typic, plot_type='linear')
     else:
         print("No option choice\n")
     print('\n\n\n\n\n')
