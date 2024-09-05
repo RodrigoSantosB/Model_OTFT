@@ -46,7 +46,7 @@ where:
 
 This model highlights the importance of the saturation velocity of charge carriers and the potential barrier as critical factors in the performance of TFTs.
 
-Some charged particles are not mobile. In certain cases, an exponential tail of trap states, extending from the valence band edge into the band gap, can relate the free and total charge carrier densities through a power law. This occurs because all states are occupied according to the same quasi-Fermi level, as shown in Equation (B4) in [8] and its preceding derivation. Thus, the equation is expressed as:
+Some charged particles are not mobile. In certain cases, an exponential tail of trap states, extending from the valence band edge into the band gap, can relate the free and total charge carrier densities through a power law. This occurs because all states are occupied according to the same quasi-Fermi level, as shown in Equation (B4) in [4] and its preceding derivation. Thus, the equation is expressed as:
 
 $$Q_{free} = q.σ_v.\biggl(\frac{Q_{tot}}{q.σ_{traps}}\biggr)^l$$
 
@@ -63,7 +63,7 @@ This equation illustrates the dependence of the free charge carrier density on t
 
 In this context, $\sigma_v$ and $\sigma_{traps}$ represent the density of valence states and trap states in a single layer of the semiconductor at the virtual source (VS), respectively. The value of the exponent $l$ is determined by the ratio of the effective "temperature" that defines the exponential energy distribution of the trap states and the device temperature, originating from the Boltzmann energy distribution of the free charge carriers. However, since the exact distribution of traps is generally unknown, $l$ is treated as a model parameter. The distinction between free and trapped charge carriers, as presented in Equation (2), is the primary adaptation of the VSED framework for thin-film materials proposed in this work.
 
-For a depleted semiconductor, an exponential accumulation of holes (positive charges) is expected with the increase of the gate field, which ceases when substantial shielding by the accumulated charge sheet is established. The following phenomenological expression, first proposed in [9], is employed:
+For a depleted semiconductor, an exponential accumulation of holes (positive charges) is expected with the increase of the gate field, which ceases when substantial shielding by the accumulated charge sheet is established. The following phenomenological expression, first proposed in [3], is employed:
 
 $$Q_{tot} = C_I.n.V_T.ln \biggr[ 1 + e^{ψ.V_S − V_{GS}} . n . V_T \biggr],$$
 
@@ -456,6 +456,14 @@ Then, simply run the notebook cells and observe the output. It is important to n
 ![DEMO](figures/demo.gif)
 
 ## REFERENCES
+[1] Lima, Alex Anderson, and Stefan Blawid. "Modeling organic thin-film transistors based on the virtual source concept: A case study." Solid-State Electronics 161 (2019): 107639.
+
+[2] Blawid, Stefan, Nicholas J. Dallaire, and Benoît H. Lessard. "Self-Consistent Extraction of Mobility and Series Resistance: A Hierarchy of Models for Benchmarking Organic Thin-Film Transistors." IEEE Journal on Flexible Electronics 1.2 (2022): 114-121.
+
+[3] Wright, G. C., M. A. Foale, and D. A. Charles-Edwards. "Nitrogen nutrition of grain sorghum under sprinkler and furrow irrigation in the tropical dry season. I. Plant establishment, nitrogen uptake, and grain yield." Field crops research 12 (1985): 203-222.
+
+[4] Mark, Peter, and Wolfgang Helfrich. "Space‐charge‐limited currents in organic crystals." Journal of Applied Physics 33.1 (1962): 205-215.
+
 
 
 # Author
