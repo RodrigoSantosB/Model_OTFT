@@ -1,6 +1,5 @@
 
 from ._imports import *
-
 class TFTModel:
 
     #CONSTANTS VALUES DEFALTS (private):
@@ -14,11 +13,12 @@ class TFTModel:
 
 
 
-    def __init__(self, tension_list, n_points, type_curve='linear', current_typic='A',
-                 scale_factor='A', idleak=1, mult_idleak=0, type_data=0 , type_transitor=-1,
-                 curv_transfer=0, with_transistor=0.1, sr_resistance=None, curr_carry=None
-                 ):
+    def __init__(self, tension_list, n_points, type_curve='linear', current_typic='A', scale_factor='A', idleak=1,
+                 mult_idleak=0, type_data=0 , type_transitor=-1,
+                 curv_transfer=0, with_transistor=0.1, sr_resistance=None, curr_carry=None):
+      '''
 
+      '''
 
       self.tension_list = tension_list
       self.curv_transfer = curv_transfer
@@ -44,15 +44,12 @@ class TFTModel:
 
     def _convert(self, num):
       """
-        Converts a number to a list if it is not already a list.
-
+        Converte um número para uma lista, se ele ainda não é uma lista.
         Args:
-            num (int or list): The number or list to be converted.
-
+            num (int ou list): o número ou lista a ser convertido.
         Returns:
-            list: A list containing the number if it is not already a list.
+            list: uma lista curv_transferendo o número, se ele não for uma lista.
       """
-
       return num if isinstance(num, list) else [num]
 
     #METHODS AND AUXILIAR FUNCTIONS
@@ -63,19 +60,19 @@ class TFTModel:
     # compute the total charge based in parameters
     def _total_charge(self, Vgsi, Vtp, N):
       """
-        Calculates the total charge.
+        Calcula a carga total.
 
         Args:
-            Vgsi: The value of Vgsi.
-            Vtp: The value of Vtp.
+            Vgsi: O valor de Vgsi.
+            Vtp: O valor de Vtp.
 
         Returns:
-            tuple: Returns a tuple with the calculated values:
-                nphit (float): The product of N (a constant) and PHIT (an instance variable of the class).
-                theta (float): The result of the equation (Vgsi - Vtp) / nphit.
-                qtot (float): The result of the equation np.log(1 + np.exp(theta)).
+          tuple: Retorna uma tupla curv_transfer com os valores calculados:
+              nphit (float): O produto de N (uma constante) e PHIT
+              (uma variável de instância da classe).
+              theta (float): O resultado da equação (Vgsi-Vtp) / nphit.
+              qtot (float): O resultado da equação np.log(1 + np.exp(theta)).
       """
-
       Vgsi = np.float64(Vgsi)
       Vtp  = np.float64(Vtp)
 
@@ -88,15 +85,15 @@ class TFTModel:
     # Compute the Jfree
     def _current_calculation(self, qtot, Jth, L):
       """
-        Calculates the Jfree current.
+        Calcula a corrente Jfree.
 
         Args:
-            qtot: The value of qtot.
+            qtot: O valor de qtot.
 
         Returns:
-            float: The value of Jfree current, calculated as Jth * qtot**L, where Jth and L are predefined constants.
+            float: O valor da corrente Jfree, calculado como Jth * qtot**L,
+            onde Jth e L são constantes predefinidas.
       """
-
       Jfree = Jth * qtot**L
       return Jfree
 
@@ -123,15 +120,15 @@ class TFTModel:
     # Compute the Vpt parameter
     def _drain_impact(self, Vds, Vtho, Delta):
       """
-        Calculates the Vpt parameter.
+        Calcula o parâmetro Vpt.
 
         Args:
-            Vds: The value of Vds.
+            Vds: O valor de Vds.
 
         Returns:
-            float: The value of Vtp, calculated as Vtho + Vds * Delta, where Vtho and Delta are predefined constants.
+            float: O valor de Vtp, calculado como Vtho + Vds * Delta, onde
+            Vtho e Delta são constantes predefinidas.
       """
-
       Vds = np.float64(Vds)
       Vtp = Vtho + Vds * Delta
       return Vtp
@@ -140,21 +137,21 @@ class TFTModel:
     # Compute the Idx that the final current
     def _final_current(self, Idleak, Jfree, Fsat):
       """
-        Calculates the final current.
+        Calcula a corrente final.
 
         Args:
-            Fsat: Calculates the value of Fsat, which is the saturation factor representing the fraction of
-            the total drain current that flows through the saturation region of the MOS transistor.
-            Idleak: Calculates the value of Idleak, which is the reverse leakage current that flows through
-            the channel of the MOS transistor when the device is off.
-            Jfree: Calculates the value of Jfree, which is the free current density that flows through
-            the channel of the MOS transistor when the device is on.
+            Fsat: Calcula o valor de Fsat, que é o fator de saturação que representa a fração da
+            corrente de dreno total que flui pela região de saturação do transistor MOS.
+            Idleak: Calcula o valor de Idleak, que é a corrente de fuga inversa que flui pelo
+            canal do transistor MOS  quando o dispositivo está desligado.
+            Jfree:  Calcula o valor de Jfree, que é a densidade de corrente livre que flui pelo
+            canal do transistor MOS quando o dispositivo está ligado.
 
         Returns:
-            float: The value of the final current, calculated as Idleak + (transistor width * Jfree * Fsat),
-            where the transistor width is an instance variable of the class.
+            float: O valor da corrente final, calculado como Idleak +
+            (a largura do transistor * Jfree * Fsat), onde a largura do transistor
+            é uma variável de instância da classe.
       """
-
       Idleak = np.float64(Idleak)
       Jfree  = np.float64(Jfree)
       Fsat   = np.float64(Fsat)
@@ -165,18 +162,19 @@ class TFTModel:
 
     def _calc_dir(self, Vd, Vs):
       """
-        Calculates the direction of the transistor.
+        Calcula a direção do transistor.
 
         Args:
-            Vd: The value of Vd, the potential difference between the drain and the source.
-            Vs: The value of Vs, the potential difference between the source and the substrate of the MOS transistor.
+            Vd: O valor de Vd, diferença de potencial entre o dreno e a fonte
+            Vs: O valor de Vs, diferença de potencial entre a fonte e o substrato
+            do transistor MOS
 
         Returns:
-            int: The value of the transistor direction, calculated as TYPE_OF_TRANSISTOR * sign(Vd - Vs),
-            where TYPE_OF_TRANSISTOR is an instance variable of the class, and sign is a function that returns
-            -1 if Vd - Vs is negative, 0 if Vd - Vs is zero, and 1 if Vd - Vs is positive.
+            int: O valor da direção do transistor, que é calculado como
+            TYPE_OF_TRANSISTOR * sign(Vd-Vs), onde TYPE_OF_TRANSISTOR é uma
+            variável de instância da classe e sign é uma função que retorna
+            -1 se Vd-Vs é negativo, 0 se Vd-Vs é zero e 1 se Vd-Vs é positivo.
       """
-
       Vd = np.float64(Vd)
       Vs = np.float64(Vs)
 
@@ -186,39 +184,41 @@ class TFTModel:
 
     def _calc_vgs_or_vbs(self, Vd, Vg, Vs):
       """
-        Calculates the gate-source voltage (Vgs) or gate-bulk voltage (Vbs) value, depending on the transistor type.
+        Calcula o valor da tensão gate-source (Vgs) ou gate-bulk (Vbs),
+        dependendo do tipo do transistor.
 
         Args:
-            Vd: The value of the drain voltage.
-            Vg: The value of the gate voltage.
-            Vs: The value of the source voltage.
+            Vd: O valor da tensão do dreno.
+            Vg: O valor da tensão da porta.
+            Vs: O valor da tensão da fonte.
 
         Returns:
-            float: The value of the gate-source voltage (Vgs) or gate-bulk voltage (Vbs),
-            calculated as the maximum between two different expressions, depending on the transistor type,
-            involving the potential difference between the gate and the source and the potential difference
-            between the gate and the drain or substrate.
+            float: O valor da tensão gate-source (Vgs) ou gate-bulk (Vbs),
+            calculado como o máximo entre duas expressões diferentes,
+            dependendo do tipo do transistor, que envolvem a diferença de
+            potencial entre a porta e a fonte e a diferença de potencial
+            entre a porta e o dreno ou substrato.
       """
-
       Vgs = np.maximum(self.__TYPE_OF_TRANSISTOR * (Vg - Vs), self.__TYPE_OF_TRANSISTOR * (Vg - Vd))
       return Vgs
 
 
     # Determine the values of Fsat
-    def _fsat_calculation(self, Vds, nphit, qtot, Vcrit, Lambda):
+    def _fsat_calculation(self, Vds, nphit, qtot, Vcrit):
       """
-        Calculates the value of Fsat and receives three parameters:
+        Calcula o valor de Fsat e recebe três parâmetros:
         Args:
-            Vds:   The voltage between the drain and source of the transistor.
-            nphit: The product of the number of majority carriers (N) and the thermal potential (PHIT) of the device.
-            qtot:  The total charge of the transistor.
-
+            Vds:   a tensão entre o dreno e a fonte do transistor.
+            nphit: o produto do número de portadores majoritários (N) e o potencial térmico (PHIT)
+            do dispositivo.
+            qtot:  a carga total do transistor.
         Returns:
-            The function uses these parameters to calculate the fraction of saturation current (Fsat)
-            and the value of eta, which is a parameter used in the calculation of Fsat. Fsat is an important
-            parameter in the modeling of MOS transistors, representing the fraction of current flowing
-            through the transistor's channel relative to the total current flowing through the device.
+            A função utiliza esses parâmetros para calcular a fração da corrente de saturação (Fsat)
+            e o valor de eta, que é um parâmetro utilizado no cálculo de Fsat. Fsat é um parâmetro
+            importante na modelagem do transistor MOS, que representa a fração da corrente que flui
+            pelo canal do transistor em relação à corrente total que flui pelo dispositivo.
       """
+
 
       Vds   = np.float64(Vds)
       nphit = np.float64(nphit)
@@ -229,47 +229,55 @@ class TFTModel:
       x = Vds / Vgn
       eta = 1 - np.tanh(x)
 
+      # eta = 1 - x / (1+(x^beta))^(1/beta)
       y = np.float64(Vgn) / np.float64(self.__PHIT)
-      try:
-        # Version 1 ( with lambda):
-        ll = (2 * Lambda / (np.square(y) * (1 - np.square(eta))) * (np.exp(y * (eta-1)) * (1 - (y * eta)) - (1 - y)))
-        # ll = (2*Lambda) / (y*(1-np.square(eta)))
-        ll = np.nan_to_num(ll,nan = Lambda)
-        # tau = 1 / (1+ll)
-        # at = tau / (2 - tau) # 1/(1+2*ll)
-        at = 1 / (1+2*ll)
-        Fsat = at * (1 - np.exp(-Vds / self.__PHIT)) / (1 + at * np.exp(-Vds / self.__PHIT))
-        # print(Fsat)
-        # Fsat = np.nan_to_num(Fsat)
-        # print("Hello1")
-        return Fsat , eta
 
-      except ValueError as e:
-        print(f"Erro  em ll, at ou Fsat erro: {e}")
+      # Version 1
+      # ll = (2 / (np.square(y) * (1 - np.square(eta))) * (np.exp(y * (eta-1)) * (1 - (y * eta)) - (1 - y)))
+      # ll = np.nan_to_num(ll)
+      # if (np.array(Vds == 0)).any():
+      #   ll[0] = 1e10
+      # at = 1 / (2*ll)  # 1/(1+2*ll)
+
+      # Version 2
+      llinv = (np.square(y) * (1 - np.square(eta))) / (2*(np.exp(y * (eta-1)) * (1 - (y * eta)) - (1 - y)))
+      at = llinv / 2
+
+      Fsat = at * (1 - np.exp(-Vds / self.__PHIT)) / (1 + at * np.exp(-Vds / self.__PHIT))
+      Fsat = np.nan_to_num(Fsat)
+      #print(Fsat)
+
+      # #return Fsat = 0 if Vds = 0:
+      # for i in range(len(Fsat)):
+      #   if np.isnan(Fsat[i]) == True:
+      #     Fsat[i] = 0
+
+      return Fsat, eta
 
 
     def _creat_matrix(self, V, n_rows_max=99, n_rows=50):
       # Create current empty matrix
-      """
-        Function that takes a vector or matrix and checks if the array passed as a parameter
-        has more elements than the maximum size. If so, it creates a matrix with 50 rows and
-        the number of columns parameterized by tension_list, which represents a list of input voltages
-        that the model will receive. The number of columns will be defined in this way,
-        which ensures that for any number of elements in the list, this "reshape" can be done.
 
-        For the case where V > 50 and V < 99, the reshape does not occur because it is understood
-        that the number of samples in this range can be accommodated, and therefore, only a
-        one-dimensional vector/list is returned.
+      """
+        Função que recebe um vetor ou matriz e verifica se o array passado como parâmetro
+        possui mais elementos que o tamanho máximo, se sim, ele cria uma matriz com 50 linhas e
+        o numero de colunas parametrizado por tension_list que representa uma lista de tensões de
+        entrada que o modelo vai receber. A quantidade de colunas então, será definida dessa forma
+        o que garante que para qualquer quantidade de elementos na lista, será possivel realizar
+        esse "reshape".
+
+        Para o caso de V > 50 e V < 99, então, o reshape não acurv_transferece pois é entendido que o número
+        de amostras aqui pode estar curv_transferido nesse intervalo, e portanto, só retona um
+        vetor/ lista unidimensional
 
         Args:
-          V: vector or matrix
-          n_rows: number of rows representing the number of experimental samples collected
+          V: vetor ou matriz
+          n_rows: numero de linhas que representa a quantidade de amostras esperimentais colhidas
 
         Returns:
-          Vector if n_rows < V < n_rows_max.
-          Matrix with n_rows rows and len(tension_list) columns if V > n_rows_max
+          Vetor se   n_rows < V < n_rows_max.
+          Matriz com n_rows linhas e len(tension_list) colunas se V > n_rows_max
       """
-
       if (V.size > n_rows_max):
         n_colunms = len(self._convert(self.tension_list))
         chain_matrix_id = np.zeros((n_rows, n_colunms))
@@ -298,39 +306,40 @@ class TFTModel:
     def _calc_vd_vg(self, V, tension_list, i, type_data):
 
       """
-        The calc_vd_vg function takes as input a matrix or vector V, a list of voltages tension_list,
-        an index i, and a data type type_data. The function's goal is to return two values Vd and Vg,
-        which can be scalars or vectors, depending on the input parameters.
-        First, the matrix V is transformed into a matrix Vv with a maximum number of rows of 70. If V
-        has fewer than 50 rows, it is filled with zeros.
-        Then, it checks if i is less than a certain threshold curv_transfer and if the dimension of Vv is greater than 1.
-        If this condition is true, Vg receives the i-th column of Vv, and Vd receives the i-th element of
+        calc_vd_vg recebe como entrada uma matriz ou vetor V, uma lista de tensões tension_list,
+        um índice i e um tipo de dados type_data. O objetivo da função é retornar dois valores Vd e Vg,
+        que podem ser escalares ou vetores, dependendo dos parâmetros de entrada.
+        Primeiro, a matriz V é transformada em uma matriz Vv com um número máximo de linhas de 70. Se V
+        tiver menos de 50 linhas, ele é preenchido com zeros.
+        Em seguida, é verificado se i é menor que um curv_transferador curv_transfer e se a dimensão de Vv é maior do que 1.
+        Se essa condição for verdadeira, Vg recebe o i-ésimo coluna de Vv e Vd recebe o i-ésimo elemento de
         tension_list.
-        If i is greater than or equal to curv_transfer and the dimension of Vv is greater than 1, Vg receives the i-th element
-        of tension_list, and Vd receives the i-th column of Vv.
+        Se i for maior ou igual a curv_transfer e a dimensão de Vv for maior do que 1, Vg recebe o i-ésimo elemento
+        de tension_list e `Vd recebe a i-ésima coluna de Vv.
 
-        If the dimension of Vv is 1, it checks the value of the type_data variable. If type_data is 0,
-        it means that V is a voltage applied to Vg, and Vd is a constant voltage defined by the i-th
-        element of tension_list. In this case, Vg receives a copy of Vv, and Vd receives the i-th element
-        of tension_list.
+        Se a dimensão de Vv for 1, é verificado o valor da variável type_data. Se type_data for 0,
+        significa que V é uma tensão aplicada em Vg e Vd é uma tensão constante definida pelo i-ésimo
+        elemento de tension_list. Nesse caso, Vg recebe uma cópia de Vv e Vd recebe o i-ésimo elemento
+        de tension_list.
 
-        If type_data is 1, it means that V is a voltage applied to Vd, and Vg is a constant voltage
-        defined by the i-th element of tension_list. In this case, Vd receives a copy of Vv, and Vg receives
-        the i-th element of tension_list.
+        Se type_data for 1, significa que V é uma tensão aplicada em Vd e Vg é uma tensão constante
+        definida pelo i-ésimo elemento de tension_list. Nesse caso, Vd recebe uma cópia de Vv e Vg recebe
+        o i-ésimo elemento de tension_list.
 
-        Finally, the function returns Vd and Vg.
+        Por fim, a função retorna Vd e Vg
 
         Args:
-            V: mxn matrix or vector
-            tension_list: list of input voltages
-            i: index to iterate over the values of Vg or Vd
-            type_data: input data type, type_data = 0 --> transfer data
-                        type_data = 1 --> output data (output_transfer)
+            V: matriz mxn ou vetor
+            tension_list: lista de tensões de entrada
+            i: indice que irá interar no valores de Vg ou Vd
+            type_data: tipo de dados de entrada, type_data = 0 --> dados de trasferencia
+            type_data = 1 --> dados de saída ( output_transfer )
 
         Returns:
-          Returns the vectors Vd and Vg, which are voltages applied to the terminals of the MOSFET transistor.
-          Vd is the voltage between the drain and source of the device, while
-          Vg is the voltage between the gate (gate) and the source.
+          Retorna os vetores Vd e Vg que são tensões aplicadas aos terminais do transistor MOSFET.
+          Vd é a tensão entre o dreno e a fonte do dispositivo, enquanto
+          Vg é a tensão entre o gate (porta) e a fonte
+
       """
 
       Vv = self._checks_v(V, self.n_rows_max, tension_list)
@@ -363,47 +372,33 @@ class TFTModel:
 
       return Vd, Vg
 
-    # Versão com Lambda
-    def calc_model(self, V, Vtho=1, Delta=1, N=1, L=1, Lambda=1, Vcrit=1, Jth=1, Rs=1):
+
+    def calc_model(self, V, Vtho=1, Delta=1, N=1, L=1, Vcrit=1, Jth=1, Rs=1):
       """
-        This function is part of the MOSFET transistor simulation model. It is responsible for performing calculations
-        involving various physical parameters of the transistor and operating conditions to determine the current
-        passing through the device.
+        Essa função é uma parte do modelo de simulação de um transistor MOSFET. Ela é responsável por realizar cálculos
+        envolvendo diversos parâmetros físicos do transistor e das condições de operação para determinar a corrente que
+        passa pelo dispositivo.
 
         Args:
-            V: vector of gate (or base) voltages of the transistor.
-            Vtho: transistor gate threshold voltage.
-            Delta: channel modulation coefficient.
-            N: number of transistor channels.
-            L: transistor channel length.
-            Lambda: channel modulation length.
-            Vcrit: transistor breakdown voltage.
-            Jth: transistor saturation current.
-            Rs: source (or emitter) resistance of the transistor.
+            V: vetor de tensões de porta (ou base) do transistor.
+            Vtho: tensão de limiar de porta do transistor.
+            Delta: coeficiente de modulação de canal.
+            N: número de canais do transistor.
+            L: comprimento de canal do transistor.
+            Vcrit: tensão de ruptura do transistor.
+            Jth: corrente de saturação do transistor.
+            Rs: resistência de fonte (ou emissor) do transistor.
 
         Returns:
-            numpy.ndarray: A NumPy array representing the calculated model.
-            Depending on the size of the input passed to this function, it will return a vector of > 50 current values
-            representing the currents calculated for each voltage pair Id = F(Vgs, Vds) = scalar.
-            Essentially, it returns a matrix in the form of a one-dimensional vector. Using the `np.ravel()` function
-            which returns a flattened copy of the original array, with all elements of the original array
-            concatenated into a single one-dimensional array. This means that the function returns an array
-            with all rows of the original array concatenated into a single row.
-            If V < 50, it will compute the currents only for that V.
+            Dapendendo do tamanho da entrada que for passada essa função irá retornar um vetor > 50 elementos de
+            correntes que serão as correntes Id calculas para cada par de tensões Id = F (Vgs, Vds) = escalar.
+            Essencialmente o que ela retona é uma matriz na forma de um vetor unidimensional. Fazendo uso da
+            função ´np.ravel() que retorna uma cópia do array original, com todos os elementos do array
+            original "achatados" em um único array unidimensional. Isso significa que a função retorna um array
+            com todas as linhas do array original concatenadas em uma única linha.
+            Caso V < 50 então, ela irá computar as correntes apenas para esse V.
 
-        Example:
-            >>> V = np.array([1.0, 2.0, 3.0])  # Voltage values
-            >>> Vtho = 1.0  # Value of parameter Vtho
-            >>> Delta = 2.0  # Value of parameter Delta
-            >>> N = 3.0  # Value of parameter N
-            >>> L = 4.0  # Value of parameter L
-            >>> Lambda = 5.0  # Value of parameter Lambda
-            >>> Vcrit = 6.0  # Value of parameter Vcrit
-            >>> Jth = 7.0  # Value of parameter Jth
-            >>> Rs = 8.0  # Value of parameter Rs
-            >>> model = calc_model(V, Vtho, Delta, N, L, Lambda, Vcrit, Jth, Rs)
       """
-
       res=self.sr_resistance
       curr=self.curr_carry
 
@@ -445,7 +440,7 @@ class TFTModel:
 
 
         # Fsat calculation - Long channel device
-        Fsat, eta = self._fsat_calculation(Vds, nphit, qtot, Vcrit, Lambda)
+        Fsat, eta = self._fsat_calculation(Vds, nphit, qtot, Vcrit)
 
 
         #  Current calculation
@@ -501,7 +496,7 @@ class TFTModel:
             nphit, theta, qtot  = self._total_charge(Vgsi, Vtp, N)
 
             # Fsat calculation - Long channel device
-            Fsat, eta = self._fsat_calculation(Vdsi,nphit, qtot, Vcrit, Lambda)
+            Fsat, eta = self._fsat_calculation(Vdsi,nphit, qtot, Vcrit)
 
             # Current calculation
             Jfree = self._current_calculation(qtot, Jth, L)
@@ -512,12 +507,12 @@ class TFTModel:
 
 
         # Substituir valores NaN e infinitos por zero e valores negativos por 1e-20
-        Idx = np.nan_to_num(Idx)
+        # Idx = np.nan_to_num(Idx)
         # Idx[Idx <= 0] = 1e-20 #Valor muito pequeno e positivo
         #  Wrapping up
         Id = self.__TYPE_OF_TRANSISTOR * dir * Idx
         Id = np.array(Id).transpose()
-        Id = np.nan_to_num(Id)
+        # Id = np.nan_to_num(Id)
 
         # n_rows = self.n_points
         n_rows_max = 99
