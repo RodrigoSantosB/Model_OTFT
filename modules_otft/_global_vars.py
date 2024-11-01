@@ -2,15 +2,16 @@ from ._imports import *
 from ._config import *
 import json
 
-def read_json_input(name_file):
-    with open(name_file, 'r') as file:
+def read_json_input():
+    print(200 * '-')
+    json_path = input('Enter the JSON file path, for example: "/content/gdrive/your/path/json": \n\n')
+    print(200 * '-')
+    
+    with open(json_path, 'r') as file:
         inputs = json.load(file)
     return inputs
 
-# Retorna as variáveis usadas no código principal de forma global
-
-
-inputs = read_json_input(PATH_JASON)
+inputs = read_json_input()
 
 print('\n\n')
 

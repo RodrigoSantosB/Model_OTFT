@@ -1,5 +1,5 @@
 # Robust Benchmarking Strategy for Organic Thin-Film Transistors
-[![NPM](https://img.shields.io/npm/l/react)](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/LICENSE) 
+[![NPM](https://img.shields.io/npm/l/react)](https://github.com/RodrigoSantosB/speech-recognition-signal-project/blob/main/LICENSE) 
 
 # About The Project 
 Organic thin-film transistors (OTFTs) use organic semiconductors to generate electronic responses. Operating with three terminals, these devices control the flow of current between the source and drain electrodes by applying voltage to a gate electrode. OTFT technology is assessed through reports on important parameters such as threshold voltage, carrier mobility, and series resistance. However, conventional parameter extraction methods tailored for silicon transistors may yield inaccurate results for OTFTs.
@@ -46,7 +46,7 @@ where:
 
 This model highlights the importance of the saturation velocity of charge carriers and the potential barrier as critical factors in the performance of TFTs.
 
-Some charged particles are not mobile. In certain cases, an exponential tail of trap states, extending from the valence band edge into the band gap, can relate the free and total charge carrier densities through a power law. This occurs because all states are occupied according to the same quasi-Fermi level, as shown in Equation (B4) in [4] and its preceding derivation. Thus, the equation is expressed as:
+Some charged particles are not mobile. In certain cases, an exponential tail of trap states, extending from the valence band edge into the band gap, can relate the free and total charge carrier densities through a power law. This occurs because all states are occupied according to the same quasi-Fermi level, as shown in Equation (B4) in [8] and its preceding derivation. Thus, the equation is expressed as:
 
 $$Q_{free} = q.σ_v.\biggl(\frac{Q_{tot}}{q.σ_{traps}}\biggr)^l$$
 
@@ -63,10 +63,9 @@ This equation illustrates the dependence of the free charge carrier density on t
 
 In this context, $\sigma_v$ and $\sigma_{traps}$ represent the density of valence states and trap states in a single layer of the semiconductor at the virtual source (VS), respectively. The value of the exponent $l$ is determined by the ratio of the effective "temperature" that defines the exponential energy distribution of the trap states and the device temperature, originating from the Boltzmann energy distribution of the free charge carriers. However, since the exact distribution of traps is generally unknown, $l$ is treated as a model parameter. The distinction between free and trapped charge carriers, as presented in Equation (2), is the primary adaptation of the VSED framework for thin-film materials proposed in this work.
 
-For a depleted semiconductor, an exponential accumulation of holes (positive charges) is expected with the increase of the gate field, which ceases when substantial shielding by the accumulated charge sheet is established. The following phenomenological expression, first proposed in [3], is employed:
+For a depleted semiconductor, an exponential accumulation of holes (positive charges) is expected with the increase of the gate field, which ceases when substantial shielding by the accumulated charge sheet is established. The following phenomenological expression, first proposed in [9], is employed:
 
 $$Q_{tot} = C_I.n.V_T.ln \biggr[ 1 + e^{ψ.V_S − V_{GS}} . n . V_T \biggr],$$
-
 $$ψ.V_S = V_{tho} + |δ|.V_{DS}$$
 
 The gate insulator capacitance depends on the dielectric constant $\varepsilon$ and the insulator thickness $t_I$: $C_I = \frac{\varepsilon}{t_I}$. The thermal voltage is represented by $V_T = \frac{kT}{q}$. The transition from weak to strong accumulation is modeled by the parameters $n$, $V_{th0}$, and $\delta$, where the parameter $n$ is influenced by the charging of the semiconductor region adjacent to the gate insulator interface, filling surface states and affecting the band bending rate with gate biasing.
@@ -85,13 +84,13 @@ $$F_{sat} = \frac{1}{1 + 2t}.\frac{1-e^{\Bigl(\frac{-V_{SD}}{V_T}\Bigl)}}{1+e^{\
 For a drain bias that significantly exceeds the thermal voltage, the transition function is described by:
 $$F_{sat} = \frac{1}{1 + 2t}$$ The critical probability factor $t$ is determined by an average Boltzmann factor in the gate-controlled channel region and can be derived from the specific potential profile. For long-channel devices, an analytical form has been proposed, which can be found in equations (4) to (12) of the article [11].
 
-$$t = \frac{2.λ}{m^{2}(1-η^{2})}.\Bigl[(1-m.η).e^{-m(1-η)} -(1-m) \Bigl]$$
+$$ t = \frac{2.λ}{m^{2}(1-η^{2})}.\Bigl[(1-m.η).e^{-m(1-η)} -(1-m) \Bigl]$$
 
-$$η = 1 − tanh\Bigl(\frac{V_{SD}}{mV_T}\Bigl)$$
+$$ η = 1 − tanh\Bigl(\frac{V_{SD}}{mV_T}\Bigl)$$
 
 $$m = \frac{2.\frac{V_{Gt}}{V_T}}{1+ \sqrt{\frac{2.V_{Gt}}{{V_{crit}}}}}$$
 
-$$V_{Gt} = \frac{Q_{tot}}{CI}$$
+$$ V_{Gt} = \frac{Q_{tot}}{CI}$$
 
 Note that an increase in the transistor's overdrive leads to a spacious diffusion region and shifts the onset of saturation to a higher drain bias. At high gate bias, the necessary increase in the saturation voltage diminishes and transitions into square root growths for $V_{Gt} > V_{crit}$. Note that the saturation velocity given by Eq. (5) is only achieved for both, large $V_{SG}$ (low barrier) and large $V_{SD}$ (charge sink). Generally, the critical length for diffusion, which replaces $\lambda_{free}$ in Eq. (5), is a fraction of $L_G$ dependent on the gate voltage. The $V_{Gt}$ necessary to reach the maximum injection velocity given by the unidirectional thermal velocity decreases with $L_G$.
 
@@ -142,13 +141,13 @@ Make sure you have an account on the [Google platform](https://colab.research.go
 
 Once you have created the account, simply copy one of the notebooks below. The first considers the $λ$ parameter, the second does not consider it because it does not impact certain experiments. Evaluate each case, we recommend starting with the model that has the $λ$ parameter, if you notice that its value always tends to the maximum value given as a ceiling for the objective function, then you should use the model without it and observe how the result changes
 
-- [Model 1 ](https://drive.google.com/drive/folders/11lxa6Hn41b1Vgy08w7oBK7dQMi0pgx2L?usp=sharing)
+- [Model 1 ](https://colab.research.google.com/drive/1WWjBh4H12pfhUjef3fwpcYEP3fq65oir?usp=sharing)
 - [Model 2](https://colab.research.google.com/drive/1jn7FG7-EbUg_ML-UP7r_G7MXgxdVknz1?usp=sharing)
 
 The second thing to do after opening the model in Google Collaboratory is to add the correct path pointing to the directory where your experimental current and voltage data are located, as shown in the figure below. It is worth noting that all pre-processing is already performed by the reading module present in the repository, so the only care to be taken here is with the minimum number of sample points that will be given to the model, in other words, the greater the number of points collected, the more accurate the model will be in predicting the parameters. In addition, be careful with the type of data that is being given to the model, as it is necessary to make sure whether they are from `type N` or `type P` transistors, as the model operates differently for each of these subtypes.
 
 <p align="center">
-<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/jason_config.png" alt="Fig 2" height="120" width="800">
+<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/semicondutor.png" alt="Fig 1 Seções transversais esquemáticas de (a) um coplanar e (b) um OTFT escalonado. As linhas tracejadas mostram os caminhos atuais esperados." height="300" width="800">
 </p>
 
 ## In local environment (VS Code)
@@ -202,7 +201,7 @@ Once this task is complete, ensure the `.JSON` file is correctly configured. Thi
 
 ```json
 [{
-    "path"                              : "/home/user/your/path/files/datas",
+    "path"                              : "/home/rsb6/Desktop/SBmicro/Model_OTFT/datas",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "A",
     "current_typic"                     : "uA",
@@ -273,7 +272,7 @@ The most important thing for now is to ensure that the path to the experimental 
 Make sure to replace the paths with the actual absolute paths to your data files. Adjust the interval values and optimizer according to the specific requirements of your project.
 
 <p align="center">
-<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/input.png" alt="" height="120" width="800">
+<img src="https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/input.png" alt="" height="150" width="800">
 </p>
 
 
@@ -451,23 +450,3 @@ Then, simply run the notebook cells and observe the output. It is important to n
 **Output curve**
 ![CONCEPT_MODEL](https://github.com/RodrigoSantosB/Model_OTFT/blob/master/figures/output_fit.png)
 
-
-## DEMO
-![DEMO](figures/demo.gif)
-
-## REFERENCES
-[1] Lima, Alex Anderson, and Stefan Blawid. "Modeling organic thin-film transistors based on the virtual source concept: A case study." Solid-State Electronics 161 (2019): 107639.
-
-[2] Blawid, Stefan, Nicholas J. Dallaire, and Benoît H. Lessard. "Self-Consistent Extraction of Mobility and Series Resistance: A Hierarchy of Models for Benchmarking Organic Thin-Film Transistors." IEEE Journal on Flexible Electronics 1.2 (2022): 114-121.
-
-[3] Wright, G. C., M. A. Foale, and D. A. Charles-Edwards. "Nitrogen nutrition of grain sorghum under sprinkler and furrow irrigation in the tropical dry season. I. Plant establishment, nitrogen uptake, and grain yield." Field crops research 12 (1985): 203-222.
-
-[4] Mark, Peter, and Wolfgang Helfrich. "Space‐charge‐limited currents in organic crystals." Journal of Applied Physics 33.1 (1962): 205-215.
-
-
-
-# Author
-
-Rodrigo Santos Batista
-
-www.linkedin.com/in/rodrigo-santos-16029986

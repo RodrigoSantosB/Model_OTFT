@@ -1,6 +1,33 @@
 from modules_otft._imports import *
+from modules_otft._imports import *
 from modules_otft._grafics import  TFTGraphicsPlot
 from modules_otft._optmization import ModelOptmization
+
+import json
+
+def enter_with_json_file():
+    print(200 * '-')
+    json_path = input('Enter the JSON file path, for example: "/content/gdrive/your/path/json": \n\n')
+    print(200 * '-')
+
+    with open(json_path, 'r') as file:
+        inputs = json.load(file)
+
+    global settings
+    settings = {}
+
+    print('\n')
+    print(83 * '_' + ' SETTINGS PRESENT IN THE JSON FILE:' + 83 * '_' + '\n')
+    for block in inputs:
+        # Iterates over each key-value pair in the data block
+        for key, value in block.items():
+            # Assigns the value to the corresponding variable
+            settings[key] = value
+            print('|' + ' ' + f'{key}: {value}')
+            print('--' * 100)
+
+    return settings
+
 
 
 def load_voltages(loaded_voltages):
@@ -129,14 +156,11 @@ def initialize_graphics_plot(image_size_width, image_size_height):
     return TFTGraphicsPlot(image_size_height, image_size_width)
 
 
-def instance_model(read, TFTModel, n_points, type_curve_plot, load_parameters, 
-                   input_voltage, Vv, load_idleak, width_t, count_transfer, 
-                   tp_tst, experimental_data_scale_transfer, current_typic, 
-                   resistance, current):
+def instance_model(read, TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv, load_idleak, width_t,
+                            count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current):
     """Creates an instance of the model with the provided data."""
-    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters, 
-                                    input_voltage, Vv, load_idleak, width_t, count_transfer, 
-                                    tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
+    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv,
+                                    load_idleak, width_t, count_transfer, tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
                                     current_typic=current_typic, res=resistance, curr=current)
 
 
@@ -168,12 +192,12 @@ def configure_bounds(default_bounds, lw_bounds, up_bounds):
     return lw_bounds, up_bounds
 
 
-def create_model_opt(TFTModel, input_voltage, n_points, type_curve_plot, current_typic, 
-                     experimental_data_scale_transfer, load_idleak, mode_idleak, count_transfer, 
+def create_model_opt(TFTModel, input_voltage, n_points, type_curve_plot, current_typic,
+                     experimental_data_scale_transfer, load_idleak, mode_idleak, count_transfer,
                                                                             resistance, current):
     """Creates an optimization model."""
     model_id = TFTModel( input_voltage, n_points, type_curve_plot, current_typic=current_typic,
-                        scale_factor=experimental_data_scale_transfer, idleak=load_idleak, 
+                        scale_factor=experimental_data_scale_transfer, idleak=load_idleak,
                         mult_idleak=mode_idleak,  curv_transfer=count_transfer,
                         sr_resistance=resistance, curr_carry=current)
     return model_id
@@ -227,6 +251,7 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt,
     print('\n\n\n')
 
 
+
 def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt, 
                            input_voltage, Vv, load_idleak, width_t, count_transfer, 
                            tp_tst, experimental_data_scale_transfer, 
@@ -237,7 +262,6 @@ def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt,
                                     tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
                                     current_typic=current_typic, res=resistance, curr=current)
     
-
 
 def get_model_data(read, count_transfer, count_output, Vv, Id, model_opt, model=None, compare=False):
     """Gets experimental and model data (transfer and output)."""
