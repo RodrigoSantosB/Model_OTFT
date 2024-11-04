@@ -1,5 +1,5 @@
 [{
-    "path"                              : "/content/gdrive/MyDrive/ICs/beTFT/Papers/SBMicro/datas",
+    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/SbMicro/tipo_p",
     "experimental_data_scale_transfer"  : "mA",
     "experimental_data_scale_output"    : "A",
     "current_typic"                     : "uA",
@@ -18,7 +18,7 @@
     "with_transistor"                   : "0.1",
     "type_of_transistor"                : "pFET",
     
-    "loaded_parameters"                 : { "VTHO"  : 8.0000e+00,  
+    "loaded_parameters"                 : { "VTHO"  : 9,  
                                             "DELTA" : 1.0898e-02,
                                             "N"     : 3.4773e+01,  
                                             "L"     : 2.5641e+00,   
@@ -55,7 +55,7 @@
         "lb_RS"     : 0
     },    
     
-    "default_bounds"                    :  "yes",
+    "default_bounds"                    :  "no",
     "optimization_method"               :  "trf",
     "tolerance_factor"                  :  "4e-7"
     

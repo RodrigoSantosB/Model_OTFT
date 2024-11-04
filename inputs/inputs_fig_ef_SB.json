@@ -1,5 +1,5 @@
 [{
-    "path"                              : "/content/gdrive/MyDrive/Projects/IC/beTFT/update models/reports/Fig1ef/datas",
+    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/SbMicro/tipo_p",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "mA",
     "current_typic"                     : "uA",
@@ -22,7 +22,6 @@
                                             "DELTA" : 0.0029,
                                             "N"     : 5.14,  
                                             "L"     : 2.4,   
-                                            "LAMBDA": 5.86e+2,
                                             "VGCRIT": 14.7,   
                                             "JTH"   :3.58e-01,
                                             "RS"    :2.8e-1
@@ -41,7 +40,6 @@
         "ub_DELTA"  : 1,
         "ub_N"      : 7,
         "ub_L"      : 6,
-        "ub_LAMBDA" : 10000,
         "ub_VGCRIT" : 1e2,
         "ub_JTH"    : 10,
         "ub_RS"     : 1e7
@@ -52,7 +50,6 @@
         "lb_DELTA"  : 0,
         "lb_N"      : 1,
         "lb_L"      : 0,
-        "lb_LAMBDA" : 10,
         "lb_VGCRIT" : 1,
         "lb_JTH"    : 1e-3,
         "lb_RS"     : 0e7

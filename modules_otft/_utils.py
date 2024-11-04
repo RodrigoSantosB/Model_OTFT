@@ -73,24 +73,28 @@ def get_shift_list(read, curves_transfer, shift_list, ld_voltages):
 
 
 def filter_and_load_files(read, select_files, list_curves, list_tension_shift, ld_voltages, path):
-  """Filters and loads files."""
-  if not select_files:
-      return read.read_files_experimental(path, list_tension_shift)
-  try:
-      if isinstance(eval(select_files), int):
-          f_selection = [int(select_files)]
-      elif len(select_files) > 1:
-          f_selection = list(eval(select_files))
-      else:
-          print("No value available\n")
-          return None
-  except NameError:
-      print("No value available, please enter a valid value\n")
-      return None
+    """Filters and loads files."""
+    if select_files == "":
+      path_voltages = read.read_files_experimental(path, list_tension_shift)
+      return path_voltages, list_curves, list_tension_shift
+ 
+    else:
+        try:
+            if isinstance(eval(select_files), int):
+                f_selection = [int(select_files)]
+            elif len(select_files) > 1:
+                f_selection = list(eval(select_files))
+            else:
+                print("No value available\n")
+                return None
+        except NameError:
+            print("No value available, please enter a valid value\n")
+            return None
 
-  new_files_filter, new_values_tension, new_list_tension = read.filter_files(
-      f_selection, list_curves, list_tension_shift, ld_voltages)
-  return read.read_files_experimental(path, new_values_tension, selected_files=new_files_filter), new_values_tension, new_list_tension
+        new_files_filter, new_values_tension, new_list_tension = read.filter_files(
+            f_selection, list_curves, list_tension_shift, ld_voltages)
+        path_voltages = read.read_files_experimental(path, new_values_tension, selected_files=new_files_filter)
+        return  path_voltages, new_values_tension, new_list_tension
 
 
 
@@ -171,7 +175,6 @@ def load_experimental_data(read, count_transfer, Vv, Id, model, count_output):
     return in_model_data, in_exp_data, out_model_data, out_exp_data
 
 
-
 def get_bounds(lower_bounds, upper_bounds):
     """Gets the lower and upper bounds."""
     return list(lower_bounds.values()), list(upper_bounds.values())
@@ -228,7 +231,7 @@ def optimize_model(optimizer, model_id, load_parameters, *path_voltages):
 
 
 def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt, 
-                                    coeff_error, current_typic, resistance):
+                                    coeff_error, current_typic, current_carry, resistance):
     '''
     Function to show the optimized parameters of the model.
     '''
@@ -246,7 +249,7 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt,
 
     elif option == 'Show the table of values opt':
       menu.show_table_info(load_parameters, load_parameters, coeff_opt, 
-                           coeff_error, current_typic, resistance)
+                           coeff_error, current_typic, current_carry, resistance)
 
     print('\n\n\n')
 

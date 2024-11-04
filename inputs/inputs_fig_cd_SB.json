@@ -1,5 +1,5 @@
 [{
-    "path"                              : "/content/gdrive/MyDrive/Projects/IC/beTFT/update models/reports/Fig1cd/datas",
+    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/Fig1cd",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "uA",
     "current_typic"                     : "uA",
@@ -22,7 +22,6 @@
                                             "DELTA" : 0.0032,
                                             "N"     : 57.4,  
                                             "L"     : 2.14,   
-                                            "LAMBDA": 3010,
                                             "VGCRIT": 32.3,   
                                             "JTH"   :4,
                                             "RS"    :20
@@ -41,7 +40,6 @@
         "ub_DELTA"  : 0.3,
         "ub_N"      : 130,
         "ub_L"      : 4.1,
-        "ub_LAMBDA" : 10000,
         "ub_VGCRIT" : 80,
         "ub_JTH"    : 10,
         "ub_RS"     : 360
@@ -52,13 +50,12 @@
         "lb_DELTA"  : 0,
         "lb_N"      : 10,
         "lb_L"      : 1,
-        "lb_LAMBDA" : 100,
         "lb_VGCRIT" : 10,
         "lb_JTH"    : 0,
         "lb_RS"     : 0
     },    
     
-    "default_bounds"                    :  "no",
+    "default_bounds"                    :  "yes",
     "optimization_method"               :  "trf",
     "tolerance_factor"                  :  "4e-7"
     
