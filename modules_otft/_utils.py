@@ -72,8 +72,9 @@ def get_shift_list(read, curves_transfer, shift_list, ld_voltages):
   return list_tension_shift
 
 
-def filter_and_load_files(read, select_files, list_curves, list_tension_shift, ld_voltages, path):
+def filter_and_load_files(read, path, select_files, list_curves, list_tension_shift, ld_voltages):
     """Filters and loads files."""
+    f_selection = []
     if select_files == "":
       path_voltages = read.read_files_experimental(path, list_tension_shift)
       return path_voltages, list_curves, list_tension_shift
@@ -81,7 +82,7 @@ def filter_and_load_files(read, select_files, list_curves, list_tension_shift, l
     else:
         try:
             if isinstance(eval(select_files), int):
-                f_selection = [int(select_files)]
+                f_selection.append(int(select_files))   
             elif len(select_files) > 1:
                 f_selection = list(eval(select_files))
             else:
