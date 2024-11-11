@@ -26,7 +26,7 @@ class TFTMenu:
         
         return convert_to_ampere_unit
 
-    def show_table_info(self, coeff, coeff_opt, coeff_error, curr_typic, resistance):
+    def show_table_info(self, coeff, coeff_opt, coeff_error, curr_typic, curr_carry, resistance):
 
         name_par = ['VTHO [V]', 'DELTA', 'N', 'L', 'LAMBDA', 'VGCRIT [V]',
                     'JTH [μA cm^−1]', 'RS [kΩ]', 'JTH / LAMBDA * N [μA cm^−1]']
@@ -41,8 +41,8 @@ class TFTMenu:
         curr_typic_ = self.__convert_to_ampere_unit(curr_typic)
 
         # Adjustments for JTH [μA cm^−1]
-        data[6][1] = data[6][1] * (curr_typic_ / 1e-6)  # JTH = 2mA * curr_typic / 1e-6 (fixed uA)
-        data[6][2] = data[6][2] * (curr_typic_ / 1e-6)  # scale / 1e-6
+        data[6][1] = data[6][1] * (curr_carry / 1e-6)  # JTH = 2mA * curr_typic / 1e-6 (fixed uA)
+        data[6][2] = data[6][2] * (curr_carry / 1e-6)  # scale / 1e-6
 
         # Adjustments for RS [kΩ]
         data[7][1] = data[7][1] * (resistance / 1e3)  # res / 1e3

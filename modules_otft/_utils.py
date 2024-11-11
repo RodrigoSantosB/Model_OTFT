@@ -248,7 +248,7 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt,
     elif option == 'Show the table of values opt':
       menu.show_table_info(load_parameters, coeff_opt, 
                            coeff_error, current_typic, 
-                           resistance)
+                           current_carry, resistance)
 
     print('\n\n\n')
 
