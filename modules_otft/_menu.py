@@ -2,14 +2,11 @@ from ._imports import *
 
 class TFTMenu:
   
-    CURR_CARRY = 0
   
     def __init__(self):
         pass
     
-    def set_curr_carry(self, current_carry):
-        self.CURR_CARRY = current_carry
-    
+
     def __convert_to_ampere_unit(self, scale):
         # Identify the data scale (mA or uA)
         convert_to_ampere_unit = 0
@@ -29,7 +26,7 @@ class TFTMenu:
         
         return convert_to_ampere_unit
 
-    def show_table_info(self, scale, coeff, coeff_opt, coeff_error, curr_typic, resistance):
+    def show_table_info(self, coeff, coeff_opt, coeff_error, curr_typic, resistance):
 
         name_par = ['VTHO [V]', 'DELTA', 'N', 'L', 'LAMBDA', 'VGCRIT [V]',
                     'JTH [μA cm^−1]', 'RS [kΩ]', 'JTH / LAMBDA * N [μA cm^−1]']
@@ -44,8 +41,8 @@ class TFTMenu:
         curr_typic_ = self.__convert_to_ampere_unit(curr_typic)
 
         # Adjustments for JTH [μA cm^−1]
-        data[6][1] = data[6][1] * (self.CURR_CARRY / 1e-6)  # JTH = 2mA * curr_typic / 1e-6 (fixed uA)
-        data[6][2] = data[6][2] * (self.CURR_CARRY / 1e-6)  # scale / 1e-6
+        data[6][1] = data[6][1] * (curr_typic_ / 1e-6)  # JTH = 2mA * curr_typic / 1e-6 (fixed uA)
+        data[6][2] = data[6][2] * (curr_typic_ / 1e-6)  # scale / 1e-6
 
         # Adjustments for RS [kΩ]
         data[7][1] = data[7][1] * (resistance / 1e3)  # res / 1e3

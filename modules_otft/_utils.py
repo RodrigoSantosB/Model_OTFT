@@ -75,7 +75,7 @@ def get_shift_list(read, curves_transfer, shift_list, ld_voltages):
 def filter_and_load_files(read, select_files, list_curves, list_tension_shift, ld_voltages, path):
   """Filters and loads files."""
   if not select_files:
-      return read.read_files_experimental(path, list_tension_shift)
+      return read.read_files_experimental(path, list_tension_shift), ld_voltages, list_tension_shift
   try:
       if isinstance(eval(select_files), int):
           f_selection = [int(select_files)]
@@ -228,7 +228,8 @@ def optimize_model(optimizer, model_id, load_parameters, *path_voltages):
 
 
 def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt, 
-                                    coeff_error, current_typic, resistance):
+                                    coeff_error, current_carry, current_typic, 
+                                    resistance):
     '''
     Function to show the optimized parameters of the model.
     '''
@@ -245,8 +246,9 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt,
       menu.print_values(coeff_error)
 
     elif option == 'Show the table of values opt':
-      menu.show_table_info(load_parameters, load_parameters, coeff_opt, 
-                           coeff_error, current_typic, resistance)
+      menu.show_table_info(load_parameters, coeff_opt, 
+                           coeff_error, current_typic, 
+                           resistance)
 
     print('\n\n\n')
 
