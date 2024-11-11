@@ -76,8 +76,7 @@ def filter_and_load_files(read, path, select_files, list_curves, list_tension_sh
     """Filters and loads files."""
     f_selection = []
     if select_files == "":
-      path_voltages = read.read_files_experimental(path, list_tension_shift)
-      return path_voltages, list_curves, list_tension_shift
+      return read.read_files_experimental(path, list_tension_shift), ld_voltages, list_tension_shift
  
     else:
         try:
@@ -232,7 +231,8 @@ def optimize_model(optimizer, model_id, load_parameters, *path_voltages):
 
 
 def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt, 
-                                    coeff_error, current_typic, current_carry, resistance):
+                                    coeff_error, current_typic, current_carry, 
+                                    resistance):
     '''
     Function to show the optimized parameters of the model.
     '''
@@ -249,8 +249,9 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt,
       menu.print_values(coeff_error)
 
     elif option == 'Show the table of values opt':
-      menu.show_table_info(load_parameters, load_parameters, coeff_opt, 
-                           coeff_error, current_typic, current_carry, resistance)
+      menu.show_table_info(load_parameters, coeff_opt, 
+                           coeff_error, current_typic, 
+                           current_carry, resistance)
 
     print('\n\n\n')
 

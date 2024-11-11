@@ -23,7 +23,7 @@ class TFTMenu:
           raise ValueError("Escala de dados inválida!")
       return convert_to_ampere_unit
 
-  def show_table_info(self, scale, coeff, coeff_opt, coeff_error, curr_typic, curr_carry, resistance):
+  def show_table_info(self, coeff, coeff_opt, coeff_error, curr_typic, curr_carry, resistance):
 
       name_par = ['VTHO [V]', 'DELTA', 'N', 'L', 'VGCRIT [V]',
             'JTH [μA cm^−1]', 'RS [kΩ]', 'JTH / N [μA cm^−1]']
@@ -40,8 +40,8 @@ class TFTMenu:
       # # Faz a leitura dos dados experimentais e do modelo (de transferencia) a serem exibidos no gráfico
 
       #  JTH [μA cm^−1]
-      data[5][1] = data[5][1] * (curr_carry / 1e-6) # JTH = 2mA * curr_typic / 1e-6 (fixo uA)
-      data[5][2] = data[5][2] * (curr_carry / 1e-6) # scale/1e-6
+      data[5][1] = data[5][1] * (curr_typic_ / 1e-6) # JTH = 2mA * curr_typic / 1e-6 (fixo uA)
+      data[5][2] = data[5][2] * (curr_typic_ / 1e-6) # scale/1e-6
 
       # RS [kΩ]
       data[6][1] = data[6][1] * (resistance / 1e3) # res/1e3

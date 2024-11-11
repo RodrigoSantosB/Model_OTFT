@@ -870,4 +870,3 @@ class ReadData:
       print('|' + f"RELATIVE ERROR BETWEEN CURVES: {relative_distance:.4f}")
       print()
       print('**'*73)
-

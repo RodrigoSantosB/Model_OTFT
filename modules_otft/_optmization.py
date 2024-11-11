@@ -147,8 +147,9 @@ class ModelOptmization(ReadData):
         try:
             # Set default bounds if specified
             if self.__DEFAULT_BOUNDS:
-                lb = [0.0, 0, 1.0, 0, 10.0, 1.0, 1e-9, 0e7]  # lower bound constraints
-                ub = [ub_max, 1, 999, 4, 20000, ub_max, 1e4, 1e7]  # upper bound constraints
+                #    [Vtho,   delta,         n,      l,      Vgcrit,  Jth, Rs]
+                lb = [8.0,      0.0,         1.0,    0,        1.0,     0,  0 ]  # lower bound constraints
+                ub = [ub_max,   0.1,         1e3,    6, 20000, ub_max,  10, 1e3]  # upper bound constraints
             else:
                 lb = self.bounds[0] if self.bounds else [0.0] * len(coeff)
                 ub = self.bounds[1] if self.bounds else [ub_max] * len(coeff)

@@ -205,7 +205,7 @@ class TFTModel:
 
 
     # Determine the values of Fsat
-    def _fsat_calculation(self, Vds, nphit, qtot, Vcrit, Lambda):
+    def _fsat_calculation(self, Vds, nphit, qtot, Vcrit):
       """
         Calculates the value of Fsat and receives three parameters:
         Args:
@@ -232,16 +232,10 @@ class TFTModel:
       y = np.float64(Vgn) / np.float64(self.__PHIT)
       try:
         # Version 1 ( with lambda):
-        ll = (2 * Lambda / (np.square(y) * (1 - np.square(eta))) * (np.exp(y * (eta-1)) * (1 - (y * eta)) - (1 - y)))
-        # ll = (2*Lambda) / (y*(1-np.square(eta)))
-        ll = np.nan_to_num(ll,nan = Lambda)
-        # tau = 1 / (1+ll)
-        # at = tau / (2 - tau) # 1/(1+2*ll)
-        at = 1 / (1+2*ll)
+        llinv = (np.square(y) * (1 - np.square(eta))) / (2*(np.exp(y * (eta-1)) * (1 - (y * eta)) - (1 - y)))
+        at = llinv / 2
         Fsat = at * (1 - np.exp(-Vds / self.__PHIT)) / (1 + at * np.exp(-Vds / self.__PHIT))
-        # print(Fsat)
-        # Fsat = np.nan_to_num(Fsat)
-        # print("Hello1")
+        Fsat = np.nan_to_num(Fsat)
         return Fsat , eta
 
       except ValueError as e:
@@ -364,7 +358,7 @@ class TFTModel:
       return Vd, Vg
 
     # Versão com Lambda
-    def calc_model(self, V, Vtho=1, Delta=1, N=1, L=1, Lambda=1, Vcrit=1, Jth=1, Rs=1):
+    def calc_model(self, V, Vtho=1, Delta=1, N=1, L=1, Vcrit=1, Jth=1, Rs=1):
       """
         This function is part of the MOSFET transistor simulation model. It is responsible for performing calculations
         involving various physical parameters of the transistor and operating conditions to determine the current
@@ -376,7 +370,6 @@ class TFTModel:
             Delta: channel modulation coefficient.
             N: number of transistor channels.
             L: transistor channel length.
-            Lambda: channel modulation length.
             Vcrit: transistor breakdown voltage.
             Jth: transistor saturation current.
             Rs: source (or emitter) resistance of the transistor.
@@ -445,7 +438,7 @@ class TFTModel:
 
 
         # Fsat calculation - Long channel device
-        Fsat, eta = self._fsat_calculation(Vds, nphit, qtot, Vcrit, Lambda)
+        Fsat, eta = self._fsat_calculation(Vds, nphit, qtot, Vcrit)
 
 
         #  Current calculation
@@ -501,7 +494,7 @@ class TFTModel:
             nphit, theta, qtot  = self._total_charge(Vgsi, Vtp, N)
 
             # Fsat calculation - Long channel device
-            Fsat, eta = self._fsat_calculation(Vdsi,nphit, qtot, Vcrit, Lambda)
+            Fsat, eta = self._fsat_calculation(Vdsi,nphit, qtot, Vcrit)
 
             # Current calculation
             Jfree = self._current_calculation(qtot, Jth, L)
