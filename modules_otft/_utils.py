@@ -44,7 +44,7 @@ def load_voltages(loaded_voltages):
 
 
 def get_type_plot(type_curve_plot):
-  if type_curve_plot == 'logarithmic' or 'log':
+  if (type_curve_plot == 'logarithmic') or (type_curve_plot == 'log'):
     return 'log'
   else:
     return 'linear'
