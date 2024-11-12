@@ -20,11 +20,11 @@
     
     "loaded_parameters"                 : { "VTHO"  : 8.57,  
                                             "DELTA" : 0.0032,
-                                            "N"     : 57.4,  
+                                            "N"     : 30,  
                                             "L"     : 2.14,   
-                                            "LAMBDA": 3010,
-                                            "VGCRIT": 32.3,   
-                                            "JTH"   :4,
+                                            "LAMBDA": 1000,
+                                            "VGCRIT": 32,   
+                                            "JTH"   :1,
                                             "RS"    :20
                                             },
 

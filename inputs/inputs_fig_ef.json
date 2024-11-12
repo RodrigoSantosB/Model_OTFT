@@ -58,7 +58,7 @@
         "lb_RS"     : 0e7
     },    
     
-    "default_bounds"                    :  "yes",
+    "default_bounds"                    :  "no",
     "optimization_method"               :  "trf",
     "tolerance_factor"                  :  "4e-7"
     
