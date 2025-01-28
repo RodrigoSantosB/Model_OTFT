@@ -5,10 +5,10 @@
     "current_typic"                     : "uA",
     "loaded_voltages"                   : "-2, -50, -30, -40, -50",
     "curves_transfer"                   :  2,
-    "type_curve_plot"                   : "logarithmic",
+    "type_curve_plot"                   : "log",
     "type_read_data_exp"                : "read original data",
     "shift_volt_data"                   : "-1",
-    "select_files"                      : "0, 1, 2, 3,4"
+    "select_files"                      : ""
     
 },
 

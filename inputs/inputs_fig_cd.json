@@ -8,7 +8,7 @@
     "type_curve_plot"                   : "logarithmic",
     "type_read_data_exp"                : "read interpolated data",
     "shift_volt_data"                   : "5, 5, 5",
-    "select_files"                      : ""
+    "select_files"                      : "0,2,3"
     
 },
 
@@ -18,7 +18,7 @@
     "with_transistor"                   : "0.1",
     "type_of_transistor"                : "pFET",
     
-    "loaded_parameters"                 : { "VTHO"  : 8.57,  
+    "loaded_parameters"                 : { "VTHO"  : 5,  
                                             "DELTA" : 0.0032,
                                             "N"     : 30,  
                                             "L"     : 2.14,   
@@ -37,7 +37,7 @@
     "image_size_height"                 : null,
     
     "upper_bounds": {
-        "ub_VTHO"   : 12,
+        "ub_VTHO"   : 10,
         "ub_DELTA"  : 0.3,
         "ub_N"      : 130,
         "ub_L"      : 4.1,
@@ -48,7 +48,7 @@
     },
     
     "lower_bounds": {
-        "lb_VTHO"   : 8,
+        "lb_VTHO"   : 0,
         "lb_DELTA"  : 0,
         "lb_N"      : 10,
         "lb_L"      : 1,

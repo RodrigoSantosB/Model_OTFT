@@ -5,7 +5,7 @@
     "current_typic"                     : "uA",
     "loaded_voltages"                   : "-40, -20, -40, -60, -80",
     "curves_transfer"                   : 1,
-    "type_curve_plot"                   : "logarithmic",
+    "type_curve_plot"                   : "log",
     "type_read_data_exp"                : "read original data",
     "shift_volt_data"                   : "0, -1, -2, -6",
     "select_files"                      : ""

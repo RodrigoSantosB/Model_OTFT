@@ -841,33 +841,132 @@ class ReadData:
 
 
 
-  def compute_relative_distance(self, experiment_curve_id, model_curve_id):
+  # def compute_relative_distance(self, experiment_curve_id, model_curve_id):
+  #     """
+  #     Computes the relative distance between the experiment and model curves.
+
+  #     Args:
+  #         experiment_curve (np.ndarray): Array representing the experiment curve.
+  #         model_curve (np.ndarray): Array representing the model curve.
+
+  #     Returns:
+  #         float: Relative distance between the curves.
+  #     """
+
+  #     # Empilha as correntes em um única estrutura de dados (vetor)
+  #     experiment_curve_id = np.ravel(experiment_curve_id)
+  #     model_curve_id      = np.ravel(model_curve_id)
+
+  #     # Ensure the curves have the same length
+  #     assert len(experiment_curve_id) == len(model_curve_id), "Curves must have the same length"
+
+  #     # Compute the absolute difference between the curves
+  #     absolute_difference = np.abs(experiment_curve_id - model_curve_id)
+
+  #     # Compute the relative distance
+  #     relative_distance = np.sum(absolute_difference / (abs(experiment_curve_id) + 1e-10) )
+  #     print('**'*73)
+  #     print()
+  #     print('|' + f"RELATIVE ERROR BETWEEN CURVES: {relative_distance:.4f}")
+  #     print()
+  #     print('**'*73)
+
+
+  def compute_relative_distance(self, experiment_curve_id, model_curve_id, plot=False, plot_width=1100, plot_height=600):
       """
-      Computes the relative distance between the experiment and model curves.
+      Computes the relative distance between the experiment and model curves and plots the relative error.
 
       Args:
-          experiment_curve (np.ndarray): Array representing the experiment curve.
-          model_curve (np.ndarray): Array representing the model curve.
+          experiment_curve_id (list of arrays): List of arrays representing the experiment curve.
+          model_curve_id (list of arrays): List of arrays representing the model curve.
+          plot_width (int): Width of the plot.
+          plot_height (int): Height of the plot.
 
       Returns:
           float: Relative distance between the curves.
       """
+      # Flattening using manual iteration
+      experiment_flattened = []
+      model_flattened = []
 
-      # Empilha as correntes em um única estrutura de dados (vetor)
-      experiment_curve_id = np.ravel(experiment_curve_id)
-      model_curve_id      = np.ravel(model_curve_id)
+      for curve in experiment_curve_id:
+          experiment_flattened.extend(curve)
+
+      for curve in model_curve_id:
+          model_flattened.extend(curve)
 
       # Ensure the curves have the same length
-      assert len(experiment_curve_id) == len(model_curve_id), "Curves must have the same length"
+      assert len(experiment_flattened) == len(model_flattened), "Curves must have the same length"
 
-      # Compute the absolute difference between the curves
-      absolute_difference = np.abs(experiment_curve_id - model_curve_id)
+      # Normalize the curves to a common scale
+      experiment_flattened = [(val - min(experiment_flattened)) / (max(experiment_flattened) - min(experiment_flattened) + 1e-5) for val in experiment_flattened]
+      model_flattened = [(val - min(model_flattened)) / (max(model_flattened) - min(model_flattened) + 1e-5) for val in model_flattened]
 
-      # Compute the relative distance
-      relative_distance = np.sum(absolute_difference / (abs(experiment_curve_id) + 1e-10) )
-      print('**'*73)
-      print()
-      print('|' + f"RELATIVE ERROR BETWEEN CURVES: {relative_distance:.4f}")
-      print()
-      print('**'*73)
+      # Compute the absolute difference and relative error using a loop
+      absolute_difference = []
+      relative_error = []
+      weights = []
+      denominator = []
 
+      for i in range(len(experiment_flattened)):
+          abs_diff = abs(experiment_flattened[i] - model_flattened[i])
+          denom = abs(experiment_flattened[i]) + 1e-5
+          rel_err = abs_diff / denom
+
+          absolute_difference.append(abs_diff)
+          relative_error.append(rel_err)
+          denominator.append(denom)
+
+          # Adding weights (optional, example of decreasing weights)
+          weights.append(1 - i / len(experiment_flattened) * 0.9)  # Example: Linear decay from 1 to 0.1
+
+      # Compute the relative distance with weights
+      relative_distance = sum(weights[i] * (absolute_difference[i] / denominator[i]) for i in range(len(experiment_flattened)))
+
+      if plot:
+          # Plot using Plotly
+          import plotly.graph_objects as go
+
+          fig = go.Figure()
+
+          fig.add_trace(go.Scatter(
+              y=relative_error,
+              mode='lines+markers',
+              name="Relative Error (Point-wise)",
+              line=dict(width=2),
+              marker=dict(size=5)
+          ))
+
+          fig.update_layout(
+              width=plot_width,
+              height=plot_height,
+              title=dict(
+                  text="<b>Point-wise Relative Error Between Curves</b>",
+                  x=0.5,  # Center alignment
+                  xanchor='center',
+                  font=dict(size=18, family='Arial', color='black')
+              ),
+              xaxis=dict(
+                  title="<b>Data Points</b>",
+                  titlefont=dict(size=14, family='Arial', color='black'),
+                  showgrid=True,
+                  gridcolor='lightgrey'
+              ),
+              yaxis=dict(
+                  title="<b>Relative Error</b>",
+                  titlefont=dict(size=14, family='Arial', color='black'),
+                  showgrid=True,
+                  gridcolor='lightgrey'
+              ),
+              plot_bgcolor="white",
+              margin=dict(l=50, r=50, t=50, b=50),
+              legend=dict(
+                  x=0.02, y=0.98,
+                  font=dict(size=12)
+              )
+          )
+          fig.show()
+
+      print('**' * 73)
+      print(f"RELATIVE ERROR BETWEEN CURVES: {relative_distance:.4f}")
+      print('**' * 73)

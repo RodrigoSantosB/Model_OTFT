@@ -159,8 +159,9 @@ def initialize_graphics_plot(image_size_width, image_size_height):
 def instance_model(read, TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv, load_idleak, width_t,
                             count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current):
     """Creates an instance of the model with the provided data."""
-    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv,
-                                    load_idleak, width_t, count_transfer, tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
+    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters, 
+                                    input_voltage, Vv, load_idleak, width_t, count_transfer, 
+                                    tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
                                     current_typic=current_typic, res=resistance, curr=current)
 
 
@@ -293,7 +294,7 @@ def plot_curves(option, plot, list_tension, list_tension_shift, count_transfer,
     elif option == 'Show output curve opt':
         plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
                           out_model_data, shift_list, select_files, *out_exp_data, 
-                          sample_unit=current_typic)
+                          sample_unit=current_typic, plot_type='linear')
     
     elif option == 'show both curves opt':
         plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
@@ -345,3 +346,49 @@ def plot_curves(option, plot, list_tension, list_tension_shift, count_transfer,
         print("No option choice\n")
     print('\n\n\n\n\n')
 
+
+def vtho_calculation(in_model_data, signal_of_data=1):
+
+    tensions = in_model_data[0][0]
+    currents = in_model_data[0][1]
+
+    # Calculando as derivadas primeira e segunda em relação a V_GS
+    dI_D_dVGS = np.gradient(currents, tensions)
+    dI_D_dVGS = dI_D_dVGS*(signal_of_data)
+    d2I_D_dVGS2 = np.gradient(dI_D_dVGS, tensions)
+
+    # Encontrando o índice onde a derivada segunda é máxima (pico)
+    index_vtho = np.argmin(d2I_D_dVGS2)
+    Vtho = tensions[index_vtho]
+
+    # Criando o gráfico com Plotly
+    fig = go.Figure()
+
+    # Adicionando as linhas para a 1ª e 2ª derivadas
+    fig.add_trace(go.Scatter(x=tensions, y=currents, mode='lines', name='I_D vs V_GS', line=dict(color='blue')))
+    fig.add_trace(go.Scatter(x=tensions, y=dI_D_dVGS, mode='lines', name='dI_D/dV_GS (1ª derivative)', line=dict(color='orange')))
+    fig.add_trace(go.Scatter(x=tensions, y=d2I_D_dVGS2, mode='lines', name='d²I_D/dV_GS² (2ª derivative)', line=dict(color='red')))
+
+    # Adicionando a linha vertical para Vtho
+    if Vtho is not None:
+        fig.add_vline(x=Vtho, line=dict(color='green', dash='dash'), annotation_text=f'<b>Vtho ~ {Vtho:.2f} V</b>', annotation_position='top left')
+
+    # Adicionando título e labels
+    fig.update_layout(
+        title=dict(text=' Current vs. Tension whith Vtho value', x=0.5, y=0.95, font=dict(size=20, family='Arial', weight='bold')),
+        xaxis_title='<b>VGS / V</b>',
+        yaxis_title='<b>ID / A and Derivatives </b>',
+        font=dict(family='Arial', size=18, color='black'),
+        legend=dict(x=0.04, y=0.04),
+        template='plotly',
+        showlegend=True,
+        width=1100,  # Definindo a largura do gráfico
+        height=600  # Definindo a altura do gráfico
+
+    )
+
+    # Exibindo o gráfico
+    fig.show()
+
+
+        
