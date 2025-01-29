@@ -4,7 +4,7 @@ import json
 
 def read_json_input():
     print(200 * '-')
-    json_path = input('Enter the JSON file path, for example: "/content/gdrive/your/path/json": \n\n')
+    json_path = input('Enter the JSON file path, for example: "/your/path/json": \n\n')
     print(200 * '-')
     
     with open(json_path, 'r') as file:
