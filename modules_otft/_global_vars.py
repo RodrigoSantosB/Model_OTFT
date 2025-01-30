@@ -23,7 +23,6 @@ for block in inputs:
         globals()[key] = value
       
 
-
 def show_varibles():
     for block in inputs:
     # Itera sobre cada chave-valor no bloco de dados
@@ -32,5 +31,4 @@ def show_varibles():
             globals()[key] = value
             print('|' + ' ' + f'{key}: {value}')
             print('--' * 100)
-
 
