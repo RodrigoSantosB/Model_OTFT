@@ -512,3 +512,14 @@ def vtho_calculation(in_model_data, signal_of_data=1):
 
     # Exibindo o gráfico
     fig.show()
+
+       
+def absolute_difference_calculation(Id, model):
+    absolute_difference = []
+    Id_vector = []
+    for (i, j) in zip(Id, model):
+        for (k,n) in zip(i, j):
+            abs_diff = np.abs(k - n)
+            absolute_difference.append(abs_diff)
+            Id_vector.append(k)
+    return absolute_difference, Id_vector
