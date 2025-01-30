@@ -1,5 +1,5 @@
 [{
-    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/SbMicro/tipo_p",
+    "path"                              : "/put/your/path/data/tipo p",
     "experimental_data_scale_transfer"  : "mA",
     "experimental_data_scale_output"    : "A",
     "current_typic"                     : "uA",
