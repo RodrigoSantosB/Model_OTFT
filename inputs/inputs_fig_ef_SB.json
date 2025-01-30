@@ -1,5 +1,5 @@
 [{
-    "path"                              : "/content/gdrive/MyDrive/Projects/IC/beTFT/update models/reports/Fig1ef/datas",
+    "path"                              : "your/path/data/tipo_p",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "mA",
     "current_typic"                     : "uA",
