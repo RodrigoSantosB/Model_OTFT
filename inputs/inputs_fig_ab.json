@@ -8,7 +8,7 @@
     "type_curve_plot"                   : "log",
     "type_read_data_exp"                : "read original data",
     "shift_volt_data"                   : "-1",
-    "select_files"                      : ""
+    "select_files"                      : "0,2,3"
     
 },
 

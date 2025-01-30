@@ -1,15 +1,10 @@
 from ._imports import *
-
 class TFTGraphicsPlot():
-  
-  COUNT_TRANSFER = 0
 
   def __init__(self, height=600, width=1100):
     self.height = height
     self.width = width
-    
-  def set_count_transfer(self, count_transfer):
-    self.COUNT_TRANSFER = count_transfer
+
 
   def __convert_to_ampere_unit(self, scale):
     # Identificar a escala dos dados (mA ou uA)
@@ -56,7 +51,7 @@ class TFTGraphicsPlot():
     iterador = itertools.cycle(volt_data)
     repeticoes = 2
     if compare:
-        title_update = '<b>Model Vs Model Optimized (OPT)<b>'
+        title_update = '<b>Model Vs Model Optimazed<b>'
         volt_data = [next(iterador) for _ in range(repeticoes * len(volt_data))]
     else:
         title_update = '<b>Experimental Datas Vs Model<b>'
@@ -158,8 +153,7 @@ class TFTGraphicsPlot():
           exp_data (list): A list of experimental data.
           shift_list (list): A list of voltage shift values.
           j (int): The current index for which the legend text is being generated.
-          no_shift (bool, optional): Indicates whether the voltage shift should not be 
-          included in the legend text (default is False).
+          no_shift (bool, optional): Indicates whether the voltage shift should not be included in the legend text (default is False).
 
       Returns:
           list: A list containing the generated legend text.
@@ -336,20 +330,18 @@ class TFTGraphicsPlot():
     else:
         print("ERROR in type_data")
 
-    cor_index = 0  # color index
-
     # ------------------------------------------------------------------------
     # MODEL PLOT
     # Iterate through model data ---------------------------------------------
+    cor_index = 0  # color index
     for i, data in enumerate(model_data):
         name = ''
-        dash_style = ''
-        if scale == 'log' and type_data == curv_transfer:
-            y_data = 10**(data[1])
-        else:
-            y_data = data[1]
 
-        
+        if scale == 'log' and type_data == curv_transfer:
+          y_data = 10**(data[1])
+        else:
+          y_data = data[1]
+
         if type_data == curv_transfer or type_data == curv_out:
             if i < (len(volt_data) // 2) or not compare:
                 cor = list_colors[cor_index]
@@ -399,16 +391,16 @@ class TFTGraphicsPlot():
         if (len(select_files) != 0) and (len(select_files) < len(shift_list)):
           for index in select_files:
             try:
-              if self.COUNT_TRANSFER == 0:
+              if count_transfer == 0:
                 shift_list_update.append(shift_list[index-1])
               else:
-                shift_list_update.append(shift_list[index-self.COUNT_TRANSFER])
+                shift_list_update.append(shift_list[index-count_transfer])
 
             except IndexError:
-              if self.COUNT_TRANSFER == 0:
+              if count_transfer == 0:
                 shift_list_update.append(shift_list[index-1])
               else:
-                shift_list_update.append(shift_list[index-self.COUNT_TRANSFER])
+                shift_list_update.append(shift_list[index-count_transfer])
 
         else:
 
