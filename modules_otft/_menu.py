@@ -6,81 +6,76 @@ class TFTMenu:
     pass
 
   def __convert_to_ampere_unit(self, scale):
-      # Identificar a escala dos dados (mA ou uA)
+      # Identify the data scale (mA or uA)
       convert_to_ampere_unit = 0
-      unite = {  'A': 1,
-                'mA': 1e-3,
-                'uA': 1e-6,
-                'nA': 1e-9,
-                'pA': 1e-12
-                            }
+      unit = {
+          'A': 1,
+          'mA': 1e-3,
+          'uA': 1e-6,
+          'nA': 1e-9,
+          'pA': 1e-12
+      }
 
-      # Verificar se a escala existe no dicionário
-      if scale in unite:
-          convert_to_ampere_unit = unite[scale]
-          # print(convert_to_ampere_unit )
+      # Check if the scale exists in the dictionary
+      if scale in unit:
+          convert_to_ampere_unit = unit[scale]
       else:
-          raise ValueError("Escala de dados inválida!")
+          raise ValueError("Invalid data scale!")
+      
       return convert_to_ampere_unit
 
-  def show_table_info(self, scale, coeff, coeff_opt, coeff_error, curr_typic, resistance):
+  def show_table_info(self, coeff, coeff_opt, coeff_error, curr_typic, curr_carry, resistance):
 
-    name_par = ['VTHO [V]', 'DELTA', 'N', 'L', 'LAMBDA', 'VGCRIT [V]',
-                'JTH [μA cm^−1]', 'RS [kΩ]', 'JTH / LAMBDA * N [μA cm^−1]']
+      name_par = ['VTHO [V]', 'DELTA', 'N', 'L', 'LAMBDA', 'VGCRIT [V]',
+                  'JTH [μA cm^−1]', 'RS [kΩ]', 'JTH / LAMBDA * N [μA cm^−1]']
 
-    print()
-    print('---------------------------')
-    print(" COEFICIENTES OTIMIZADOS:\n")
-    data = []
-    for name, initial, opt, error in zip(name_par, coeff, coeff_opt, coeff_error):
-        data.append([name, initial, opt, error])
+      print()
+      print('---------------------------')
+      print(" OPTIMIZED COEFFICIENTS:\n")
+      data = []
+      for name, initial, opt, error in zip(name_par, coeff, coeff_opt, coeff_error):
+          data.append([name, initial, opt, error])
 
-    curr_typic_ = self.__convert_to_ampere_unit(curr_typic)
+      curr_typic_ = self.__convert_to_ampere_unit(curr_typic)
 
-    # # Faz a leitura dos dados experimentais e do modelo (de transferencia) a serem exibidos no gráfico
+      # Adjustments for JTH [μA cm^−1]
+      data[6][1] = data[6][1] * (curr_carry / 1e-6)  # JTH = 2mA * curr_typic / 1e-6 (fixed uA)
+      data[6][2] = data[6][2] * (curr_carry / 1e-6)  # scale / 1e-6
 
-    #  JTH [μA cm^−1]
-    data[6][1] = data[6][1] * (eval(current_carry) / 1e-6) # JTH = 2mA * curr_typic / 1e-6 (fixo uA)
-    data[6][2] = data[6][2] * (eval(current_carry) / 1e-6) # scale/1e-6
+      # Adjustments for RS [kΩ]
+      data[7][1] = data[7][1] * (resistance / 1e3)  # res / 1e3
+      data[7][2] = data[7][2] * (resistance / 1e3)  # res / 1e3
 
-    # RS [kΩ]
-    data[7][1] = data[7][1] * (resistance / 1e3) # res/1e3
-    data[7][2] = data[7][2] * (resistance / 1e3) # res/1e3
+      # Calculate and add the value of JTH / LAMBDA * N for Initial Value
+      jth_lambda_n_initial = data[6][1] / (data[4][1] * data[2][1])
 
+      # Calculate and add the value of JTH / LAMBDA * N
+      jth_lambda_n = data[6][2] / (data[4][2] * data[2][2])
 
-    # Calculando e adicionando o valor de JTH / LAMBDA * N para o Valor Inicial
-    jth_lambda_n_initial = data[6][1] / (data[4][1] * data[2][1])
+      # Calculate and add the value of JTH / LAMBDA * N for Associated Error
+      jth_lambda_n_error = data[6][3] / (data[4][3] * data[2][3])
 
-    # Calculando e adicionando o valor de JTH / LAMBDA * N
-    jth_lambda_n = data[6][2] / (data[4][2] * data[2][2])
+      data.append(['JTH / LAMBDA * N [μA cm^−1]',
+                    jth_lambda_n_initial, jth_lambda_n, jth_lambda_n_error])
 
-    # Calculando e adicionando o valor de JTH / LAMBDA * N para o Erro Associado
-    jth_lambda_n_error = data[6][3] / (data[4][3] * data[2][3])
+      # Function to wrap text in table cells
+      def wrap_cell_text(text, width=20):
+          return "\n".join(textwrap.wrap(text, width=width, subsequent_indent=" "*5))
 
-    data.append(['JTH / LAMBDA * N [μA cm^−1]',
-                jth_lambda_n_initial, jth_lambda_n, jth_lambda_n_error ])
+      # Format values to 8 decimal places
+      for row in data:
+          for i in range(1, len(row)):
+              if isinstance(row[i], float):
+                  row[i] = "{:.8e}".format(row[i])
 
+      # Center-align table values
+      for row in data:
+          for i in range(len(row)):
+              row[i] = wrap_cell_text(str(row[i]))
 
-    # Função para centralizar o texto nas células da tabela
-    def wrap_cell_text(text, width=20):
-        return "\n".join(textwrap.wrap(text, width=width, subsequent_indent=" "*5))
-
-    # Formatar os valores para até 8 casas decimais
-    for row in data:
-        for i in range(1, len(row)):
-            if isinstance(row[i], float):
-                row[i] = "{:.8e}".format(row[i])
-
-    # Centralizar os valores da tabela
-    for row in data:
-        for i in range(len(row)):
-            row[i] = wrap_cell_text(str(row[i]))
-
-
-
-    table = tabulate(data, headers=["Parâmetro", "Valor Inicial", "Valor Otimizado",
-                                    "Erro associado (desvio padrão)"], tablefmt="fancy_grid")
-    print(table)
+      table = tabulate(data, headers=["Parameter", "Initial Value", "Optimized Value",
+                                      "Associated Error (standard deviation)"], tablefmt="fancy_grid")
+      print(table)
 
 
   def print_values(self, values):
@@ -93,10 +88,14 @@ class TFTMenu:
     print('-'*103)
 
 
-  def view_path_reads(self, path_voltages, voltages):
-    def extract_filename(path):
-        return os.path.basename(path)
 
+
+  def extract_filename(self, path):
+    return os.path.basename(path)
+
+
+  def view_path_reads(self, path_voltages, voltages):
+    
     print('-'*44)
     print('-'*44)
     print("|" + " "*16 + "READ FILES" + " "*16 + "|")
@@ -107,7 +106,7 @@ class TFTMenu:
 
     for i, (j,  k) in enumerate(zip(path_voltages, voltages)):
       tes = path_voltages[i][0]
-      filename = extract_filename(tes)
+      filename = self.extract_filename(tes)
       new_curves.append(filename)
 
       if len(filename) > 14:
@@ -118,4 +117,3 @@ class TFTMenu:
         print('|' + ' '*(len(filename)) + f'{filename}' + ' '*( len(filename)) + '|')
         print('-'*44)
     print('-'*44)
-    return new_curves

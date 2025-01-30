@@ -4,7 +4,7 @@ import json
 
 def read_json_input():
     print(200 * '-')
-    json_path = input('Enter the JSON file path, for example: "/your/path/json": \n\n')
+    json_path = input('Enter the JSON file path, for example: "/content/gdrive/your/path/json": \n\n')
     print(200 * '-')
     
     with open(json_path, 'r') as file:
@@ -23,7 +23,6 @@ for block in inputs:
         globals()[key] = value
       
 
-
 def show_varibles():
     for block in inputs:
     # Itera sobre cada chave-valor no bloco de dados
@@ -32,5 +31,4 @@ def show_varibles():
             globals()[key] = value
             print('|' + ' ' + f'{key}: {value}')
             print('--' * 100)
-
 

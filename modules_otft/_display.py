@@ -1,0 +1,18 @@
+
+def display_settings(menu, settings, path_voltages, shift_list, list_tension_shift):
+    print()
+    print('Settings:')
+    print('---------------------------------')
+    print('Type read data: ' + f'{settings["type_read_data_exp"]}')
+    print('Current typic : ' + f'{settings["current_typic"]}')
+    print('Scale transfer: ' + f'{settings["experimental_data_scale_transfer"]}')
+    print('Scale output  : ' + f'{settings["experimental_data_scale_output"]}')
+    print('Shift value   : ' + f'{shift_list}')
+    print('List volt shift: ' +  f'{list_tension_shift}')
+    menu.view_path_reads(path_voltages, list_tension_shift)
+    print()
+    print('A tabela acima mostra todos os arquivos que foram lidos no diretório, caso queira filtrar arquivos para que sejam')
+    print('lidos apenas aqueles que sejam de seu interesse, faça isso trocando os números que correspondam a ordem das curvas dos experimentos,')
+    print('separados por ,. Por exemplo: 0:tranfer-5v , 3:output-40v e assim por diante')
+    print('---------------------------------')
+    print()

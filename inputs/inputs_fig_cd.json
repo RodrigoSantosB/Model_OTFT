@@ -8,7 +8,7 @@
     "type_curve_plot"                   : "logarithmic",
     "type_read_data_exp"                : "read interpolated data",
     "shift_volt_data"                   : "5, 5, 5",
-    "select_files"                      : "0,2,3"
+    "select_files"                      : ""
     
 },
 
