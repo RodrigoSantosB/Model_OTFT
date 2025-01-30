@@ -1,6 +1,4 @@
-
 from ._imports import *
-
 class TFTModel:
 
     #CONSTANTS VALUES DEFALTS (private):
@@ -570,3 +568,4 @@ class TFTModel:
                 chain_matrix_id = -Idx / curr_typic
 
       return np.ravel(chain_matrix_id)
+

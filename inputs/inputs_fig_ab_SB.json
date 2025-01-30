@@ -1,14 +1,14 @@
 [{
-    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/Fig1ab/tipo p",
+    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/SBMicro/tipo_p",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "uA",
     "current_typic"                     : "uA",
     "loaded_voltages"                   : "-2, -50, -30, -40, -50",
-    "curves_transfer"                   :  2,
-    "type_curve_plot"                   : "log",
+    "curves_transfer"                   : 2,
+    "type_curve_plot"                   : "logarithmic",
     "type_read_data_exp"                : "read original data",
-    "shift_volt_data"                   : "-1",
-    "select_files"                      : "0,2,3"
+    "shift_volt_data"                   : "",
+    "select_files"                      : "0, 1, 3, 2, 4"
     
 },
 
@@ -24,8 +24,8 @@
                                             "L"     : 3.18,   
                                             "LAMBDA": 1.49e03,
                                             "VGCRIT": 32.3,   
-                                            "JTH"   : 1,
-                                            "RS"    : 1
+                                            "JTH"   :1,
+                                            "RS"    :1
                                             },
                                             
     "idleak_mode"                       : "unique idleak value",

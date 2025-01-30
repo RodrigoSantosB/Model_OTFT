@@ -1,14 +1,14 @@
 [{
-    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/Fig1ab/tipo p",
+    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/SBMicro",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "uA",
     "current_typic"                     : "uA",
-    "loaded_voltages"                   : "-2, -50, -30, -40, -50",
-    "curves_transfer"                   :  2,
-    "type_curve_plot"                   : "log",
-    "type_read_data_exp"                : "read original data",
-    "shift_volt_data"                   : "-1",
-    "select_files"                      : "0,2,3"
+    "loaded_voltages"                   : "-5, -40, -20, -30, -40",
+    "curves_transfer"                   : 2,
+    "type_curve_plot"                   : "logarithmic",
+    "type_read_data_exp"                : "read interpolated data",
+    "shift_volt_data"                   : "5, 5, 5",
+    "select_files"                      : ""
     
 },
 
@@ -19,17 +19,17 @@
     "type_of_transistor"                : "pFET",
     
     "loaded_parameters"                 : { "VTHO"  : 8.57,  
-                                            "DELTA" : 0.0123,
-                                            "N"     : 108,  
-                                            "L"     : 3.18,   
-                                            "LAMBDA": 1.49e03,
+                                            "DELTA" : 0.0032,
+                                            "N"     : 57.4,  
+                                            "L"     : 2.14,   
+                                            "LAMBDA": 3010,
                                             "VGCRIT": 32.3,   
-                                            "JTH"   : 1,
-                                            "RS"    : 1
+                                            "JTH"   :4,
+                                            "RS"    :20
                                             },
-                                            
-    "idleak_mode"                       : "unique idleak value",
-    "loaded_idleak"                     : "6.5e-11"
+
+    "idleak_mode"                       : "more than one value idleak",
+    "loaded_idleak"                     : "4e-10,  3e-9"
 },
 
 {
@@ -38,13 +38,13 @@
     
     "upper_bounds": {
         "ub_VTHO"   : 12,
-        "ub_DELTA"  : 0.2,
+        "ub_DELTA"  : 0.3,
         "ub_N"      : 130,
         "ub_L"      : 4.1,
         "ub_LAMBDA" : 10000,
         "ub_VGCRIT" : 80,
         "ub_JTH"    : 10,
-        "ub_RS"     : 10
+        "ub_RS"     : 360
     },
     
     "lower_bounds": {

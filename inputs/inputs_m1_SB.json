@@ -1,14 +1,14 @@
 [{
-    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/Fig1ab/tipo p",
+    "path"                              : "/home/rsb6/Desktop/Artigo JICS/Model_OTFT/datas/SBMicro/tipo_p",
     "experimental_data_scale_transfer"  : "A",
-    "experimental_data_scale_output"    : "uA",
+    "experimental_data_scale_output"    : "A",
     "current_typic"                     : "uA",
-    "loaded_voltages"                   : "-2, -50, -30, -40, -50",
-    "curves_transfer"                   :  2,
+    "loaded_voltages"                   : "-40, -20, -40, -60, -80",
+    "curves_transfer"                   : 1,
     "type_curve_plot"                   : "log",
     "type_read_data_exp"                : "read original data",
-    "shift_volt_data"                   : "-1",
-    "select_files"                      : "0,2,3"
+    "shift_volt_data"                   : "0, -1, -2, -6",
+    "select_files"                      : ""
     
 },
 
@@ -18,18 +18,18 @@
     "with_transistor"                   : "0.1",
     "type_of_transistor"                : "pFET",
     
-    "loaded_parameters"                 : { "VTHO"  : 8.57,  
-                                            "DELTA" : 0.0123,
+    "loaded_parameters"                 : { "VTHO"  : 1.0000e+01,  
+                                            "DELTA" : 1.2300e-02,
                                             "N"     : 108,  
                                             "L"     : 3.18,   
                                             "LAMBDA": 1.49e03,
                                             "VGCRIT": 32.3,   
-                                            "JTH"   : 1,
-                                            "RS"    : 1
+                                            "JTH"   :1,
+                                            "RS"    :1
                                             },
                                             
     "idleak_mode"                       : "unique idleak value",
-    "loaded_idleak"                     : "6.5e-11"
+    "loaded_idleak"                     : "2e-11"
 },
 
 {
