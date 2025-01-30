@@ -93,10 +93,13 @@ class TFTMenu:
     print('-'*90)
 
 
-  def view_path_reads(self, path_voltages, voltages):
-    def extract_filename(path):
-        return os.path.basename(path)
 
+  def extract_filename(self, path):
+    return os.path.basename(path)
+
+
+  def view_path_reads(self, path_voltages, voltages):
+    
     print('-'*44)
     print('-'*44)
     print("|" + " "*16 + "READ FILES" + " "*16 + "|")
@@ -107,7 +110,7 @@ class TFTMenu:
 
     for i, (j,  k) in enumerate(zip(path_voltages, voltages)):
       tes = path_voltages[i][0]
-      filename = extract_filename(tes)
+      filename = self.extract_filename(tes)
       new_curves.append(filename)
 
       if len(filename) > 14:
@@ -118,4 +121,3 @@ class TFTMenu:
         print('|' + ' '*(len(filename)) + f'{filename}' + ' '*( len(filename)) + '|')
         print('-'*44)
     print('-'*44)
-    return new_curves
