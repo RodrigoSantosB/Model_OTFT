@@ -1,5 +1,5 @@
 [{
-    "path"                              : "/put/your/path/data/tipo n",
+    "path"                              : "/content/Model_OTFT/datas/Fig1cd",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "uA",
     "current_typic"                     : "uA",
@@ -18,13 +18,13 @@
     "with_transistor"                   : "0.1",
     "type_of_transistor"                : "pFET",
     
-    "loaded_parameters"                 : { "VTHO"  : 8.57,  
+    "loaded_parameters"                 : { "VTHO"  : 8.44,  
                                             "DELTA" : 0.0032,
                                             "N"     : 57.4,  
                                             "L"     : 2.14,   
-                                            "VGCRIT": 32.3,   
-                                            "JTH"   :4,
-                                            "RS"    :20
+                                            "VGCRIT": 15.8,   
+                                            "JTH"   : 5.68,
+                                            "RS"    : 1
                                             },
 
     "idleak_mode"                       : "more than one value idleak",
@@ -37,12 +37,12 @@
     
     "upper_bounds": {
         "ub_VTHO"   : 12,
-        "ub_DELTA"  : 0.3,
+        "ub_DELTA"  : 0.1,
         "ub_N"      : 130,
-        "ub_L"      : 4.1,
+        "ub_L"      : 4,
         "ub_VGCRIT" : 80,
-        "ub_JTH"    : 10,
-        "ub_RS"     : 360
+        "ub_JTH"    : 30,
+        "ub_RS"     : 70
     },
     
     "lower_bounds": {
@@ -50,12 +50,12 @@
         "lb_DELTA"  : 0,
         "lb_N"      : 10,
         "lb_L"      : 1,
-        "lb_VGCRIT" : 10,
-        "lb_JTH"    : 0,
+        "lb_VGCRIT" : 0,
+        "lb_JTH"    : 1e-3,
         "lb_RS"     : 0
     },    
     
-    "default_bounds"                    :  "yes",
+    "default_bounds"                    :  "no",
     "optimization_method"               :  "trf",
     "tolerance_factor"                  :  "4e-7"
     
