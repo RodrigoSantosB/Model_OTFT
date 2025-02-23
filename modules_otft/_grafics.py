@@ -51,7 +51,7 @@ class TFTGraphicsPlot():
     iterador = itertools.cycle(volt_data)
     repeticoes = 2
     if compare:
-        title_update = '<b>Model Vs Model Optimazed<b>'
+        title_update = '<b>Model Vs Model Optimized (OPT)<b>'
         volt_data = [next(iterador) for _ in range(repeticoes * len(volt_data))]
     else:
         title_update = '<b>Experimental Datas Vs Model<b>'
@@ -347,20 +347,20 @@ class TFTGraphicsPlot():
                 cor = list_colors[cor_index]
                 cor_index = (cor_index + 1) % len(list_colors)
                 dash_style = 'dash'  # Linha pontilhada para modelos aproximados
-                name = '<b>Model OVSED<b>'
+                name = '<b>Model INIT<b>'
             elif i >= (len(volt_data) // 2) and compare:
                 cor = 'black'  # The first color aways black
                 dash_style = 'solid'  # Linha sólida para modelos otimizados
                 name = '<b>Model OPT<b>'
 
             fig.add_trace(go.Scatter(x=data[0], y=y_data,
-                                    mode='lines+text',
+                                    mode='lines',
                                     name=name + ' ' + f'<b>{volt_data[i]}' + 'V<b>',
                                     line=dict(color=cor,  dash=dash_style),  # Use the choice color
                                     text=[f'{volt_data[i]}V'],
                                     textposition='bottom center',
                                     textfont=dict(
-                                        family="Times New Roman",
+                                        family="footnotesize",
                                         size=13,
                                         color=cor)))  # use the same color in text
 
@@ -412,8 +412,8 @@ class TFTGraphicsPlot():
                                 text=self.__legend_text(xlegend, volt_data, exp_data, shift_list_update, j, no_shift),
                                 textposition='top right',
                                 textfont=dict(
-                                    family="Times New Roman",
-                                    size=18,
+                                    family="footnotesize",
+                                    size=11,
                                     color=colors),
                                 marker=dict(color=colors,
                                             size=11,
@@ -429,42 +429,66 @@ class TFTGraphicsPlot():
         title_x=0.45,
         title_y=0.9,
         title_font=dict(
-            family="Overpass",
-            size=25,
+            family="footnotesize",
+            size=28,
             color='black'
         ),
         height=self.height, width=self.width,
-        legend=dict(font=dict(size=16))
+        legend=dict(font=dict(size=23, family="footnotesize"))
     )
 
-    size_text = 25
+    size_text = 28
     fig.update_xaxes(
         title_text=text,
         title_font=dict(
-            family="Overpass",
+            family="footnotesize",
             size=size_text,
             color='black'),
-        title_standoff=25)
+        title_standoff=28,
+        tickfont=dict(
+            family="footnotesize",
+            size=size_text,
+            color='black')
+        )
 
     if type_data == curv_transfer:
       fig.update_yaxes(
           type=scale,
           title_text = ylegend,
           title_font=dict(
-            family="Overpass",
+            family="footnotesize",
             size=size_text,
             color= 'black'),
-          title_standoff = 10)
+          title_standoff = 28,
+          tickfont=dict(
+          family="footnotesize",
+          size=size_text,
+          color='black'),
+          # tickvals=[1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1],
+          # ticktext=["1p", "1n", "1µ", "1m", "1"]
+          )
+      
       # print('SCALE', scale)
+      # fig.write_image(f"transfer_01{title_update}.svg")      
+      # fig.write_image(f"transfer_{j}.png")
+      
     else:
       fig.update_yaxes(
         type='linear',
         title_text = ylegend,
         title_font=dict(
-          family="Overpass",
+          family="footnotesize",
           size=size_text,
           color= 'black'),
-        title_standoff = 10)
-
+        title_standoff = 28,
+        tickfont=dict(
+        family="footnotesize",
+        size=size_text,
+        color='black')
+              )
+      # fig.write_image(f"out_{title_update}.svg")
+      # fig.write_image(f"out_{j}.png")
+    
     # Show the plot
     fig.show()
+    
