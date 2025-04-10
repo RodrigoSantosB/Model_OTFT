@@ -15,7 +15,6 @@ class TFTGraphicsPlot():
               'nA': 1e-9,
               'pA': 1e-12
                           }
-
     # Verificar se a escala existe no dicionário
     if scale in unite:
         correction_factor = unite[scale]
@@ -290,7 +289,7 @@ class TFTGraphicsPlot():
       else:
         text = "<b>VGS / V<b>"
         xlegend = '<b>VDS<b>'
-        ylegend = f"<b>|ID| / {sample_unit}<b>"
+        ylegend = f"<b>ID / {sample_unit}<b>"
         title_update = '<b>Experimental Datas Vs Model<b>'
         volt_data = []
         new_volt =  []
