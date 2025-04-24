@@ -317,13 +317,16 @@ def load_experimental_data(read, count_transfer, Vv, Id, model, count_output):
     return in_model_data, in_exp_data, out_model_data, out_exp_data
 
 
+
 def create_model_opt(TFTModel, input_voltage, n_points, type_curve_plot, current_typic,
-                     experimental_data_scale_transfer, load_idleak, mode_idleak, count_transfer,
-                                                                            resistance, current):
+                    experimental_data_scale_transfer, load_idleak, mode_idleak, count_transfer,
+                    type_data=0, type_transitor=-1, with_transistor=0.1, resistance=None, current=None):
     """Creates an optimization model."""
-    model_id = TFTModel( input_voltage, n_points, type_curve_plot, current_typic=current_typic,
+    model_id = TFTModel(input_voltage, n_points, type_curve_plot, current_typic=current_typic,
                         scale_factor=experimental_data_scale_transfer, idleak=load_idleak,
                         mult_idleak=mode_idleak,  curv_transfer=count_transfer,
+                        type_data=type_data, type_transitor=type_transitor,
+                        with_transistor=with_transistor,
                         sr_resistance=resistance, curr_carry=current)
     return model_id
 
