@@ -1,5 +1,5 @@
 [{
-    "path"                              : "your/path/data/tipo_p",
+    "path"                              : "C:\\Users\\rodri\\OneDrive - UFPE\\Área de Trabalho\\TCC implementation\\Model_OTFT\\datas\\Fig1cd",
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "uA",
     "current_typic"                     : "uA",
@@ -59,9 +59,13 @@
     },    
     
     "default_bounds"                    :  "no",
-    "optimization_method"               :  "trf",
-    "tolerance_factor"                  :  "4e-7"
+    "optimization_method"               :  "mlp",
+    "tolerance_factor"                  :  "4e-7",
+    "max_iterations"                    :  "1000",
     
+    "load_mlp_model"                    :  true,
+    "save_mlp_model"                    :  true,
+    "mlp_model_path"                    :  null
 }
 
 ]

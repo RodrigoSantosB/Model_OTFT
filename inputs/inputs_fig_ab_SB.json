@@ -48,19 +48,24 @@
     },
     
     "lower_bounds": {
-        "lb_VTHO"   : 8,
-        "lb_DELTA"  : 0,
-        "lb_N"      : 10,
-        "lb_L"      : 1,
-        "lb_LAMBDA" : 100,
+        "lb_VTHO"   : 5,
+        "lb_DELTA"  : 0.001,
+        "lb_N"      : 80,
+        "lb_L"      : 2.5,
+        "lb_LAMBDA" : 1,
         "lb_VGCRIT" : 10,
-        "lb_JTH"    : 0,
-        "lb_RS"     : 0
+        "lb_JTH"    : 0.1,
+        "lb_RS"     : 0.1
     },    
     
-    "default_bounds"                    :  "no",
+    "default_bounds"                    :  "True",
     "optimization_method"               :  "mlp",
-    "tolerance_factor"                  :  "4e-7"
+    "tolerance_factor"                  :  "1e-6",
+    "max_iterations"                    :  "1000",
+    
+    "load_mlp_model"                    :  true,
+    "save_mlp_model"                    :  true,
+    "mlp_model_path"                    :  null
     
 }
 

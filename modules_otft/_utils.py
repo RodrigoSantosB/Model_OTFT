@@ -334,12 +334,32 @@ def create_optimizer(settings, path_voltages, type_curve_plot):
     
     if settings['optimization_method'] == 'mlp':
         from ._mlp_optimization import MLPOptimizer
+        import os
+        
+        # Verificar se deve carregar um modelo existente
+        load_model = settings.get('load_mlp_model', True)  # Por padrão, tenta carregar
+        
+        # Definir caminho do modelo
+        model_path = settings.get('mlp_model_path', None)
+        if model_path is None:
+            # Caminho padrão para o modelo
+            model_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'mlp_model.pkl')
+        
+        # Verificar se o modelo existe
+        model_exists = os.path.exists(model_path)
+        
+        # Se load_model=True mas o modelo não existe, vamos treinar um novo
+        # Se load_model=False, sempre treinamos um novo
+        should_load = load_model and model_exists
+        
         optimizer = MLPOptimizer(current_typic=settings['current_typic'], 
                                scale_transfer=settings['experimental_data_scale_transfer'], 
                                scale_output=settings['experimental_data_scale_output'], 
                                path_voltages=path_voltages, 
                                type_read=settings['type_read_data_exp'],
-                               type_curve=type_curve_plot)
+                               type_curve=type_curve_plot,
+                               model_path=model_path,
+                               load_model=should_load)
     else:
         optimizer = ModelOptmization(current_typic=settings['current_typic'], 
                                    scale_transfer=settings['experimental_data_scale_transfer'], 
@@ -364,9 +384,19 @@ def configure_optimizer(optimizer, settings):
         optimizer.set_default_bounds(settings['default_bounds'])
         optimizer.set_ftol_param(tlr_factor)
 
-def optimize_model(optimizer, model_id, load_parameters, *path_voltages):
+def optimize_model(optimizer, model_id, load_parameters, *path_voltages, **kwargs):
     """Performs model optimization."""
-    coeff_opt, coeff_error, text_verbose = optimizer.optimize_all(model_id, load_parameters, *path_voltages)
+    # Verificar se é um otimizador MLP
+    if hasattr(optimizer, 'save_model'):  # Método exclusivo do MLPOptimizer
+        # Obter configurações do kwargs se disponíveis, ou usar valores padrão
+        settings = kwargs.get('settings', {})
+        save_model = settings.get('save_mlp_model', True)  # Por padrão, salva o modelo
+        use_saved = settings.get('load_mlp_model', True)   # Por padrão, tenta usar modelo salvo
+        
+        coeff_opt, coeff_error, text_verbose = optimizer.optimize_all(model_id, load_parameters, *path_voltages, save_model_after=save_model, use_saved_model=use_saved)
+    else:
+        # Para outros otimizadores, mantém o comportamento original
+        coeff_opt, coeff_error, text_verbose = optimizer.optimize_all(model_id, load_parameters, *path_voltages)
     return coeff_opt, coeff_error, text_verbose
 
 
