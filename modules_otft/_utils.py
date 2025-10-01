@@ -332,21 +332,37 @@ def create_optimizer(settings, path_voltages, type_curve_plot):
     """Creates and configures the optimizer instance."""
     lw_bounds, up_bounds = get_bounds(settings)
     
-
-    optimizer = ModelOptmization(current_typic=settings['current_typic'], scale_transfer=settings['experimental_data_scale_transfer'], 
-                                 scale_output=settings['experimental_data_scale_output'], path_voltages=path_voltages, 
-                                 type_read=settings['type_read_data_exp'],
-                                 type_curve=type_curve_plot, method=settings['optimization_method'], 
-                                 bounds=(lw_bounds, up_bounds))
+    if settings['optimization_method'] == 'mlp':
+        from ._mlp_optimization import MLPOptimizer
+        optimizer = MLPOptimizer(current_typic=settings['current_typic'], 
+                               scale_transfer=settings['experimental_data_scale_transfer'], 
+                               scale_output=settings['experimental_data_scale_output'], 
+                               path_voltages=path_voltages, 
+                               type_read=settings['type_read_data_exp'],
+                               type_curve=type_curve_plot)
+    else:
+        optimizer = ModelOptmization(current_typic=settings['current_typic'], 
+                                   scale_transfer=settings['experimental_data_scale_transfer'], 
+                                   scale_output=settings['experimental_data_scale_output'], 
+                                   path_voltages=path_voltages, 
+                                   type_read=settings['type_read_data_exp'],
+                                   type_curve=type_curve_plot, 
+                                   method=settings['optimization_method'], 
+                                   bounds=(lw_bounds, up_bounds))
     return optimizer
-
 
 def configure_optimizer(optimizer, settings):
     """Configures the optimizer parameters."""
     tlr_factor = get_tolerance_factor(settings)
-    optimizer.set_default_bounds(settings['default_bounds'])
-    optimizer.set_ftol_param(tlr_factor)
-
+    
+    # Verificar se é um otimizador MLP
+    if settings['optimization_method'] == 'mlp':
+        # MLPOptimizer não precisa dessas configurações
+        pass
+    else:
+        # Configurações para o otimizador tradicional
+        optimizer.set_default_bounds(settings['default_bounds'])
+        optimizer.set_ftol_param(tlr_factor)
 
 def optimize_model(optimizer, model_id, load_parameters, *path_voltages):
     """Performs model optimization."""
