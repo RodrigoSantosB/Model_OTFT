@@ -103,11 +103,20 @@ class TFTGraphicsPlot():
 
     shift_list = self.__change_signal_shift(shift_list)
 
+    def safe_index(values, idx, default='?'):
+        if not values:
+            return default
+        safe_idx = min(max(idx, 0), len(values) - 1)
+        return values[safe_idx]
+
     def format_name(volt_data, shift_list, j):
-        return '<b>Exp <b>' + ' ' + f'<b>{volt_data[j]}' + 'V<b>' + ' ' + f'<b> ({shift_list[j]}V)<b>'
+        volt = safe_index(volt_data, j)
+        shift = safe_index(shift_list, j, 0)
+        return '<b>Exp <b>' + ' ' + f'<b>{volt}' + 'V<b>' + ' ' + f'<b> ({shift}V)<b>'
 
     def _name(volt_data, shift_list, j):
-        return '<b>Exp <b>' + ' ' + f'<b>{volt_data[j]}' + 'V<b>'
+        volt = safe_index(volt_data, j)
+        return '<b>Exp <b>' + ' ' + f'<b>{volt}' + 'V<b>'
 
     if len(exp_data) < 3:
       if shift_list is not None:
@@ -177,13 +186,22 @@ class TFTGraphicsPlot():
 
       #Returns:
         # list: Uma lista contendo o texto formatado da legenda.
-      return [f'{xlegend}={volt_data[j]}V' + ' ' + f' ({shift_list[j]})']
+      volt = safe_index(volt_data, j)
+      shift = safe_index(shift_list, j, 0)
+      return [f'{xlegend}={volt}V' + ' ' + f' ({shift})']
 
     # Formata o texto da legenda sem incluir o deslocamento de tensão com base nos dados de tensão e um índice j.
     def _text(volt_data, shift_list, j):
-        return [f'{xlegend}={volt_data[j]}V']
+        volt = safe_index(volt_data, j)
+        return [f'{xlegend}={volt}V']
 
     shift_list = self.__change_signal_shift(shift_list)
+
+    def safe_index(values, idx, default='?'):
+      if not values:
+        return default
+      safe_idx = min(max(idx, 0), len(values) - 1)
+      return values[safe_idx]
 
     if len(exp_data) < 3:
       if shift_list is not None:
