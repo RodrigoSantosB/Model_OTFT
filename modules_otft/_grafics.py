@@ -391,16 +391,16 @@ class TFTGraphicsPlot():
         if (len(select_files) != 0) and (len(select_files) < len(shift_list)):
           for index in select_files:
             try:
-              if count_transfer == 0:
+              if count == 0:
                 shift_list_update.append(shift_list[index-1])
               else:
-                shift_list_update.append(shift_list[index-count_transfer])
+                shift_list_update.append(shift_list[index-count])
 
             except IndexError:
-              if count_transfer == 0:
+              if count == 0:
                 shift_list_update.append(shift_list[index-1])
               else:
-                shift_list_update.append(shift_list[index-count_transfer])
+                shift_list_update.append(shift_list[index-count])
 
         else:
 
