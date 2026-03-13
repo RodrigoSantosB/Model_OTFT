@@ -29,7 +29,7 @@ class ReadData:
           [('path1', 0, 3.0), ('path2', 1, 4.0)]
     """
 
-    # count é a quantida de dados de transferencia da amostra
+    # count é a quantidade de dados de transferencia da amostra
     paths = []
     for i in range(len(path_voltages)):
       if i < count:
@@ -875,4 +875,3 @@ class ReadData:
       print('|' + f"RELATIVE ERROR BETWEEN CURVES: {relative_distance:.4f}")
       print()
       print('**'*73)
-

@@ -560,6 +560,7 @@ def vtho_calculation(in_model_data, signal_of_data=1):
     fig.show()
 
        
+#aposentado   
 def absolute_difference_calculation(Id, model):
     absolute_difference = []
     Id_vector = []
@@ -569,3 +570,66 @@ def absolute_difference_calculation(Id, model):
             absolute_difference.append(abs_diff)
             Id_vector.append(k)
     return absolute_difference, Id_vector
+
+
+
+# compute the relative error
+def relative_error(model_curve, exp_curve):
+            """Computes relative error between an experimental and modeled curve."""
+            model_curve, exp_curve = np.array(model_curve), np.array(exp_curve)
+            assert exp_curve.shape == model_curve.shape, "Curves must have the same shape"
+            abs_diff = np.abs(exp_curve - model_curve)
+            rel_dist = np.sum(abs_diff / (np.abs(exp_curve) + 1e-10))
+            abs_dist = np.sum(abs_diff)
+            return rel_dist, abs_dist
+        
+        
+# compute the error per data
+def compute_error_per_data(model_data, exp_data):
+        datas = {}
+        # Loop para extrair os vetores e armazená-los no dicionário
+        for i, (tension, curr) in enumerate(model_data):
+            datas[f"tension_{i}"] = tension
+            datas[f"curr_{i}"] =  curr
+
+        # Acessando os vetores dinamicamente
+        rel_dist, abs_dist = [], []
+        for (key, dt_model), dt_exp in zip(datas.items(), exp_data):
+            rel, abs_ = relative_error(dt_model, dt_exp)
+            rel_dist.append(rel)
+            abs_dist.append(abs_)
+        rel_dist, abs_dist = np.sum(rel_dist), np.sum(abs_dist)
+        return rel_dist, abs_dist
+    
+
+def error(in_exp_data, in_model_data, out_exp_data, out_model_data):
+    # Compute transfer curve error
+    transfer_rel_dist, transfer_abs_dist = compute_error_per_data(in_model_data, in_exp_data)
+    print('**'*73)
+    print()
+    print('|' + f"TRANSFER ABSOLUT ERROR CURVES: {transfer_abs_dist:.4f}")
+    print()
+    print('|' + f"TRANSFER RELATIVE ERROR CURVES: {transfer_rel_dist:.4f}")
+    print()
+    print('**'*73)
+    
+    # Compute output curve error
+    output_rel_dist, output_abs_dist = compute_error_per_data(out_model_data, out_exp_data)
+    print('**'*73)
+    print()
+    print('|' + f"OUTPUT ABSOLUT ERROR CURVES: {output_abs_dist:.4f}")
+    print()
+    print('|' + f"OUTPUT RELATIVE ERROR CURVES: {output_rel_dist:.4f}")
+    print()
+    print('**'*73)
+    
+    exp_absolut =  np.concatenate((in_exp_data, out_exp_data), axis=0)
+    model_absolut = np.concatenate((in_model_data, out_model_data), axis=0)
+    absolut_rel_dis, absolut_abs_dis = compute_error_per_data(model_absolut,exp_absolut)
+    print('**'*73)
+    print()
+    print('|' + f"ABSOLUT ERROR CURVES: {absolut_abs_dis:.4f}")
+    print()
+    print('|' + f"RELATIVE ERROR CURVES: {absolut_rel_dis:.4f}")
+    print()
+    print('**'*73)

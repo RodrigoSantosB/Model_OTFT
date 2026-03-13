@@ -79,7 +79,11 @@ class TFTModel:
 
       nphit = (N * self.__PHIT)
       theta = (Vgsi-Vtp) / nphit
-      qtot  = np.log(1 + np.exp(theta))
+      # Use numerically stable formulation for log(1+exp(theta)) to avoid overflow
+      # qtot = log(1 + exp(theta)) can overflow when theta >> 0
+      # stable form: if theta > 0 -> theta + log1p(exp(-theta)), else -> log1p(exp(theta))
+      with np.errstate(over='ignore'):
+        qtot = np.where(theta > 0, theta + np.log1p(np.exp(-theta)), np.log1p(np.exp(theta)))
       return nphit, theta, qtot
 
 
@@ -281,15 +285,32 @@ class TFTModel:
 
     # check the dimension of vector if him is matrix or not
     def _checks_v(self, V_tensions, n_rows_max, tension_list):
-      n_rows = self.n_points
-      Vv = 0
-      if (V_tensions.size > n_rows_max):
-        Vv = np.reshape(V_tensions, (n_rows, len(tension_list)))
-      elif (V_tensions.size > n_rows and V_tensions.size < n_rows_max):
-        Vv = V_tensions
+      # Ensure inputs are numpy arrays and tension_list is iterable
+      V = np.asarray(V_tensions)
+      n_rows = int(self.n_points)
+      t_list = self._convert(tension_list)
+      n_cols = len(t_list)
+
+      # Case: very large vector -> attempt to reshape into (n_rows, n_cols)
+      if V.size > n_rows_max:
+        try:
+          Vv = np.reshape(V, (n_rows, n_cols))
+        except Exception:
+          # Fallback: try to infer number of columns from data length
+          inferred_cols = int(np.ceil(V.size / n_rows)) if n_rows > 0 else 1
+          Vv = np.reshape(V, (n_rows, inferred_cols))
+
+      # Case: vector length fits within acceptable range -> keep as 1D
+      elif (V.size > n_rows and V.size < n_rows_max) or V.size == n_rows:
+        Vv = V
+
       else:
-        Vv = V_tensions
-        Vv = np.concatenate([Vv, np.zeros(self.n_points - len(V_tensions))])
+        # Short vectors: pad to n_rows length
+        Vv = V
+        if Vv.size < n_rows:
+          pad_len = max(0, n_rows - Vv.size)
+          Vv = np.concatenate([Vv, np.zeros(pad_len)])
+
       return Vv
 
 
@@ -479,43 +500,50 @@ class TFTModel:
         dvd = Idxx * Rd
         count = 1
 
-        while np.greater(np.max(np.abs((Idx - Idxx) / Idx)), tolerance).any():
-            count += 1
-            if count > 500: break
+        # Use a protected denominator when computing relative change to avoid division by zero
+        def rel_change(a, b, eps=1e-30):
+          denom = np.where(np.abs(a) < eps, eps, a)
+          return np.max(np.abs((a - b) / denom))
 
-            Idxx = Idx
-            dvg  = 0.1*Idx*Rs + 0.9*dvg
-            dvd  = 0.1*Idx*Rd + 0.9*dvd
-            dvds = dvg  + dvd
+        # iterate with protection against non-convergence and division by zero
+        while np.greater(rel_change(Idx, Idxx), tolerance).any():
+          count += 1
+          if count > 500:
+            break
 
-            Vdsi = np.maximum(Vds -  dvds,0)
-            Vgsi = np.maximum(Vgs -  dvg,0)
-            Vbsi = np.maximum(Vbs -  dvg,0)
+          Idxx = Idx
+          dvg  = 0.1*Idx*Rs + 0.9*dvg
+          dvd  = 0.1*Idx*Rd + 0.9*dvd
+          dvds = dvg  + dvd
 
-            # Drain   impact
-            Vtp = self._drain_impact(Vdsi, Vtho, Delta)
+          Vdsi = np.maximum(Vds -  dvds,0)
+          Vgsi = np.maximum(Vgs -  dvg,0)
+          Vbsi = np.maximum(Vbs -  dvg,0)
 
-            # Total charg (normalized)
-            nphit, theta, qtot  = self._total_charge(Vgsi, Vtp, N)
+          # Drain   impact
+          Vtp = self._drain_impact(Vdsi, Vtho, Delta)
 
-            # Fsat calculation - Long channel device
-            Fsat, eta = self._fsat_calculation(Vdsi,nphit, qtot, Vcrit, Lambda)
+          # Total charg (normalized)
+          nphit, theta, qtot  = self._total_charge(Vgsi, Vtp, N)
 
-            # Current calculation
-            Jfree = self._current_calculation(qtot, Jth, L)
+          # Fsat calculation - Long channel device
+          Fsat, eta = self._fsat_calculation(Vdsi,nphit, qtot, Vcrit, Lambda)
 
-            #  Final
-            Idx = self._final_current(Idleak, Jfree, Fsat)
+          # Current calculation
+          Jfree = self._current_calculation(qtot, Jth, L)
+
+          #  Final
+          Idx = self._final_current(Idleak, Jfree, Fsat)
 
 
 
-        # Substituir valores NaN e infinitos por zero e valores negativos por 1e-20
-        Idx = np.nan_to_num(Idx)
-        # Idx[Idx <= 0] = 1e-20 #Valor muito pequeno e positivo
-        #  Wrapping up
+        # Substituir valores NaN e infinitos por valores finitos e limitar amplitude
+        Idx = np.nan_to_num(Idx, nan=0.0, posinf=1e30, neginf=-1e30)
+        # Garantir limites inferiores para operações logarítmicas e divisões
+        # (manter o sinal de corrente quando aplicável)
         Id = self.__TYPE_OF_TRANSISTOR * dir * Idx
         Id = np.array(Id).transpose()
-        Id = np.nan_to_num(Id)
+        Id = np.nan_to_num(Id, nan=0.0, posinf=1e30, neginf=-1e30)
 
         # n_rows = self.n_points
         n_rows_max = 99
@@ -537,35 +565,44 @@ class TFTModel:
 
         sc_factor = self.__convert_to_ampere_unit(self.scale_factor)
         curr_typic = self.__convert_to_ampere_unit(self.current_typic)
+        # proteger contra divisões por zero ou por valores absurdamente pequenos
+        curr_typic = max(curr_typic, 1e-30)
         # print(curr_typic)
 
 
+        # Aplicar sinal baseado no tipo de transistor
+        # Para nFET (type = 1): usar valor positivo
+        # Para pFET (type = -1): manter comportamento original (negativo)
+        current_sign = 1 if self.__TYPE_OF_TRANSISTOR == 1 else -1
+
         if self.type_curve == 'log':
           if trsf_curve:
-              # print("ENTREI no LOG")
-              chain_matrix_id[:, i] = np.log10(Idx)
+            # Use valores absolutos e evite <=0 para log10
+            safe_vals = np.maximum(np.abs(Idx), 1e-30)
+            chain_matrix_id[:, i] = np.log10(safe_vals)
           elif out_curve:
-              chain_matrix_id[:, i] = -Idx / curr_typic
+            chain_matrix_id[:, i] = current_sign * Idx / curr_typic
           elif trsf_curve_vet:
-              chain_matrix_id = np.log10(Idx)
+            safe_vals = np.maximum(np.abs(Idx), 1e-30)
+            chain_matrix_id = np.log10(safe_vals)
           elif out_curve_vet:
-              chain_matrix_id = -Idx / curr_typic
+            chain_matrix_id = current_sign * Idx / curr_typic
 
         else:
           if self.type_curve == 'linear':
             # Curva de transferencia
             if trsf_curve:
-                chain_matrix_id[:, i] = -Idx / curr_typic
+              chain_matrix_id[:, i] = current_sign * Idx / curr_typic
                 # print("ENTREI no LINEAR")
             # Curvas de saída
             elif out_curve:
-                chain_matrix_id[:, i] = -Idx / curr_typic
+                chain_matrix_id[:, i] = current_sign * Idx / curr_typic
             # Curva de transferencia
             elif trsf_curve_vet:
-                chain_matrix_id = -Idx / curr_typic
+                chain_matrix_id = current_sign * Idx / curr_typic
             # Curvas de saída
             elif out_curve_vet:
-                chain_matrix_id = -Idx / curr_typic
+                chain_matrix_id = current_sign * Idx / curr_typic
 
       return np.ravel(chain_matrix_id)
 

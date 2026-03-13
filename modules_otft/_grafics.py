@@ -290,7 +290,7 @@ class TFTGraphicsPlot():
       else:
         text = "<b>VGS / V<b>"
         xlegend = '<b>VDS<b>'
-        ylegend = f"<b>|ID| / {sample_unit}<b>"
+        ylegend = f"<b>ID / {sample_unit}<b>"
         title_update = '<b>Experimental Datas Vs Model<b>'
         volt_data = []
         new_volt =  []

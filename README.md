@@ -471,3 +471,55 @@ Then, simply run the notebook cells and observe the output. It is important to n
 Rodrigo Santos Batista
 
 www.linkedin.com/in/rodrigo-santos-16029986
+
+**Geração de Dados Sintéticos**
+
+- **Objetivo:** Gerar conjuntos de curvas (transfer e output) sintéticas a partir das configurações contidas nos arquivos JSON do diretório `inputs/`, usando o modelo `TFTModel` presente em `modules_otft/_model.py`.
+
+- **Arquivos principais:**
+  - `scripts/generate_synthetic_data.py` : script que automatiza todo o fluxo de geração.
+  - `modules_otft/_model.py` : implementa `TFTModel` usado para calcular as correntes.
+  - `inputs/*.json` : arquivos de configuração com parâmetros-base (ex.: `loaded_voltages`, `loaded_parameters`).
+  - `Dados sinteticos/` : pasta de saída onde os CSVs são gravados (`<json_name>_varX/`).
+
+- **Fluxo passo-a-passo (o que o script faz):**
+  1. **Localiza** todos os arquivos JSON em `Model_OTFT/inputs/`.
+ 2. **Lê** cada objeto do JSON (o script suporta arquivos que sejam listas de objetos).
+ 3. **Extrai** valores importantes: `loaded_voltages`, `curves_transfer`, `loaded_parameters`, `loaded_idleak`, `type_curve_plot`, `with_transistor`, etc.
+ 4. **Parseia** `loaded_voltages` — aceita string com vírgulas (`"-2, -50, -30"`) ou listas e converte para `List[float]`.
+ 5. **Parseia** `loaded_idleak` — aceita valor único, lista ou string com múltiplos valores (ex.: `"4e-10, 3e-9"`) e define `mult_idleak` quando necessário.
+ 6. **Gera variantes** das tensões usando dois modos:
+     - `systematic`: offsets lineares no intervalo `[-shift, +shift]` (muda todas as tensões pelo mesmo offset);
+     - `random`: ruído gaussiano aplicando desvios independentes por tensão (usa `--seed` para reprodutibilidade).
+ 7. **Monta** uma matriz `V` com dimensão `n_points x n_tensions` onde as colunas são sweeps de `Vg` (para transfer) ou `Vd` (para output). O número de pontos é `--npoints`.
+ 8. **Instancia** `TFTModel` com os parâmetros mapeados de `loaded_parameters` e com `idleak`/`mult_idleak` conforme o JSON.
+ 9. **Chama** `calc_model(V, *params)` para obter as correntes sintéticas (vetor achatado), reorganiza em matriz `(n_points x n_tensions)` e normaliza conforme as escalas.
+ 10. **Salva** cada curva em CSVs com o mesmo padrão dos dados experimentais: `transfer-<V>V.csv` ou `output-<V>V.csv` dentro de `Model_OTFT/Dados sinteticos/<json_name>_var{K}/`.
+
+- **Comandos de exemplo (PowerShell)**
+  - Gerar 3 variantes sistemáticas (deslocamento ±5 V) com 100 pontos:
+    ```powershell
+    python .\Model_OTFT\scripts\generate_synthetic_data.py --mode systematic --n 3 --shift 5 --npoints 100
+    ```
+  - Gerar 10 variantes aleatórias (desvio 3 V) com semente 123:
+    ```powershell
+    python .\Model_OTFT\scripts\generate_synthetic_data.py --mode random --n 10 --shift 3 --npoints 200 --seed 123
+    ```
+
+- **Formato de saída esperado**
+  - `Model_OTFT/Dados sinteticos/<json_name>_var1/transfer-<V>V.csv`
+  - Cada CSV tem duas colunas (sem cabeçalho): coluna 0 = tensão (Vg ou Vd), coluna 1 = corrente (Id).
+
+- **Observações e dicas**
+  - Se ocorrer `ModuleNotFoundError: No module named 'modules_otft'`, execute o script a partir da raiz do projeto ou adicione `Model_OTFT` ao `PYTHONPATH`. Exemplo para PowerShell:
+    ```powershell
+    $env:PYTHONPATH = 'C:\caminho\para\Model_OTFT'; python .\Model_OTFT\scripts\generate_synthetic_data.py ...
+    ```
+  - O modelo pode emitir warnings numéricos (overflow, divide) para combinações extremas de parâmetros; isso é esperado para algumas variantes — reduza `shift` ou ajuste parâmetros iniciais se necessário.
+  - Para variar outros parâmetros (por exemplo `VTHO`, `LAMBDA`), adapte `scripts/generate_synthetic_data.py` para gerar grades (grids) ou amostras aleatórias sobre esses parâmetros e salvar metadados (ex.: arquivo `metadata.csv`) com a lista de parâmetros usados por variante.
+  - Dependências: `numpy`, `pandas`. Use `pip install -r requirements.txt` se necessário.
+
+- **Exemplo de extensão rápida**
+  - Para salvar um `metadata.csv` por variante com os parâmetros usados, modifique `process_json_file()` para escrever um CSV contendo `variant_id`, `voltages`, `parameters`, `idleak`, `mult_idleak`, `npoints`, `mode`, `seed`.
+
+Esta seção documenta o procedimento exato implementado em `scripts/generate_synthetic_data.py` e serve como guia para replicação, ajustes e extensões futuras.

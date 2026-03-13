@@ -1,2 +1,21 @@
-otft_env
-otf_model
+
+# datas
+synthetic_from_settings
+
+
+artefatos
+models
+
+# cache files
+__pycache__
+*.ipynb_checkpoints
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw
+*.pyz
+*.pywz
+*.pyzw
