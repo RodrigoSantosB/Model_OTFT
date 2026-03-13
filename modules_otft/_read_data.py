@@ -493,13 +493,12 @@ class ReadData:
       for i in range(count_transfer):
         in_model_data.append((Vv[:, i], model_id_opt[i]))
 
-    # Cria in_exp_data de forma iterativa
-    if count_transfer >= 2:
-      for i in range(0, count_transfer, 2):
-          in_exp_data.extend([Vv[:, i], Id[:, i], Vv[:, i+1], Id[:, i+1]])
-
-    elif count_transfer == 1:
-      in_exp_data.extend([Vv[:, 0], Id[:, 0]])
+    # Cria in_exp_data de forma iterativa sem assumir pares de curvas.
+    # Isso evita que, quando count_transfer for ímpar, a primeira curva
+    # de saída seja indevidamente incluída nas curvas de transferência.
+    if count_transfer >= 1:
+      for i in range(count_transfer):
+        in_exp_data.extend([Vv[:, i], Id[:, i]])
 
     elif count_transfer == 0:
       in_model_data = []
