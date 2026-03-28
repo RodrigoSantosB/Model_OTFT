@@ -73,8 +73,64 @@ class TFTGraphicsPlot():
           >>> inverted_list = __change_signal_shift(shift_list)
     """
 
-    inverted_list = [-x if x > 0 else abs(x) for x in shift_list]
-    return inverted_list
+    normalized_list = []
+    for shift in shift_list:
+      if isinstance(shift, dict):
+        normalized_list.append({
+            'manual': float(shift.get('manual', 0.0)),
+            'automatic': float(shift.get('automatic', 0.0)),
+            'total': float(shift.get('total', 0.0)),
+        })
+      else:
+        normalized_list.append(float(shift))
+    return normalized_list
+
+
+  def __format_shift_display(self, shift_value):
+    """Formats only the automatic shift with two decimal places."""
+    if isinstance(shift_value, dict):
+      automatic = float(shift_value.get('automatic', 0.0))
+      return f'{automatic:.2f}V'
+
+    return f'{float(shift_value):.2f}V'
+
+
+  def __format_voltage_display(self, voltage_value):
+    """Formats legend voltages with two decimal places when numeric."""
+    try:
+      return f'{float(voltage_value):.2f}V'
+    except (TypeError, ValueError):
+      return f'{voltage_value}V'
+
+
+  def __prepare_shift_list(self, shift_list, select_files, count):
+    """Prepares the shift list used by both model and experimental legends."""
+    shift_list_update = []
+
+    if shift_list is None:
+      return shift_list_update
+
+    if isinstance(select_files, str):
+      if not select_files:
+        select_files = ""
+      else:
+        select_files = list(eval(select_files))
+
+    if (len(select_files) != 0) and (len(select_files) < len(shift_list)):
+      for index in select_files:
+        try:
+          if count == 0:
+            shift_list_update.append(shift_list[index-1])
+          else:
+            shift_list_update.append(shift_list[index-count])
+        except IndexError:
+          if count == 0:
+            shift_list_update.append(shift_list[index-1])
+          else:
+            shift_list_update.append(shift_list[index-count])
+      return shift_list_update
+
+    return shift_list
 
   # Function to generate legend names
   def __legend_name(self, volt_data, exp_data, shift_list, j, no_shift=False):
@@ -112,11 +168,12 @@ class TFTGraphicsPlot():
     def format_name(volt_data, shift_list, j):
         volt = safe_index(volt_data, j)
         shift = safe_index(shift_list, j, 0)
-        return '<b>Exp <b>' + ' ' + f'<b>{volt}' + 'V<b>' + ' ' + f'<b> ({shift}V)<b>'
+        shift_text = self.__format_shift_display(shift)
+        return '<b>Exp <b>' + ' ' + f'<b>{self.__format_voltage_display(volt)}<b>' + ' ' + f'<b> ({shift_text})<b>'
 
     def _name(volt_data, shift_list, j):
         volt = safe_index(volt_data, j)
-        return '<b>Exp <b>' + ' ' + f'<b>{volt}' + 'V<b>'
+        return '<b>Exp <b>' + ' ' + f'<b>{self.__format_voltage_display(volt)}<b>'
 
     if len(exp_data) < 3:
       if shift_list is not None:
@@ -188,12 +245,13 @@ class TFTGraphicsPlot():
         # list: Uma lista contendo o texto formatado da legenda.
       volt = safe_index(volt_data, j)
       shift = safe_index(shift_list, j, 0)
-      return [f'{xlegend}={volt}V' + ' ' + f' ({shift})']
+      shift_text = self.__format_shift_display(shift)
+      return [f'{xlegend}={self.__format_voltage_display(volt)}' + ' ' + f' ({shift_text})']
 
     # Formata o texto da legenda sem incluir o deslocamento de tensão com base nos dados de tensão e um índice j.
     def _text(volt_data, shift_list, j):
         volt = safe_index(volt_data, j)
-        return [f'{xlegend}={volt}V']
+        return [f'{xlegend}={self.__format_voltage_display(volt)}']
 
     shift_list = self.__change_signal_shift(shift_list)
 
@@ -277,6 +335,8 @@ class TFTGraphicsPlot():
         select_files = ""
       else:
         select_files = list(eval(select_files))
+
+    shift_list_update = self.__prepare_shift_list(shift_list, select_files, count)
 
     # Predefined color options for plotting
     list_colors = ['rgb(255, 0, 0)', 'rgb(0, 0, 255)', 'rgb(30, 144, 255)',
@@ -371,11 +431,19 @@ class TFTGraphicsPlot():
                 dash_style = 'solid'  # Linha sólida para modelos otimizados
                 name = '<b>Model OPT<b>'
 
+            legend_voltage = volt_data[i]
+            if type_data == curv_out and shift_list_update:
+                shift_index = min(max(i, 0), len(shift_list_update) - 1)
+                shift_text = self.__format_shift_display(shift_list_update[shift_index])
+                model_name = name + ' ' + f'<b>{self.__format_voltage_display(legend_voltage)}<b>' + ' ' + f'<b>({shift_text})<b>'
+            else:
+                model_name = name + ' ' + f'<b>{self.__format_voltage_display(legend_voltage)}<b>'
+
             fig.add_trace(go.Scatter(x=data[0], y=y_data,
                                     mode='lines+text',
-                                    name=name + ' ' + f'<b>{volt_data[i]}' + 'V<b>',
+                                    name=model_name,
                                     line=dict(color=cor,  dash=dash_style),  # Use the choice color
-                                    text=[f'{volt_data[i]}V'],
+                                    text=[self.__format_voltage_display(legend_voltage)],
                                     textposition='bottom center',
                                     textfont=dict(
                                         family="Times New Roman",
@@ -404,25 +472,6 @@ class TFTGraphicsPlot():
         else:
             data = exp_data[i + 1]
             no_shift = False
-
-        shift_list_update = []
-        if (len(select_files) != 0) and (len(select_files) < len(shift_list)):
-          for index in select_files:
-            try:
-              if count == 0:
-                shift_list_update.append(shift_list[index-1])
-              else:
-                shift_list_update.append(shift_list[index-count])
-
-            except IndexError:
-              if count == 0:
-                shift_list_update.append(shift_list[index-1])
-              else:
-                shift_list_update.append(shift_list[index-count])
-
-        else:
-
-          shift_list_update = shift_list
 
         fig.add_trace(go.Scatter(x=exp_data[i], y=data,
                                 mode='markers+text',

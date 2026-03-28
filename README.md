@@ -210,6 +210,15 @@ Once this task is complete, ensure the `.JSON` file is correctly configured. Thi
     "curves_transfer"                   :  0,
     "type_curve_plot"                   : "logarithmic",
     "type_read_data_exp"                : "read original data",
+    "enable_pre_processing"             : "no",
+    "apply_pre_process_global_shift"    : "no",
+    "pre_process_shift_volt_data"       : "",
+    "apply_pre_process_threshold"       : "no",
+    "pre_process_threshold_voltage"     : "0.0",
+    "apply_pre_process_hysteresis"      : "no",
+    "pre_process_hysteresis_mode"       : "media",
+    "apply_local_output_shift"          : "yes",
+    "output_shift_volt_data"            : "0, -1, -2, -6",
     "shift_volt_data"                   : "0, -1, -2, -6",
     "select_files"                      : "1,2,3,4"
     
@@ -325,14 +334,141 @@ This documentation provides a comprehensive explanation of the model parameters 
 - **Usage**: Choose based on the sufficiency and behavior of experimental points.
 
 #### `shift_volt_data` (str)
-- **Description**: Defines if input voltages have any shift values.
-- **Usage**: Provide values in the format `"value1, value2, ..."`.
+- **Description**: Legacy field for output-curve local shift values.
+- **Usage**: Kept for backward compatibility. If `output_shift_volt_data` is present, that new field takes priority.
 - **Example**: `"-1, -5, 6"`
+
+#### `enable_pre_processing` (str)
+- **Description**: Enables preprocessing of the experimental CSV files before they are read by the model.
+- **Options**: `yes`, `no`
+- **Usage**: When enabled, preprocessing is executed directly in the data folder defined by `path`.
+- **Behavior**: Original CSV files are moved to a backup subfolder named `<original_folder>_old`, and the processed files are written back with the same filenames.
+
+#### `apply_pre_process_global_shift` (str)
+- **Description**: Enables a global horizontal voltage shift using `modules_otft/_pre_processing_data.py`.
+- **Options**: `yes`, `no`
+- **Usage**: Applies the same voltage shift to every CSV selected by the preprocessing stage.
+
+#### `pre_process_shift_volt_data` (str)
+- **Description**: Global voltage shift value applied during preprocessing.
+- **Usage**: Use a single numeric value, such as `"0.5"` or `"-1.0"`.
+- **Note**: This is different from the output local shift used later in the modeling flow.
+
+#### `apply_pre_process_threshold` (str)
+- **Description**: Enables threshold-based cutting of the voltage axis during preprocessing.
+- **Options**: `yes`, `no`
+- **Usage**: If enabled, only points with `V >= pre_process_threshold_voltage` are kept.
+
+#### `pre_process_threshold_voltage` (str)
+- **Description**: Voltage threshold used to remove points below a chosen limit.
+- **Usage**: Typical example: `"0.0"` to discard all points from zero backwards after the preprocessing shift.
+
+#### `apply_pre_process_hysteresis` (str)
+- **Description**: Enables hysteresis cleaning during preprocessing.
+- **Options**: `yes`, `no`
+- **Usage**: If enabled, repeated voltage points in the same curve are consolidated into a single representative point.
+
+#### `pre_process_hysteresis_mode` (str)
+- **Description**: Defines how repeated current values are consolidated when removing hysteresis.
+- **Options**: `media`, `menor`, `maior`
+- **Equivalent aliases accepted by the code**: `mean`, `min`, `max`, `average`, `minimum`, `maximum`
+- **Usage**:
+  - `media`: uses the mean current
+  - `menor`: uses the minimum current
+  - `maior`: uses the maximum current
+
+#### `apply_local_output_shift` (str)
+- **Description**: Enables the existing local shift logic applied only to output curves.
+- **Options**: `yes`, `no`
+- **Usage**: This controls the local output shift stage independently from preprocessing.
+- **Behavior**: If `no`, the local output shift is fully disabled even if shift values are present in the JSON.
+
+#### `output_shift_volt_data` (str)
+- **Description**: Preferred field for local output-curve shift values.
+- **Usage**: Provide one value per output curve, for example `"0, -1, -2, -6"`.
+- **Behavior**: These values are combined with the automatically calculated local shift used by the output curves. The total value is passed to the model.
+- **Compatibility**: If this field is empty, the code falls back to `shift_volt_data`.
 
 #### `select_files` (str)
 - **Description**: Filters files to read only those of interest.
 - **Format**: Comma-separated indices of the experiment curves.
 - **Example**: `"0, 3, 5"`
+
+### Preprocessing and Shift Combinations
+
+The JSON now supports independent control of:
+
+- preprocessing global shift;
+- preprocessing threshold cut;
+- preprocessing hysteresis removal;
+- local output shift used by the model.
+
+This means you can choose any of the following workflows:
+
+#### Only global preprocessing shift
+
+```json
+"enable_pre_processing"          : "yes",
+"apply_pre_process_global_shift" : "yes",
+"pre_process_shift_volt_data"    : "0.5",
+"apply_pre_process_threshold"    : "no",
+"apply_pre_process_hysteresis"   : "no",
+"apply_local_output_shift"       : "no"
+```
+
+#### Only threshold cut
+
+```json
+"enable_pre_processing"             : "yes",
+"apply_pre_process_global_shift"    : "no",
+"apply_pre_process_threshold"       : "yes",
+"pre_process_threshold_voltage"     : "0.0",
+"apply_pre_process_hysteresis"      : "no",
+"apply_local_output_shift"          : "no"
+```
+
+#### Only hysteresis removal
+
+```json
+"enable_pre_processing"             : "yes",
+"apply_pre_process_global_shift"    : "no",
+"apply_pre_process_threshold"       : "no",
+"apply_pre_process_hysteresis"      : "yes",
+"pre_process_hysteresis_mode"       : "media",
+"apply_local_output_shift"          : "no"
+```
+
+#### Only local output shift
+
+```json
+"enable_pre_processing"        : "no",
+"apply_local_output_shift"     : "yes",
+"output_shift_volt_data"       : "0, -1, -2, -6"
+```
+
+#### Combined workflow
+
+```json
+"enable_pre_processing"             : "yes",
+"apply_pre_process_global_shift"    : "yes",
+"pre_process_shift_volt_data"       : "0.5",
+"apply_pre_process_threshold"       : "yes",
+"pre_process_threshold_voltage"     : "0.0",
+"apply_pre_process_hysteresis"      : "yes",
+"pre_process_hysteresis_mode"       : "menor",
+"apply_local_output_shift"          : "yes",
+"output_shift_volt_data"            : "0, -1, -2, -6"
+```
+
+### Important Notes About the New Flow
+
+- Preprocessing rewrites the CSV files in the same folder referenced by `path`.
+- Original files are preserved in a backup folder named `<folder_name>_old`.
+- If preprocessing is enabled but all preprocessing actions are set to `no`, no files are changed.
+- The local output shift remains part of the model flow and is different from the preprocessing global shift.
+- The final output-curve shift passed to the model is the combination of:
+  - manual local shift from `output_shift_volt_data` (or legacy `shift_volt_data`);
+  - automatic local shift calculated from the transfer/output matching logic.
 
 ### Model Parameters
 

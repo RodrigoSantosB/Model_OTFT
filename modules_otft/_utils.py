@@ -2,8 +2,14 @@ from modules_otft._imports import *
 from modules_otft._imports import *
 from modules_otft._grafics import  TFTGraphicsPlot
 from modules_otft._optmization import ModelOptmization
+from modules_otft._pre_processing_data import PreProcessingData
+from modules_otft._read_data import ReadData
 
 import json
+
+
+PERSISTED_GLOBAL_SHIFT_FLAG_KEY = "pre_process_global_shift_persisted"
+PERSISTED_GLOBAL_SHIFT_VALUE_KEY = "pre_process_global_shift_persisted_value"
 
 def enter_with_json_file():
     print(200 * '-')
@@ -15,6 +21,8 @@ def enter_with_json_file():
 
     global settings
     settings = {}
+    settings["_json_path"] = json_path
+    settings["_json_blocks"] = inputs
 
     print('\n')
     print(83 * '_' + ' SETTINGS PRESENT IN THE JSON FILE:' + 83 * '_' + '\n')
@@ -26,6 +34,115 @@ def enter_with_json_file():
             print('|' + ' ' + f'{key}: {value}')
             print('--' * 100)
 
+    maybe_apply_preprocessing(settings)
+    return settings
+
+
+def _is_truthy_setting(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return default
+    return normalized in {"1", "true", "yes", "y", "sim", "on"}
+
+
+def _get_float_setting(settings, key, default=0.0):
+    value = settings.get(key, default)
+    if value in ("", None):
+        return default
+    return float(value)
+
+
+def _set_json_setting(blocks, key, value, default_block_index=0):
+    for block in blocks:
+        if isinstance(block, dict) and key in block:
+            block[key] = value
+            return
+
+    if blocks and isinstance(blocks[default_block_index], dict):
+        blocks[default_block_index][key] = value
+
+
+def _persist_settings_to_json(settings, updates):
+    for key, value in updates.items():
+        settings[key] = value
+
+    json_path = settings.get("_json_path")
+    json_blocks = settings.get("_json_blocks")
+    if not json_path or not isinstance(json_blocks, list):
+        return
+
+    persisted_blocks = json.loads(json.dumps(json_blocks))
+    for key, value in updates.items():
+        _set_json_setting(persisted_blocks, key, value)
+
+    with open(json_path, "w") as file:
+        json.dump(persisted_blocks, file, indent=4)
+
+    settings["_json_blocks"] = persisted_blocks
+
+
+def maybe_apply_preprocessing(settings):
+    """
+    Aplica o pre-processamento configurado no JSON diretamente no diretorio
+    dos dados experimentais, mantendo backup dos originais.
+    """
+    if not isinstance(settings, dict):
+        return settings
+
+    if settings.get("_preprocessing_applied"):
+        return settings
+
+    if not _is_truthy_setting(settings.get("enable_pre_processing"), default=False):
+        settings["_preprocessing_applied"] = False
+        return settings
+
+    input_path = settings.get("path")
+    if not input_path:
+        settings["_preprocessing_applied"] = False
+        return settings
+
+    apply_global_shift = _is_truthy_setting(settings.get("apply_pre_process_global_shift"), default=False)
+    apply_threshold = _is_truthy_setting(settings.get("apply_pre_process_threshold"), default=False)
+    apply_hysteresis = _is_truthy_setting(settings.get("apply_pre_process_hysteresis"), default=False)
+
+    if not any((apply_global_shift, apply_threshold, apply_hysteresis)):
+        settings["_preprocessing_applied"] = False
+        settings["_preprocessing_report"] = []
+        return settings
+
+    global_shift_value = (
+        _get_float_setting(settings, "pre_process_shift_volt_data", 0.0)
+        if apply_global_shift else 0.0
+    )
+    processor = PreProcessingData()
+    summary = processor.process_directory_in_place(
+        input_path=input_path,
+        shift_voltage=global_shift_value,
+        threshold_voltage=_get_float_setting(settings, "pre_process_threshold_voltage", 0.0) if apply_threshold else None,
+        hysteresis_mode=settings.get("pre_process_hysteresis_mode", "media"),
+        apply_hysteresis=apply_hysteresis,
+        recursive=True,
+    )
+
+    persisted_updates = {
+        "enable_pre_processing": "no",
+    }
+    if apply_global_shift:
+        persisted_updates.update({
+            PERSISTED_GLOBAL_SHIFT_FLAG_KEY: "yes",
+            PERSISTED_GLOBAL_SHIFT_VALUE_KEY: str(global_shift_value),
+        })
+
+    _persist_settings_to_json(settings, persisted_updates)
+    settings["_preprocessing_applied"] = True
+    settings["_preprocessing_report"] = summary
     return settings
 
 
@@ -77,29 +194,118 @@ def calculate_shift_list(settings):
         print("Error: settings must be a dictionary.")
         return []
 
-  ld_voltages = get_load_voltages(settings)
-  max_curves = len(ld_voltages) - int(settings['curves_transfer'])
+  discovered_path_voltages = []
+  if settings.get('path'):
+      read_for_count = ReadData()
+      discovered_path_voltages = read_for_count.read_files_experimental(settings['path'], get_load_voltages(settings))
+
+  output_count = sum(1 for _, curve_type, _ in discovered_path_voltages if curve_type == 1)
+  max_curves = output_count
+  shift_key = 'output_shift_volt_data' if 'output_shift_volt_data' in settings else 'shift_volt_data'
+  apply_local_shift = _is_truthy_setting(settings.get('apply_local_output_shift'), default=True)
+
+  def _normalize_shift_values(raw_values):
+      normalized_values = [float(value) for value in raw_values]
+      if len(normalized_values) < max_curves:
+          normalized_values.extend([0.0] * (max_curves - len(normalized_values)))
+      return normalized_values[:max_curves]
+
   try:
-      if settings['shift_volt_data'] =="":
-          return [0] * max_curves
-      elif isinstance(eval(settings['shift_volt_data']), int):
-          return [int(settings['shift_volt_data'])]
-      
-      elif len(settings['shift_volt_data']) > 1:
-          return list(eval(settings['shift_volt_data']))
-  except ValueError:
+      if (not apply_local_shift) or settings.get(shift_key, "") == "":
+          manual_values = [0.0] * max_curves
+      else:
+          parsed_shift = eval(settings[shift_key])
+          if isinstance(parsed_shift, (int, float)):
+              manual_values = _normalize_shift_values([parsed_shift])
+          elif isinstance(parsed_shift, (list, tuple)):
+              manual_values = _normalize_shift_values(list(parsed_shift))
+          else:
+              manual_values = [0.0] * max_curves
+  except (ValueError, SyntaxError, NameError, TypeError):
       print("No shift value passed, please enter a value\n")
       return []
+
+  cached_metadata = settings.get('_shift_metadata')
+  if not isinstance(cached_metadata, list) or len(cached_metadata) != max_curves:
+      cached_metadata = [
+          {
+              'manual': 0.0,
+              'automatic': 0.0,
+              'total': 0.0
+          }
+          for _ in range(max_curves)
+      ]
+
+  for shift_entry, manual_shift in zip(cached_metadata, manual_values):
+      shift_entry['manual'] = float(manual_shift)
+      shift_entry.setdefault('automatic', 0.0)
+      shift_entry['total'] = float(shift_entry['manual'] + shift_entry['automatic'])
+
+  settings['_shift_metadata'] = cached_metadata
+  return cached_metadata
   
 
 def get_shift_list(read, settings):
   # Returns the shifted list with the passed voltage value [V]
-  curves_transfer = int(settings['curves_transfer'])
+  path_voltages = read.read_files_experimental(settings['path'], get_load_voltages(settings))
   shift_list = calculate_shift_list(settings)
-  ld_voltages = get_load_voltages(settings)
+  apply_local_shift = _is_truthy_setting(settings.get('apply_local_output_shift'), default=True)
 
-  list_tension_shift = read.apply_shifts(curves_transfer ,shift_list, ld_voltages)
+  automatic_shift_report = []
+  if apply_local_shift:
+      automatic_shifts, automatic_shift_report = read.calculate_automatic_output_shifts(path_voltages)
+  else:
+      automatic_shifts = [0.0] * sum(1 for _, curve_type, _ in path_voltages if curve_type == 1)
+
+  for shift_entry, automatic_shift in zip(shift_list, automatic_shifts):
+      shift_entry['automatic'] = float(automatic_shift)
+      shift_entry['total'] = float(shift_entry.get('manual', 0.0) + shift_entry['automatic'])
+
+  settings['_shift_metadata'] = shift_list
+  settings['_automatic_shift_report'] = automatic_shift_report
+
+  list_tension_shift = read.apply_shifts(path_voltages, shift_list)
   return list_tension_shift
+
+
+def get_global_display_shift(settings):
+  """Returns the configured global shift used only for nominal display values."""
+  if not isinstance(settings, dict):
+      return 0.0
+
+  if _is_truthy_setting(settings.get(PERSISTED_GLOBAL_SHIFT_FLAG_KEY), default=False):
+      return _get_float_setting(settings, PERSISTED_GLOBAL_SHIFT_VALUE_KEY, 0.0)
+
+  if not _is_truthy_setting(settings.get('enable_pre_processing'), default=False):
+      return 0.0
+
+  if not _is_truthy_setting(settings.get('apply_pre_process_global_shift'), default=False):
+      return 0.0
+
+  return _get_float_setting(settings, 'pre_process_shift_volt_data', 0.0)
+
+
+def apply_global_shift_to_output_display(list_tension, list_tension_shift, count_transfer, global_shift):
+  """
+  Applies the global preprocessing shift only to the displayed nominal values
+  of output curves, without modifying experimental points.
+  """
+  if global_shift == 0:
+      return list_tension, list_tension_shift
+
+  def _shift_output_tail(values):
+      if values is None:
+          return values
+
+      shifted_values = list(values)
+      for index in range(count_transfer, len(shifted_values)):
+          try:
+              shifted_values[index] = float(shifted_values[index]) + float(global_shift)
+          except (TypeError, ValueError):
+              continue
+      return shifted_values
+
+  return _shift_output_tail(list_tension), _shift_output_tail(list_tension_shift)
 
 
 # new curves calculation
@@ -125,7 +331,7 @@ def filter_and_load_files(read, settings, path_voltages, list_tension_shift):
 
     f_selection = []
     list_tension_shift = get_shift_list(read, settings)
-    ld_voltages = get_load_voltages(settings)
+    ld_voltages = [curve[2] for curve in path_voltages]
     list_curves = new_curves_calculation(path_voltages, list_tension_shift)
     
     if settings['select_files'] == "":
@@ -455,61 +661,76 @@ def plot_curves(option, plot, list_tension, list_tension_shift, count_transfer,
                 select_files,current_typic, type_curve_plot, compare=False):
     """Plots the curves according to the selected option."""
     clear_output(wait=True)  # clear displayed content
+
+    shift_plot_data = shift_list
+    display_tension = list_tension
+    display_tension_shift = list_tension_shift
+    if isinstance(globals().get('settings'), dict):
+        current_settings = globals()['settings']
+        shift_plot_data = current_settings.get('_shift_metadata', shift_list)
+        global_display_shift = get_global_display_shift(current_settings)
+        display_tension, display_tension_shift = apply_global_shift_to_output_display(
+            list_tension,
+            list_tension_shift,
+            count_transfer,
+            global_display_shift,
+        )
+
     if option == 'Show transfer curve opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, select_files, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot)
     
     elif option == 'Show output curve opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, select_files, *out_exp_data, 
                           sample_unit=current_typic, plot_type='linear')
     
     elif option == 'Show both curves opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, select_files, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, select_files, *out_exp_data, 
                           sample_unit=current_typic)
     
     elif option == 'Show transfer curve comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, select_files, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot, 
                           compare=True)
     
     elif option == 'Show output curve comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, select_files, *out_exp_data, 
                           sample_unit=current_typic, compare=True)
     
     elif option == 'Show both curves comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, select_files, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot, 
                           compare=True)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, select_files, *out_exp_data, 
                           sample_unit=current_typic, compare=True)
     
     elif option == 'Show transfer curve':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, select_files, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot)
     elif option == 'Show output curve':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, select_files, *out_exp_data, 
                           sample_unit=current_typic, plot_type='linear')
     elif option == 'Show both curves':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, select_files, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, select_files, *out_exp_data, 
                           sample_unit=current_typic, plot_type='linear')
     else:
         print("No option choice\n")

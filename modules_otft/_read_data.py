@@ -83,6 +83,59 @@ class ReadData:
     return correction_factor
 
 
+  def _classify_experimental_file(self, filename, transfer_pattern='transfer', output_pattern='output'):
+    """Classifies an experimental CSV as transfer/output from its filename."""
+    lowered = filename.lower()
+    transfer_prefix = f'{transfer_pattern.lower()}-'
+    output_prefix = f'{output_pattern.lower()}-'
+
+    if lowered.endswith('.csv') and lowered.startswith(transfer_prefix):
+      return 0
+    if lowered.endswith('.csv') and lowered.startswith(output_prefix):
+      return 1
+    return None
+
+
+  def _experimental_sort_key(self, filename):
+    voltage = self._extract_voltage_from_filename(filename)
+    return (voltage is None, voltage if voltage is not None else filename.lower())
+
+
+  def _get_experimental_file_lists(self, directory, selected_files=None,
+                                   transfer_pattern='transfer', output_pattern='output'):
+    """
+      Returns sorted transfer and output filenames discovered from the directory.
+    """
+    files = os.listdir(directory)
+    selected_set = None if selected_files is None else {str(file_name).lower() for file_name in selected_files}
+
+    transfer_files = []
+    output_files = []
+
+    for filename in files:
+      curve_type = self._classify_experimental_file(filename, transfer_pattern, output_pattern)
+      if curve_type is None:
+        continue
+      if selected_set is not None and filename.lower() not in selected_set:
+        continue
+
+      if curve_type == 0:
+        transfer_files.append(filename)
+      else:
+        output_files.append(filename)
+
+    transfer_files.sort(key=self._experimental_sort_key)
+    output_files.sort(key=self._experimental_sort_key)
+    return transfer_files, output_files
+
+
+  def get_curve_counts(self, path_voltages):
+    """Returns transfer/output counts from the typed curve tuples."""
+    count_transfer = sum(1 for _, curve_type, _ in path_voltages if curve_type == 0)
+    count_output = sum(1 for _, curve_type, _ in path_voltages if curve_type == 1)
+    return count_transfer, count_output
+
+
   def read_files_experimental(  self, directory, list_tension, selected_files=None,
                                 transfer_pattern=r'transfer', output_pattern=r'output'):
     """
@@ -108,50 +161,30 @@ class ReadData:
           [('data_folder/transfer-1V.csv', 0, 1.0), ('data_folder/output-2V.csv', 1, 2.0)]
     """
 
-    # Obter lista de todos os arquivos no diretório
-    files = os.listdir(directory)
+    transfer_files, output_files = self._get_experimental_file_lists(
+        directory,
+        selected_files=selected_files,
+        transfer_pattern=transfer_pattern,
+        output_pattern=output_pattern
+    )
 
-    # Criar padrões de nome para "transfer" e "output" com base nos parâmetros
-    transfer_pattern_file = re.compile(fr'{transfer_pattern}-\d+V.csv')
-    output_pattern_file = re.compile(fr'{output_pattern}-\d+V.csv')
+    typed_paths = []
+    normalized_tensions = list(list_tension) if list_tension is not None else []
+    transfer_count = len(transfer_files)
 
-    # Filtrar arquivos com os padrões de nome de transfer e output
-    transfer_files = [f for f in files if transfer_pattern_file.match(f)]
-    output_files = [f for f in files if output_pattern_file.match(f)]
+    for index, transfer_file in enumerate(transfer_files):
+      filename_voltage = self._extract_voltage_from_filename(transfer_file)
+      associated_voltage = normalized_tensions[index] if index < len(normalized_tensions) else filename_voltage
+      typed_paths.append((os.path.join(directory, transfer_file), 0, associated_voltage))
 
-    if selected_files is not None:
-        transfer_files = [f for f in transfer_files if f in selected_files]
-        output_files = [f for f in output_files if f in selected_files]
+    output_offset = transfer_count
+    for index, output_file in enumerate(output_files):
+      filename_voltage = self._extract_voltage_from_filename(output_file)
+      tension_index = output_offset + index
+      associated_voltage = normalized_tensions[tension_index] if tension_index < len(normalized_tensions) else filename_voltage
+      typed_paths.append((os.path.join(directory, output_file), 1, associated_voltage))
 
-    # Criar listas para armazenar as curvas transfer e output ordenadas por tensão,
-    # tipo de curva (0: transfer, 1: output) e tensões associadas
-    curves = []
-    curve_types = []
-    voltages = []
-    count_transfer = 0
-    count_output = 0
-
-    # Adicionar as curvas transfer à lista, ordenando-as por tensão
-    transfer_files.sort(key=lambda f: int(re.findall(r'\d+', f)[0]))
-    for transfer_file in transfer_files:
-        curves.append(os.path.join(directory, transfer_file))
-        curve_types.append(0)  # Tipo 0 para curva transfer
-        voltage = int(re.findall(r'\d+', transfer_file)[0])
-        voltages.append(voltage)
-        count_transfer += 1
-
-    # Adicionar as curvas output à lista, ordenando-as por tensão
-    output_files.sort(key=lambda f: int(re.findall(r'\d+', f)[0]))
-    for output_file in output_files:
-        curves.append(os.path.join(directory, output_file))
-        curve_types.append(1)  # Tipo 1 para curva output
-        voltage = int(re.findall(r'\d+', output_file)[0])
-        voltages.append(voltage)
-        count_output += 1
-
-    paths = self._load_paths_in_tuple_data(curves, list_tension, count_transfer)
-
-    return paths
+    return typed_paths
 
 
   ###__FUNÇÃO DE LEITURA SEM INTERPORLAÇÂO
@@ -691,30 +724,239 @@ class ReadData:
     return Model_data
 
 
+  def _extract_voltage_from_filename(self, file_path):
+    """Extracts the reference voltage encoded in the CSV filename."""
+    filename = os.path.basename(str(file_path))
+    match = re.search(r'(\d+(?:\.\d+)?)\s*V?(?=\.csv$)', filename, flags=re.IGNORECASE)
+    return float(match.group(1)) if match else None
+
+
+  def _read_curve_points(self, csv_path):
+    """Reads a two-column CSV curve and returns voltage/current arrays."""
+    data = np.loadtxt(csv_path, delimiter=',')
+    if data.ndim == 1:
+      data = np.atleast_2d(data)
+
+    voltages = np.asarray(data[:, 0], dtype=float)
+    currents = np.asarray(data[:, 1], dtype=float)
+    return voltages, np.abs(currents)
+
+
+  def _collapse_duplicate_axis(self, axis_values, target_values):
+    """Collapses repeated axis coordinates using the mean target value."""
+    work_df = pd.DataFrame({
+        'x_value': np.asarray(axis_values, dtype=float),
+        'target': np.asarray(target_values, dtype=float)
+    })
+    work_df['axis_key'] = work_df['x_value'].round(9)
+
+    grouped = (
+        work_df.groupby('axis_key', as_index=False)
+        .agg(x_value=('x_value', 'mean'), target=('target', 'mean'))
+        .sort_values('x_value', kind='mergesort')
+        .reset_index(drop=True)
+    )
+    return grouped['x_value'].to_numpy(dtype=float), grouped['target'].to_numpy(dtype=float)
+
+
+  def _interpolate_current_at_voltage(self, csv_path, target_voltage):
+    """Interpolates the current value in a curve for a given voltage."""
+    voltages, currents = self._read_curve_points(csv_path)
+    voltages, currents = self._collapse_duplicate_axis(voltages, currents)
+    return float(np.interp(target_voltage, voltages, currents))
+
+
+  def _curve_contains_voltage(self, csv_path, target_voltage, tolerance=1e-6):
+    """Checks whether a curve supports a reference voltage from the JSON input."""
+    voltages, _ = self._read_curve_points(csv_path)
+    min_voltage = float(np.min(voltages))
+    max_voltage = float(np.max(voltages))
+    nearest_voltage = float(voltages[np.argmin(np.abs(voltages - target_voltage))])
+    in_range = min_voltage - tolerance <= target_voltage <= max_voltage + tolerance
+    exact_match = bool(np.isclose(nearest_voltage, target_voltage, atol=tolerance))
+    return {
+        'in_range': in_range,
+        'exact_match': exact_match,
+        'nearest_voltage': nearest_voltage,
+        'min_voltage': min_voltage,
+        'max_voltage': max_voltage,
+    }
+
+
+  def _align_voltage_to_curve_axis(self, csv_path, target_voltage, tolerance=1e-6):
+    """
+      Aligns a nominal filename voltage with the sign convention used by a curve.
+
+      This keeps n-type positive sweeps unchanged and maps p-type references like
+      50 V to -50 V when the experimental axis is negative.
+    """
+    direct_match = self._curve_contains_voltage(csv_path, target_voltage, tolerance=tolerance)
+    if direct_match['in_range']:
+      return float(target_voltage), direct_match
+
+    mirrored_voltage = -float(target_voltage)
+    mirrored_match = self._curve_contains_voltage(csv_path, mirrored_voltage, tolerance=tolerance)
+    if mirrored_match['in_range']:
+      return mirrored_voltage, mirrored_match
+
+    return float(target_voltage), direct_match
+
+
+  def _interpolate_voltage_for_current(self, csv_path, target_current, reference_voltage=None):
+    """
+      Finds the voltage in a transfer curve that best matches a target current.
+
+      If multiple crossings exist, chooses the one closest to the reference voltage.
+    """
+    voltages, currents = self._read_curve_points(csv_path)
+    delta = currents - float(target_current)
+    crossing_indices = np.where(delta[:-1] * delta[1:] <= 0)[0]
+    candidates = []
+
+    for idx in crossing_indices:
+      x1, x2 = voltages[idx], voltages[idx + 1]
+      y1, y2 = currents[idx], currents[idx + 1]
+
+      if np.isclose(y1, y2):
+        candidates.append(float((x1 + x2) / 2.0))
+        continue
+
+      interpolated_voltage = x1 + (target_current - y1) * (x2 - x1) / (y2 - y1)
+      candidates.append(float(interpolated_voltage))
+
+    if candidates:
+      if reference_voltage is None:
+        return candidates[0]
+      return min(candidates, key=lambda voltage: abs(voltage - reference_voltage))
+
+    nearest_idx = int(np.argmin(np.abs(currents - target_current)))
+    return float(voltages[nearest_idx])
+
+
+  def _get_max_reference_transfer(self, transfer_curves):
+    """Returns the transfer curve with the highest filename voltage suffix."""
+    reference_candidates = []
+
+    for transfer_path, curve_type, loaded_voltage in transfer_curves:
+      filename_voltage = self._extract_voltage_from_filename(transfer_path)
+      if filename_voltage is None:
+        continue
+
+      reference_candidates.append({
+          'path': transfer_path,
+          'curve_type': curve_type,
+          'loaded_voltage': float(loaded_voltage),
+          'filename_voltage': float(filename_voltage),
+      })
+
+    if not reference_candidates:
+      return None
+
+    return max(reference_candidates, key=lambda item: item['filename_voltage'])
+
+
+  def calculate_automatic_output_shifts(self, path_voltages):
+    """
+      Calculates an automatic shift for each output curve using the transfer
+      curve with the highest filename voltage suffix as reference.
+    """
+    transfer_curves = [curve for curve in path_voltages if curve[1] == 0]
+    output_curves = [curve for curve in path_voltages if curve[1] == 1]
+    reference_transfer = self._get_max_reference_transfer(transfer_curves)
+
+    auto_shifts = []
+    shift_details = []
+
+    for output_path, _, output_loaded_voltage in output_curves:
+      output_nominal_voltage = float(output_loaded_voltage)
+      output_filename_voltage = self._extract_voltage_from_filename(output_path)
+      detail = {
+          'output_file': os.path.basename(output_path),
+          'output_nominal_voltage': output_nominal_voltage,
+          'output_filename_voltage': output_filename_voltage,
+          'reference_transfer_file': None,
+          'reference_transfer_loaded_voltage': None,
+          'reference_transfer_filename_voltage': None,
+          'reference_vds': None,
+          'reference_current': None,
+          'matched_vgs': None,
+          'automatic_shift': 0.0,
+          'output_voltage_match': None,
+          'status': 'no_reference_transfer'
+      }
+
+      if reference_transfer is None:
+        auto_shifts.append(0.0)
+        shift_details.append(detail)
+        continue
+
+      transfer_path = reference_transfer['path']
+      raw_reference_vds = float(reference_transfer['filename_voltage'])
+      reference_vds, output_voltage_match = self._align_voltage_to_curve_axis(
+          output_path,
+          raw_reference_vds,
+      )
+
+      detail.update({
+          'reference_transfer_file': os.path.basename(transfer_path),
+          'reference_transfer_loaded_voltage': reference_transfer['loaded_voltage'],
+          'reference_transfer_filename_voltage': reference_transfer['filename_voltage'],
+          'reference_vds': reference_vds,
+          'reference_vds_from_filename': raw_reference_vds,
+          'output_voltage_match': output_voltage_match,
+      })
+
+      if not output_voltage_match['in_range']:
+        auto_shifts.append(0.0)
+        detail['status'] = 'reference_vds_not_in_output_range'
+        shift_details.append(detail)
+        continue
+
+      reference_current = self._interpolate_current_at_voltage(output_path, reference_vds)
+      matched_vgs = self._interpolate_voltage_for_current(
+          transfer_path,
+          reference_current,
+          reference_voltage=reference_vds
+      )
+      automatic_shift = float(matched_vgs - reference_vds)
+
+      detail.update({
+          'matched_vgs': matched_vgs,
+          'reference_current': reference_current,
+          'automatic_shift': automatic_shift,
+          'status': 'matched'
+      })
+
+      auto_shifts.append(automatic_shift)
+      shift_details.append(detail)
+
+    return auto_shifts, shift_details
+
+
   # Faz o deslocamento de tensão na lista de tensões para as curvas de saída
-  def apply_shifts(self, count_transfer, shift_tesion, list_tension):
+  def apply_shifts(self, path_voltages, shift_tesion):
     """
       Applies a voltage shift to the list of voltages for the output curves.
 
       Args:
-          count_transfer (int): The number of transfer curves in the voltage list.
+          path_voltages (list): Curve tuples with type information.
           shift_tension (list): A list of voltage shift values.
-          list_tension (list): A list of voltages associated with the curves.
 
       Returns:
           list: A list of voltages updated with the applied shifts.
 
       Example:
-          >>> count_transfer = 3
+          >>> path_voltages = [('transfer-1V.csv', 0, 1.0), ('output-2V.csv', 1, 2.0)]
           >>> shift_tension = [0.1, -0.2]
-          >>> list_tension = [1.0, 2.0, 3.0, 4.0, 5.0]
-          >>> updated_tensions = apply_shifts(count_transfer, shift_tension, list_tension)
+          >>> updated_tensions = apply_shifts(path_voltages, shift_tension)
           >>> print(updated_tensions)
-          [1.0, 2.0, 3.1, 3.8, 5.0]
+          [1.0, 2.1]
     """
 
     result_list = []
     shifted_values = []
+    count_transfer, _ = self.get_curve_counts(path_voltages)
+    list_tension = [curve[2] for curve in path_voltages]
 
     if count_transfer > 0:
       # Separate the elements that will not be altered and the remaining elements
@@ -724,7 +966,7 @@ class ReadData:
       # print(after_values)
     else:
       # size of the shift_list
-      qtde_tension_output  = len(shift_list)
+      qtde_tension_output  = len(shift_tesion)
       qtde_tension_in_list = len(list_tension)
       window_cut = 0
 
@@ -739,8 +981,14 @@ class ReadData:
       # print(after_values)
 
     # # Calculate the altered values based on the shifts
+    def _extract_shift_value(shift_item):
+      if isinstance(shift_item, dict):
+        return float(shift_item.get('total', shift_item.get('manual', 0.0) + shift_item.get('automatic', 0.0)))
+      return float(shift_item)
+
     if shift_tesion is not None:
-      for tension, shift in zip(after_values, shift_tesion):
+      for tension, shift_item in zip(after_values, shift_tesion):
+        shift = _extract_shift_value(shift_item)
         if shift >= 0 and tension >= 0:
           shifted_values.append(shift + tension)
         elif shift < 0 and tension >= 0:

@@ -1,0 +1,70 @@
+[
+    {
+        "path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/cnts/tipo n",
+        "experimental_data_scale_transfer": "A",
+        "experimental_data_scale_output": "A",
+        "current_typic": "A",
+        "loaded_voltages": "0.1, 1, 2, 3, 0.1, 0.5, 1, 2",
+        "type_curve_plot": "log",
+        "type_read_data_exp": "read original data",
+        "enable_pre_processing": "no",
+        "apply_pre_process_global_shift": "yes",
+        "pre_process_shift_volt_data": "1",
+        "apply_pre_process_threshold": "yes",
+        "pre_process_threshold_voltage": "0",
+        "apply_pre_process_hysteresis": "yes",
+        "pre_process_hysteresis_mode": "media",
+        "apply_local_output_shift": "yes",
+        "output_shift_volt_data": "",
+        "shift_volt_data": "",
+        "select_files": "",
+        "pre_process_global_shift_persisted": "yes",
+        "pre_process_global_shift_persisted_value": "1.0"
+    },
+    {
+        "resistance_scale": "1e4",
+        "current_carry": "1e-1",
+        "with_transistor": "0.19",
+        "type_of_transistor": "nFET",
+        "loaded_parameters": {
+            "VTHO": 1.1775,
+            "DELTA": 4.5466e-08,
+            "N": 47.9518,
+            "L": 3.9744,
+            "LAMBDA": 3141.3572,
+            "VGCRIT": 71.5584,
+            "JTH": 1.1908,
+            "RS": 0.015
+        },
+        "idleak_mode": "unique idleak value",
+        "loaded_idleak": "6.5e-11"
+    },
+    {
+        "image_size_width": null,
+        "image_size_height": null,
+        "upper_bounds": {
+            "ub_VTHO": 4,
+            "ub_DELTA": 0.1,
+            "ub_N": 130,
+            "ub_L": 4,
+            "ub_LAMBDA": 10000,
+            "ub_VGCRIT": 80,
+            "ub_JTH": 20,
+            "ub_RS": 70
+        },
+        "lower_bounds": {
+            "lb_VTHO": 0.0,
+            "lb_DELTA": 0,
+            "lb_N": 10,
+            "lb_L": 1,
+            "lb_LAMBDA": 100,
+            "lb_VGCRIT": 10,
+            "lb_JTH": 1e-05,
+            "lb_RS": 0
+        },
+        "default_bounds": "no",
+        "optimization_method": "trf",
+        "tolerance_factor": "4e-7",
+        "vary_parameters": ""
+    }
+]

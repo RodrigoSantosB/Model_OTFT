@@ -73,15 +73,27 @@ Para eliminar essa redundancia, a rotina:
 3. agrupa todos os pontos com a mesma tensao;
 4. calcula uma unica corrente representativa para cada tensao.
 
-Na implementacao atual, a corrente representativa e calculada pela media aritmetica:
+Na implementacao atual, a corrente representativa pode ser escolhida por meio do parametro `hysteresis_mode`.
 
-`I_representativa(V) = media(I_1, I_2, ..., I_n)`
+Os modos disponiveis sao:
 
-Esse procedimento substitui o laco de ida e volta por uma unica curva media.
+- `media`: usa a media aritmetica das correntes repetidas;
+- `menor`: usa a menor corrente associada aquela tensao;
+- `maior`: usa a maior corrente associada aquela tensao.
 
-## Por que a media foi escolhida
+De forma geral:
 
-A media foi escolhida por ser uma estrategia simples, estavel e robusta para este tipo de consolidacao, especialmente quando:
+- `I_representativa(V) = media(I_1, I_2, ..., I_n)` no modo `media`;
+- `I_representativa(V) = min(I_1, I_2, ..., I_n)` no modo `menor`;
+- `I_representativa(V) = max(I_1, I_2, ..., I_n)` no modo `maior`.
+
+Esse procedimento substitui o laco de ida e volta por uma unica curva consolidada.
+
+## Escolha da estrategia de consolidacao
+
+### Modo `media`
+
+O modo `media` foi escolhido como padrao por ser uma estrategia simples, estavel e robusta para este tipo de consolidacao, especialmente quando:
 
 - a histerese aparece como duplicacao da mesma tensao;
 - o objetivo e obter uma curva unica para treinamento;
@@ -93,6 +105,26 @@ Na pratica, essa abordagem:
 - evita manter dois valores de corrente para a mesma tensao;
 - preserva a tendencia global da curva;
 - facilita comparacoes com modelos e rotinas de interpolacao.
+
+### Modo `menor`
+
+O modo `menor` seleciona, para cada tensao repetida, o menor valor de corrente observado. Essa opcao e util quando se deseja uma representacao mais conservadora da curva, privilegiando o ramo inferior do laco de histerese.
+
+Na pratica, esse modo pode ser util quando:
+
+- se deseja minimizar a influencia de picos locais;
+- o ramo inferior e o mais relevante para a analise;
+- se quer evitar superestimativa da corrente em tensoes repetidas.
+
+### Modo `maior`
+
+O modo `maior` seleciona, para cada tensao repetida, o maior valor de corrente observado. Essa opcao e util quando se deseja preservar o ramo superior da histerese.
+
+Na pratica, esse modo pode ser util quando:
+
+- se deseja uma curva mais envolvente superior;
+- o ramo de maior conducao e o mais relevante;
+- se quer evitar subestimativa da corrente em tensoes repetidas.
 
 ## Reordenacao final da curva
 
@@ -121,8 +153,31 @@ Esta tecnica nao tenta modelar fisicamente a histerese. Ela foi desenhada para l
 Algumas implicacoes:
 
 - a diferenca entre ramo de ida e ramo de volta nao e preservada separadamente;
-- a curva final representa uma versao media da medicao;
+- a curva final representa uma versao consolidada da medicao, segundo o modo escolhido;
 - se a histerese for muito forte e fisicamente relevante, talvez seja melhor tratar cada ramo separadamente em outra rotina.
+
+## Parametro de configuracao
+
+A escolha da estrategia de eliminacao da histerese e feita pelo parametro `hysteresis_mode`, aceito nas rotinas de processamento.
+
+Valores aceitos:
+
+- `media`
+- `menor`
+- `maior`
+
+Exemplo:
+
+```python
+from modules_otft._pre_processing_data import process_experimental_data
+
+process_experimental_data(
+    input_path="datas/cnts",
+    shift_voltage=0.3,
+    threshold_voltage=0.0,
+    hysteresis_mode="menor",
+)
+```
 
 ## Quando essa tecnica e adequada
 
@@ -141,7 +196,7 @@ A tecnica de remocao de histerese implementada neste projeto consiste em:
 2. aplicar `shift` horizontal na tensao;
 3. recortar a curva por um limiar de tensao;
 4. agrupar tensoes repetidas;
-5. substituir correntes repetidas por uma corrente media representativa;
+5. substituir correntes repetidas por uma corrente representativa definida por `hysteresis_mode`;
 6. ordenar a curva e salvar um novo CSV tratado.
 
 Essa estrategia transforma curvas com ida e volta em uma unica curva limpa, mais apropriada para as etapas seguintes do pipeline.
