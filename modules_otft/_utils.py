@@ -28,6 +28,7 @@ def enter_with_json_file():
             print('|' + ' ' + f'{key}: {value}')
             print('--' * 100)
 
+    settings["_json_path"] = json_path
     maybe_apply_preprocessing(settings)
     return settings
 
@@ -51,6 +52,30 @@ def _get_float_setting(settings, key, default=0.0):
     if value in ("", None):
         return default
     return float(value)
+
+
+def _persist_json_setting(settings, key, value):
+    """Updates a top-level JSON setting in place, preserving block structure."""
+    json_path = settings.get("_json_path")
+    if not json_path:
+        return False
+
+    with open(json_path, 'r') as file:
+        inputs = json.load(file)
+
+    setting_updated = False
+    for block in inputs:
+        if isinstance(block, dict) and key in block:
+            block[key] = value
+            setting_updated = True
+
+    if not setting_updated:
+        return False
+
+    with open(json_path, 'w') as file:
+        json.dump(inputs, file, indent=4)
+        file.write('\n')
+    return True
 
 
 def maybe_apply_preprocessing(settings):
@@ -92,6 +117,12 @@ def maybe_apply_preprocessing(settings):
         recursive=True,
     )
 
+    settings["enable_pre_processing"] = "no"
+    settings["_preprocessing_persisted"] = _persist_json_setting(
+        settings,
+        "enable_pre_processing",
+        "no",
+    )
     settings["_preprocessing_applied"] = True
     settings["_preprocessing_report"] = summary
     return settings
@@ -263,9 +294,6 @@ def get_shift_list(read, settings):
 def get_global_display_shift(settings):
   """Returns the configured global shift used only for nominal display values."""
   if not isinstance(settings, dict):
-      return 0.0
-
-  if not _is_truthy_setting(settings.get('enable_pre_processing'), default=False):
       return 0.0
 
   if not _is_truthy_setting(settings.get('apply_pre_process_global_shift'), default=False):

@@ -7,7 +7,7 @@
         "loaded_voltages": "0.1, 1, 2, 3, 0.1, 0.5, 1, 2",
         "type_curve_plot": "log",
         "type_read_data_exp": "read original data",
-        "enable_pre_processing": "yes",
+        "enable_pre_processing": "no",
         "apply_pre_process_global_shift": "yes",
         "pre_process_shift_volt_data": "1",
         "apply_pre_process_threshold": "yes",
