@@ -15,11 +15,7 @@
         "apply_pre_process_hysteresis": "yes",
         "pre_process_hysteresis_mode": "media",
         "apply_local_output_shift": "yes",
-        "output_shift_volt_data": "",
-        "shift_volt_data": "",
-        "select_files": "",
-        "pre_process_global_shift_persisted": "yes",
-        "pre_process_global_shift_persisted_value": "1.0"
+        "select_files": ""
     },
     {
         "resistance_scale": "1e4",

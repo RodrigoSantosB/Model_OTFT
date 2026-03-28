@@ -139,7 +139,7 @@ def get_type_plot(settings):
     
     
 def calculate_shift_list(settings):
-  """Calculates the displacement list."""
+  """Builds output-shift metadata using only the automatic flow."""
   
   if not isinstance(settings, dict):
         print("Error: settings must be a dictionary.")
@@ -152,52 +152,28 @@ def calculate_shift_list(settings):
 
   output_count = sum(1 for _, curve_type, _ in discovered_path_voltages if curve_type == 1)
   max_curves = output_count
-  shift_key = 'output_shift_volt_data' if 'output_shift_volt_data' in settings else 'shift_volt_data'
-  apply_local_shift = _is_truthy_setting(settings.get('apply_local_output_shift'), default=True)
-
-  def _normalize_shift_values(raw_values):
-      normalized_values = [float(value) for value in raw_values]
-      if len(normalized_values) < max_curves:
-          normalized_values.extend([0.0] * (max_curves - len(normalized_values)))
-      return normalized_values[:max_curves]
-
-  try:
-      if (not apply_local_shift) or settings.get(shift_key, "") == "":
-          manual_values = [0.0] * max_curves
-      else:
-          parsed_shift = eval(settings[shift_key])
-          if isinstance(parsed_shift, (int, float)):
-              manual_values = _normalize_shift_values([parsed_shift])
-          elif isinstance(parsed_shift, (list, tuple)):
-              manual_values = _normalize_shift_values(list(parsed_shift))
-          else:
-              manual_values = [0.0] * max_curves
-  except (ValueError, SyntaxError, NameError, TypeError):
-      print("No shift value passed, please enter a value\n")
-      return []
 
   cached_metadata = settings.get('_shift_metadata')
   if not isinstance(cached_metadata, list) or len(cached_metadata) != max_curves:
       cached_metadata = [
           {
-              'manual': 0.0,
               'automatic': 0.0,
               'total': 0.0
           }
           for _ in range(max_curves)
       ]
 
-  for shift_entry, manual_shift in zip(cached_metadata, manual_values):
-      shift_entry['manual'] = float(manual_shift)
+  for shift_entry in cached_metadata:
+      shift_entry.pop('manual', None)
       shift_entry.setdefault('automatic', 0.0)
-      shift_entry['total'] = float(shift_entry['manual'] + shift_entry['automatic'])
+      shift_entry['total'] = float(shift_entry['automatic'])
 
   settings['_shift_metadata'] = cached_metadata
   return cached_metadata
   
 
 def build_shift_comparison_report(shift_metadata, automatic_shift_report, apply_local_shift=True, path_voltages=None):
-  """Builds a merged view of manual, automatic and total output shifts."""
+  """Builds a merged view of automatic output shifts."""
   comparison_report = []
   automatic_shift_report = automatic_shift_report or []
   output_curves = [curve for curve in (path_voltages or []) if curve[1] == 1]
@@ -209,12 +185,10 @@ def build_shift_comparison_report(shift_metadata, automatic_shift_report, apply_
           report_entry.setdefault('output_file', os.path.basename(output_path))
           report_entry.setdefault('output_nominal_voltage', float(output_loaded_voltage))
           report_entry.setdefault('vgs_nominal', float(output_loaded_voltage))
-      manual_shift = float(shift_entry.get('manual', 0.0))
       automatic_shift = float(shift_entry.get('automatic', 0.0))
-      total_shift = float(shift_entry.get('total', manual_shift + automatic_shift))
+      total_shift = float(shift_entry.get('total', automatic_shift))
       report_entry.update({
           'curve_index': index,
-          'manual_shift': manual_shift,
           'automatic_shift': automatic_shift,
           'total_shift': total_shift,
       })
@@ -240,7 +214,6 @@ def format_shift_comparison_log(comparison_report):
           '| '
           + f'{curve_name}: '
           + f'Vg_nom={vgs_nominal}, '
-          + f'manual={detail.get("manual_shift", 0.0):.4f}, '
           + f'auto={detail.get("automatic_shift", 0.0):.4f}, '
           + f'total={detail.get("total_shift", 0.0):.4f}, '
           + f'Vg_eff={vgs_effective}, '
@@ -265,7 +238,7 @@ def get_shift_list(read, settings):
 
   for shift_entry, automatic_shift in zip(shift_list, automatic_shifts):
       shift_entry['automatic'] = float(automatic_shift)
-      shift_entry['total'] = float(shift_entry.get('manual', 0.0) + shift_entry['automatic'])
+      shift_entry['total'] = float(shift_entry['automatic'])
 
   comparison_report = build_shift_comparison_report(
       shift_list,

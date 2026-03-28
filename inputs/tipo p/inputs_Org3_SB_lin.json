@@ -14,8 +14,6 @@
     "apply_pre_process_hysteresis"      : "no",
     "pre_process_hysteresis_mode"       : "media",
     "apply_local_output_shift"          : "yes",
-    "output_shift_volt_data"            : "9, 8.3, 7.7",
-    "shift_volt_data"                   : "9, 8.3, 7.7",
     "select_files"                      : ""
     
 },
