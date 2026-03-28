@@ -7,7 +7,7 @@
         "loaded_voltages": "0.1, 1, 2, 3, 0.1, 0.5, 1, 2",
         "type_curve_plot": "log",
         "type_read_data_exp": "read original data",
-        "enable_pre_processing": "no",
+        "enable_pre_processing": "yes",
         "apply_pre_process_global_shift": "yes",
         "pre_process_shift_volt_data": "1",
         "apply_pre_process_threshold": "yes",
@@ -23,18 +23,18 @@
     },
     {
         "resistance_scale": "1e4",
-        "current_carry": "1e-1",
+        "current_carry": "1e-6",
         "with_transistor": "0.19",
         "type_of_transistor": "nFET",
         "loaded_parameters": {
-            "VTHO": 1.1775,
-            "DELTA": 4.5466e-08,
-            "N": 47.9518,
-            "L": 3.9744,
-            "LAMBDA": 3141.3572,
-            "VGCRIT": 71.5584,
-            "JTH": 1.1908,
-            "RS": 0.015
+            "VTHO": 8.57,
+            "DELTA": 0.0123,
+            "N": 108,
+            "L": 3.18,
+            "LAMBDA": 1490.0,
+            "VGCRIT": 32.3,
+            "JTH": 0.097,
+            "RS": 1
         },
         "idleak_mode": "unique idleak value",
         "loaded_idleak": "6.5e-11"
@@ -43,23 +43,23 @@
         "image_size_width": null,
         "image_size_height": null,
         "upper_bounds": {
-            "ub_VTHO": 4,
+            "ub_VTHO": 12,
             "ub_DELTA": 0.1,
             "ub_N": 130,
             "ub_L": 4,
             "ub_LAMBDA": 10000,
             "ub_VGCRIT": 80,
-            "ub_JTH": 20,
+            "ub_JTH": 10,
             "ub_RS": 70
         },
         "lower_bounds": {
-            "lb_VTHO": 0.0,
+            "lb_VTHO": 8,
             "lb_DELTA": 0,
             "lb_N": 10,
             "lb_L": 1,
             "lb_LAMBDA": 100,
             "lb_VGCRIT": 10,
-            "lb_JTH": 1e-05,
+            "lb_JTH": 0.001,
             "lb_RS": 0
         },
         "default_bounds": "no",
@@ -68,3 +68,4 @@
         "vary_parameters": ""
     }
 ]
+

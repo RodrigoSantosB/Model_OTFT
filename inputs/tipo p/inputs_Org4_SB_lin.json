@@ -13,9 +13,9 @@
     "pre_process_threshold_voltage"     : "0.0",
     "apply_pre_process_hysteresis"      : "no",
     "pre_process_hysteresis_mode"       : "media",
-    "apply_local_output_shift"          : "no",
-    "output_shift_volt_data"            : "-1, -1, -2.8, -6.2",
-    "shift_volt_data"                   : "-1, -1, -2.8, -6.2",
+    "apply_local_output_shift"          : "yes",
+    "output_shift_volt_data"            : "",
+    "shift_volt_data"                   : "",
     "select_files"                      : ""
     
 },
@@ -33,7 +33,7 @@
                                             "LAMBDA": 5.86e+2,
                                             "VGCRIT": 36.2,   
                                             "JTH"   : 9.69,
-                                            "RS"    : 4.18
+                                            "RS"    : 0.1
                                             },
                                             
     "idleak_mode"                       : "unique idleak value",

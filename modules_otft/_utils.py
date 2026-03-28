@@ -7,10 +7,6 @@ from modules_otft._read_data import ReadData
 
 import json
 
-
-PERSISTED_GLOBAL_SHIFT_FLAG_KEY = "pre_process_global_shift_persisted"
-PERSISTED_GLOBAL_SHIFT_VALUE_KEY = "pre_process_global_shift_persisted_value"
-
 def enter_with_json_file():
     print(200 * '-')
     json_path = input('Enter the JSON file path, for example: "/content/gdrive/your/path/json": \n\n')
@@ -21,8 +17,6 @@ def enter_with_json_file():
 
     global settings
     settings = {}
-    settings["_json_path"] = json_path
-    settings["_json_blocks"] = inputs
 
     print('\n')
     print(83 * '_' + ' SETTINGS PRESENT IN THE JSON FILE:' + 83 * '_' + '\n')
@@ -59,35 +53,6 @@ def _get_float_setting(settings, key, default=0.0):
     return float(value)
 
 
-def _set_json_setting(blocks, key, value, default_block_index=0):
-    for block in blocks:
-        if isinstance(block, dict) and key in block:
-            block[key] = value
-            return
-
-    if blocks and isinstance(blocks[default_block_index], dict):
-        blocks[default_block_index][key] = value
-
-
-def _persist_settings_to_json(settings, updates):
-    for key, value in updates.items():
-        settings[key] = value
-
-    json_path = settings.get("_json_path")
-    json_blocks = settings.get("_json_blocks")
-    if not json_path or not isinstance(json_blocks, list):
-        return
-
-    persisted_blocks = json.loads(json.dumps(json_blocks))
-    for key, value in updates.items():
-        _set_json_setting(persisted_blocks, key, value)
-
-    with open(json_path, "w") as file:
-        json.dump(persisted_blocks, file, indent=4)
-
-    settings["_json_blocks"] = persisted_blocks
-
-
 def maybe_apply_preprocessing(settings):
     """
     Aplica o pre-processamento configurado no JSON diretamente no diretorio
@@ -117,30 +82,16 @@ def maybe_apply_preprocessing(settings):
         settings["_preprocessing_report"] = []
         return settings
 
-    global_shift_value = (
-        _get_float_setting(settings, "pre_process_shift_volt_data", 0.0)
-        if apply_global_shift else 0.0
-    )
     processor = PreProcessingData()
     summary = processor.process_directory_in_place(
         input_path=input_path,
-        shift_voltage=global_shift_value,
+        shift_voltage=_get_float_setting(settings, "pre_process_shift_volt_data", 0.0) if apply_global_shift else 0.0,
         threshold_voltage=_get_float_setting(settings, "pre_process_threshold_voltage", 0.0) if apply_threshold else None,
         hysteresis_mode=settings.get("pre_process_hysteresis_mode", "media"),
         apply_hysteresis=apply_hysteresis,
         recursive=True,
     )
 
-    persisted_updates = {
-        "enable_pre_processing": "no",
-    }
-    if apply_global_shift:
-        persisted_updates.update({
-            PERSISTED_GLOBAL_SHIFT_FLAG_KEY: "yes",
-            PERSISTED_GLOBAL_SHIFT_VALUE_KEY: str(global_shift_value),
-        })
-
-    _persist_settings_to_json(settings, persisted_updates)
     settings["_preprocessing_applied"] = True
     settings["_preprocessing_report"] = summary
     return settings
@@ -245,6 +196,61 @@ def calculate_shift_list(settings):
   return cached_metadata
   
 
+def build_shift_comparison_report(shift_metadata, automatic_shift_report, apply_local_shift=True, path_voltages=None):
+  """Builds a merged view of manual, automatic and total output shifts."""
+  comparison_report = []
+  automatic_shift_report = automatic_shift_report or []
+  output_curves = [curve for curve in (path_voltages or []) if curve[1] == 1]
+
+  for index, shift_entry in enumerate(shift_metadata):
+      report_entry = dict(automatic_shift_report[index]) if index < len(automatic_shift_report) else {}
+      if index < len(output_curves):
+          output_path, _, output_loaded_voltage = output_curves[index]
+          report_entry.setdefault('output_file', os.path.basename(output_path))
+          report_entry.setdefault('output_nominal_voltage', float(output_loaded_voltage))
+          report_entry.setdefault('vgs_nominal', float(output_loaded_voltage))
+      manual_shift = float(shift_entry.get('manual', 0.0))
+      automatic_shift = float(shift_entry.get('automatic', 0.0))
+      total_shift = float(shift_entry.get('total', manual_shift + automatic_shift))
+      report_entry.update({
+          'curve_index': index,
+          'manual_shift': manual_shift,
+          'automatic_shift': automatic_shift,
+          'total_shift': total_shift,
+      })
+      if not apply_local_shift and 'status' not in report_entry:
+          report_entry['status'] = 'local_shift_disabled'
+      comparison_report.append(report_entry)
+
+  return comparison_report
+
+
+def format_shift_comparison_log(comparison_report):
+  """Formats the output-shift comparison report as readable log lines."""
+  if not comparison_report:
+      return []
+
+  log_lines = ['|' + ' OUTPUT SHIFT REPORT '.center(118, '-')]
+  for detail in comparison_report:
+      curve_name = detail.get('output_file', f'output_curve_{detail.get("curve_index", 0) + 1}')
+      status = detail.get('status', 'unknown')
+      vgs_nominal = detail.get('vgs_nominal', detail.get('output_nominal_voltage'))
+      vgs_effective = detail.get('vgs_effective_limited')
+      log_lines.append(
+          '| '
+          + f'{curve_name}: '
+          + f'Vg_nom={vgs_nominal}, '
+          + f'manual={detail.get("manual_shift", 0.0):.4f}, '
+          + f'auto={detail.get("automatic_shift", 0.0):.4f}, '
+          + f'total={detail.get("total_shift", 0.0):.4f}, '
+          + f'Vg_eff={vgs_effective}, '
+          + f'status={status}'
+      )
+      if detail.get('warning'):
+          log_lines.append('| ' + str(detail['warning']))
+  return log_lines
+
+
 def get_shift_list(read, settings):
   # Returns the shifted list with the passed voltage value [V]
   path_voltages = read.read_files_experimental(settings['path'], get_load_voltages(settings))
@@ -261,8 +267,21 @@ def get_shift_list(read, settings):
       shift_entry['automatic'] = float(automatic_shift)
       shift_entry['total'] = float(shift_entry.get('manual', 0.0) + shift_entry['automatic'])
 
+  comparison_report = build_shift_comparison_report(
+      shift_list,
+      automatic_shift_report,
+      apply_local_shift=apply_local_shift,
+      path_voltages=path_voltages,
+  )
+  comparison_log = format_shift_comparison_log(comparison_report)
+
   settings['_shift_metadata'] = shift_list
-  settings['_automatic_shift_report'] = automatic_shift_report
+  settings['_automatic_shift_report'] = comparison_report
+  settings['_shift_comparison_report'] = comparison_report
+  settings['_shift_comparison_log'] = comparison_log
+
+  for log_line in comparison_log:
+      print(log_line)
 
   list_tension_shift = read.apply_shifts(path_voltages, shift_list)
   return list_tension_shift
@@ -272,9 +291,6 @@ def get_global_display_shift(settings):
   """Returns the configured global shift used only for nominal display values."""
   if not isinstance(settings, dict):
       return 0.0
-
-  if _is_truthy_setting(settings.get(PERSISTED_GLOBAL_SHIFT_FLAG_KEY), default=False):
-      return _get_float_setting(settings, PERSISTED_GLOBAL_SHIFT_VALUE_KEY, 0.0)
 
   if not _is_truthy_setting(settings.get('enable_pre_processing'), default=False):
       return 0.0

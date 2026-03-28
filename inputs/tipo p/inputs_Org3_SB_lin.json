@@ -4,7 +4,7 @@
     "experimental_data_scale_output"    : "uA",
     "current_typic"                     : "uA",
     "loaded_voltages"                   : "-2, -8, -16, -20",
-    "type_curve_plot"                   : "log",
+    "type_curve_plot"                   : "linear",
     "type_read_data_exp"                : "read interpolated data",
     "enable_pre_processing"             : "no",
     "apply_pre_process_global_shift"    : "no",
@@ -14,8 +14,8 @@
     "apply_pre_process_hysteresis"      : "no",
     "pre_process_hysteresis_mode"       : "media",
     "apply_local_output_shift"          : "yes",
-    "output_shift_volt_data"            : "",
-    "shift_volt_data"                   : "",
+    "output_shift_volt_data"            : "9, 8.3, 7.7",
+    "shift_volt_data"                   : "9, 8.3, 7.7",
     "select_files"                      : ""
     
 },
