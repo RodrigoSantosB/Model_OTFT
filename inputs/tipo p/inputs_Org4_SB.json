@@ -59,9 +59,9 @@
             "lb_RS": 0
         },
         "default_bounds": "no",
-        "optimization_method": "trf",
+        "optimization_method": "ga",
         "tolerance_factor": "4e-7",
-        "optimization_strategy": "curve_fit",
+        "optimization_strategy": "ga",
         "ga_population": 60,
         "ga_generations": 150,
         "ga_mutation_rate": 0.1,

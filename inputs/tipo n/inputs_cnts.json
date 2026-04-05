@@ -4,7 +4,7 @@
         "experimental_data_scale_transfer": "A",
         "experimental_data_scale_output": "A",
         "current_typic": "A",
-        "loaded_voltages": "0.1, 1, 2, 3, 0.1, 0.5, 1, 2",
+        "loaded_voltages": "0.1, 1, 2, 3, 0.1, 0.5, 1, 2, 3, 4",
         "type_curve_plot": "log",
         "type_read_data_exp": "read original data",
         "enable_pre_processing": "no",

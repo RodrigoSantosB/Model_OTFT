@@ -299,12 +299,14 @@ def build_manual_shift_estimate_report(read, settings, path_voltages=None):
   manual_values = get_configured_output_shift_values(settings, output_count=output_count)
   raw_preprocess_shift = settings.get('pre_process_shift_volt_data')
   pre_process_shift_volt_data = None if raw_preprocess_shift in ("", None) else float(raw_preprocess_shift)
+  global_display_shift = get_global_display_shift(settings)
   current_typic = settings.get('current_typic', 'A')
   scale_transfer = settings.get('experimental_data_scale_transfer', 'A')
   scale_output = settings.get('experimental_data_scale_output', 'A')
   estimated_values, estimated_details = read.estimate_output_curve_shifts(
       path_voltages,
       pre_process_shift_volt_data=pre_process_shift_volt_data,
+      global_display_shift=global_display_shift,
       current_typic=current_typic,
       scale_transfer=scale_transfer,
       scale_output=scale_output,
@@ -344,6 +346,7 @@ def get_shift_list(read, settings):
   apply_local_shift = _is_truthy_setting(settings.get('apply_local_output_shift'), default=True)
   raw_preprocess_shift = settings.get('pre_process_shift_volt_data')
   pre_process_shift_volt_data = None if raw_preprocess_shift in ("", None) else float(raw_preprocess_shift)
+  global_display_shift = get_global_display_shift(settings)
   current_typic = settings.get('current_typic', 'A')
   scale_transfer = settings.get('experimental_data_scale_transfer', 'A')
   scale_output = settings.get('experimental_data_scale_output', 'A')
@@ -365,6 +368,7 @@ def get_shift_list(read, settings):
       automatic_shifts, automatic_shift_report = read.calculate_automatic_output_shifts(
           path_voltages,
           pre_process_shift_volt_data=pre_process_shift_volt_data,
+          global_display_shift=global_display_shift,
           current_typic=current_typic,
           scale_transfer=scale_transfer,
           scale_output=scale_output,
@@ -659,9 +663,10 @@ def create_model_opt(TFTModel, input_voltage, n_points, type_curve_plot, current
 def create_optimizer(settings, path_voltages, type_curve_plot):
     """Creates and configures the optimizer instance."""
     lw_bounds, up_bounds = get_bounds(settings)
+    opt_method = str(settings['optimization_method']).strip().lower()
     if opt_method == "genetic":
         opt_method = "ga"
-    
+
     if settings['optimization_method'] == 'mlp':
         from ._mlp_optimization import MLPOptimizer
         import os
@@ -696,8 +701,8 @@ def create_optimizer(settings, path_voltages, type_curve_plot):
                                    scale_output=settings['experimental_data_scale_output'], 
                                    path_voltages=path_voltages, 
                                    type_read=settings['type_read_data_exp'],
-                                   type_curve=type_curve_plot, 
-                                   method=settings['optimization_method'], 
+                                   type_curve=type_curve_plot,
+                                   method=opt_method,
                                    bounds=(lw_bounds, up_bounds))
     return optimizer
 

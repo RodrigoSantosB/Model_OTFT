@@ -1041,21 +1041,44 @@ class ReadData:
     return float(limited_voltage), warning, True
 
 
-  def _adjust_shift_with_preprocess(self, automatic_shift, pre_process_shift_volt_data=None):
-    """Adjusts the local shift using the preprocessing shift while preserving local sign."""
-    automatic_shift = float(automatic_shift)
-    if pre_process_shift_volt_data in ("", None):
-      return automatic_shift, False
+  def _calculate_shift_for_target_voltage(self, nominal_voltage, target_voltage):
+    """
+      Inverts the `apply_shifts()` convention to reach a target nominal voltage.
 
-    preprocess_shift = float(pre_process_shift_volt_data)
-    shift_signal = -1.0 if automatic_shift < 0 else 1.0
-    adjusted_magnitude = abs(preprocess_shift - abs(automatic_shift))
-    adjusted_shift = shift_signal * adjusted_magnitude
-    return float(adjusted_shift), True
+      For positive nominal voltages the shift is additive.
+      For negative nominal voltages `apply_shifts()` effectively uses
+      `target = nominal - shift`.
+    """
+    nominal_voltage = float(nominal_voltage)
+    target_voltage = float(target_voltage)
+    if nominal_voltage < 0:
+      return float(nominal_voltage - target_voltage)
+    return float(target_voltage - nominal_voltage)
+
+
+  def _adjust_shift_with_preprocess(self, nominal_voltage, effective_voltage, global_display_shift=0.0):
+    """
+      Calculates the local shift needed so the displayed output gate voltage
+      matches the effective VGS after the global visual shift is applied.
+    """
+    nominal_voltage = float(nominal_voltage)
+    effective_voltage = float(effective_voltage)
+    global_display_shift = float(global_display_shift or 0.0)
+
+    display_signal = -1.0 if nominal_voltage < 0 else 1.0
+    target_display_voltage = display_signal * abs(effective_voltage)
+    target_voltage_before_global_display = target_display_voltage - global_display_shift
+    local_shift = self._calculate_shift_for_target_voltage(
+        nominal_voltage,
+        target_voltage_before_global_display,
+    )
+    adjusted_by_preprocess = not np.isclose(global_display_shift, 0.0)
+    return float(local_shift), adjusted_by_preprocess
 
 
   def estimate_output_shifts(self, path_voltages, min_gate_separation=0.5,
-                             pre_process_shift_volt_data=None, current_typic='A',
+                             pre_process_shift_volt_data=None, global_display_shift=0.0,
+                             current_typic='A',
                              scale_transfer='A', scale_output='A'):
     """
       Estimates automatic output shifts using a fixed VDS reference taken from
@@ -1092,6 +1115,7 @@ class ReadData:
             'automatic_shift_base': 0.0,
             'automatic_shift': 0.0,
             'pre_process_shift_volt_data': pre_process_shift_volt_data,
+            'global_display_shift': float(global_display_shift or 0.0),
             'automatic_shift_adjusted_by_preprocess': False,
             'status': 'no_reference_transfer',
             'reference_mode': 'no_reference_transfer',
@@ -1126,6 +1150,7 @@ class ReadData:
             'automatic_shift_base': 0.0,
             'automatic_shift': 0.0,
             'pre_process_shift_volt_data': pre_process_shift_volt_data,
+            'global_display_shift': float(global_display_shift or 0.0),
             'automatic_shift_adjusted_by_preprocess': False,
             'status': 'no_common_vds_reference',
             'reference_mode': reference_info['reference_mode'],
@@ -1167,6 +1192,7 @@ class ReadData:
           'automatic_shift_base': 0.0,
           'automatic_shift': 0.0,
           'pre_process_shift_volt_data': pre_process_shift_volt_data,
+          'global_display_shift': float(global_display_shift or 0.0),
           'automatic_shift_adjusted_by_preprocess': False,
           'output_voltage_match': output_voltage_match,
           'status': 'no_common_vds_reference',
@@ -1224,8 +1250,9 @@ class ReadData:
       delta_vgs = float(vgs_effective_limited - output_nominal_voltage)
       automatic_shift_base = float(output_nominal_voltage - vgs_effective_limited)
       automatic_shift, adjusted_by_preprocess = self._adjust_shift_with_preprocess(
-          automatic_shift_base,
-          pre_process_shift_volt_data=pre_process_shift_volt_data,
+          output_nominal_voltage,
+          vgs_effective_limited,
+          global_display_shift=global_display_shift,
       )
 
       detail.update({
@@ -1235,6 +1262,7 @@ class ReadData:
           'automatic_shift_base': automatic_shift_base,
           'automatic_shift': automatic_shift,
           'pre_process_shift_volt_data': pre_process_shift_volt_data,
+          'global_display_shift': float(global_display_shift or 0.0),
           'automatic_shift_adjusted_by_preprocess': adjusted_by_preprocess,
           'status': 'matched_with_monotonicity_limit' if was_limited else 'matched',
           'warning': warning,
@@ -1249,6 +1277,7 @@ class ReadData:
 
 
   def calculate_automatic_output_shifts(self, path_voltages, pre_process_shift_volt_data=None,
+                                        global_display_shift=0.0,
                                         current_typic='A', scale_transfer='A', scale_output='A'):
     """
       Backward-compatible wrapper around the VDS-match shift estimator.
@@ -1256,6 +1285,7 @@ class ReadData:
     return self.estimate_output_shifts(
         path_voltages,
         pre_process_shift_volt_data=pre_process_shift_volt_data,
+        global_display_shift=global_display_shift,
         current_typic=current_typic,
         scale_transfer=scale_transfer,
         scale_output=scale_output,
@@ -1263,11 +1293,13 @@ class ReadData:
 
 
   def estimate_output_curve_shifts(self, path_voltages, pre_process_shift_volt_data=None,
+                                   global_display_shift=0.0,
                                    current_typic='A', scale_transfer='A', scale_output='A'):
     """Compatibility alias for callers using the older method name."""
     return self.estimate_output_shifts(
         path_voltages,
         pre_process_shift_volt_data=pre_process_shift_volt_data,
+        global_display_shift=global_display_shift,
         current_typic=current_typic,
         scale_transfer=scale_transfer,
         scale_output=scale_output,
