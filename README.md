@@ -390,9 +390,13 @@ This documentation provides a comprehensive explanation of the model parameters 
 - **Compatibility**: If this field is empty, the code falls back to `shift_volt_data`.
 
 #### `select_files` (str)
-- **Description**: Filters files to read only those of interest.
-- **Format**: Comma-separated indices of the experiment curves.
-- **Example**: `"0, 3, 5"`
+- **Description**: Filters files by inclusion (only listed curves are read).
+- **Format**: Comma-separated indices of the experiment curves using **1-based indexing**.
+- **Rules**:
+  - first curve is `1`;
+  - use only positive integers;
+  - duplicated indices are not allowed.
+- **Example**: `"1, 4, 6"`
 
 ### Preprocessing and Shift Combinations
 

@@ -103,6 +103,40 @@ class TFTGraphicsPlot():
       return f'{voltage_value}V'
 
 
+  def __normalize_selected_indices(self, select_files):
+    """
+      Normalizes selected curve indices to 0-based integers.
+
+      String inputs are treated as user-facing 1-based values (e.g. "1,3,5").
+      Iterable/int inputs are treated as already normalized 0-based values.
+    """
+    if select_files in (None, "", []):
+      return []
+
+    if isinstance(select_files, str):
+      tokens = [token.strip() for token in select_files.split(",")]
+      normalized = []
+      for token in tokens:
+        if token == "":
+          continue
+        try:
+          user_index = int(token)
+        except (TypeError, ValueError) as err:
+          raise ValueError(f"Invalid select_files token: {token}") from err
+        if user_index < 1:
+          raise ValueError("select_files string must use 1-based indices (first curve = 1).")
+        normalized.append(user_index - 1)
+      return normalized
+
+    if isinstance(select_files, int):
+      return [int(select_files)]
+
+    normalized = []
+    for value in select_files:
+      normalized.append(int(value))
+    return normalized
+
+
   def __prepare_shift_list(self, shift_list, select_files, count):
     """Prepares the shift list used by both model and experimental legends."""
     shift_list_update = []
@@ -110,24 +144,13 @@ class TFTGraphicsPlot():
     if shift_list is None:
       return shift_list_update
 
-    if isinstance(select_files, str):
-      if not select_files:
-        select_files = ""
-      else:
-        select_files = list(eval(select_files))
+    select_files = self.__normalize_selected_indices(select_files)
 
-    if (len(select_files) != 0) and (len(select_files) < len(shift_list)):
-      for index in select_files:
-        try:
-          if count == 0:
-            shift_list_update.append(shift_list[index-1])
-          else:
-            shift_list_update.append(shift_list[index-count])
-        except IndexError:
-          if count == 0:
-            shift_list_update.append(shift_list[index-1])
-          else:
-            shift_list_update.append(shift_list[index-count])
+    if len(select_files) != 0:
+      output_relative_indices = sorted({index - count for index in select_files if index >= count})
+      for output_index in output_relative_indices:
+        if 0 <= output_index < len(shift_list):
+          shift_list_update.append(shift_list[output_index])
       return shift_list_update
 
     return shift_list
@@ -156,56 +179,25 @@ class TFTGraphicsPlot():
           >>> legend_name = __legend_name(volt_data, exp_data, shift_list, j, no_shift)
     """
 
-
-    shift_list = self.__change_signal_shift(shift_list)
+    shift_list = self.__change_signal_shift(shift_list) if shift_list is not None else []
 
     def safe_index(values, idx, default='?'):
-        if not values:
-            return default
-        safe_idx = min(max(idx, 0), len(values) - 1)
-        return values[safe_idx]
+      if not values:
+        return default
+      if idx < 0 or idx >= len(values):
+        return default
+      return values[idx]
 
-    def format_name(volt_data, shift_list, j):
-        volt = safe_index(volt_data, j)
-        shift = safe_index(shift_list, j, 0)
-        shift_text = self.__format_shift_display(shift)
-        return '<b>Exp <b>' + ' ' + f'<b>{self.__format_voltage_display(volt)}<b>' + ' ' + f'<b> ({shift_text})<b>'
+    volt = safe_index(volt_data, j)
+    base_name = '<b>Exp <b>' + ' ' + f'<b>{self.__format_voltage_display(volt)}<b>'
+    if no_shift or not shift_list:
+      return str(base_name)
 
-    def _name(volt_data, shift_list, j):
-        volt = safe_index(volt_data, j)
-        return '<b>Exp <b>' + ' ' + f'<b>{self.__format_voltage_display(volt)}<b>'
-
-    if len(exp_data) < 3:
-      if shift_list is not None:
-        if no_shift:
-          name = _name(volt_data, shift_list, j)
-        else:
-          name = format_name(volt_data, shift_list, 0)
-      else:
-          name = _name(volt_data, shift_list, 0)
-
-    elif len(exp_data) > 2:
-      if shift_list is not None:
-        if len(shift_list) == 1:
-          if j >= len(shift_list):
-              name = _name(volt_data, shift_list, j)
-          else:
-              if no_shift:
-                name = _name(volt_data, shift_list, j)
-              else:
-                name = format_name(volt_data, shift_list, 0)
-
-        elif len(shift_list) >= 2:
-          try:
-              if no_shift:
-                name = _name(volt_data, shift_list, j)
-              else:
-                name = format_name(volt_data, shift_list, j)
-          except IndexError:
-              name = _name(volt_data, shift_list, j)
-      else:
-          name = _name(volt_data, shift_list, j)
-    return str(name)
+    shift = safe_index(shift_list, j, None)
+    if shift is None:
+      return str(base_name)
+    shift_text = self.__format_shift_display(shift)
+    return str(base_name + ' ' + f'<b> ({shift_text})<b>')
 
   # Function to generate legend text
   def __legend_text(self, xlegend, volt_data, exp_data, shift_list, j, no_shift=False):
@@ -234,64 +226,25 @@ class TFTGraphicsPlot():
           >>> legend_text = __legend_text(xlegend, volt_data, exp_data, shift_list, j, no_shift)
     """
 
-    def format_text(volt_data, shift_list, j):
-      # Formata o texto da legenda com base nos dados de tensão, deslocamento de tensão e um índice j.
-      #Args:
-        #volt_data (list): Uma lista de dados de tensão.
-        #shift_list (list): Uma lista de deslocamento de tensão.
-        #j (int): O índice atual para o qual o texto da legenda está sendo gerado.
-
-      #Returns:
-        # list: Uma lista contendo o texto formatado da legenda.
-      volt = safe_index(volt_data, j)
-      shift = safe_index(shift_list, j, 0)
-      shift_text = self.__format_shift_display(shift)
-      return [f'{xlegend}={self.__format_voltage_display(volt)}' + ' ' + f' ({shift_text})']
-
-    # Formata o texto da legenda sem incluir o deslocamento de tensão com base nos dados de tensão e um índice j.
-    def _text(volt_data, shift_list, j):
-        volt = safe_index(volt_data, j)
-        return [f'{xlegend}={self.__format_voltage_display(volt)}']
-
-    shift_list = self.__change_signal_shift(shift_list)
+    shift_list = self.__change_signal_shift(shift_list) if shift_list is not None else []
 
     def safe_index(values, idx, default='?'):
       if not values:
         return default
-      safe_idx = min(max(idx, 0), len(values) - 1)
-      return values[safe_idx]
+      if idx < 0 or idx >= len(values):
+        return default
+      return values[idx]
 
-    if len(exp_data) < 3:
-      if shift_list is not None:
-        if no_shift:
-          text = _text(volt_data, shift_list, 0)
-        else:
-          text = format_text(volt_data, shift_list, 0)
-      else:
-          text = _text(volt_data, shift_list, j)
+    volt = safe_index(volt_data, j)
+    base_text = [f'{xlegend}={self.__format_voltage_display(volt)}']
+    if no_shift or not shift_list:
+      return base_text
 
-    elif len(exp_data) > 2:
-      if shift_list is not None:
-        if len(shift_list) == 1:
-          if j >= len(shift_list):
-              text = _text(volt_data, shift_list, j)
-          else:
-            if no_shift:
-              text = _text(volt_data, shift_list, 0)
-            else:
-              text = format_text(volt_data, shift_list, 0)
-
-        elif len(shift_list) >= 2:
-          try:
-            if no_shift:
-              text = _text(volt_data, shift_list, j)
-            else:
-              text = format_text(volt_data, shift_list, j)
-          except IndexError:
-              text = _text(volt_data, shift_list, j)
-      else:
-          text = _text(volt_data, shift_list, 0)
-    return text
+    shift = safe_index(shift_list, j, None)
+    if shift is None:
+      return base_text
+    shift_text = self.__format_shift_display(shift)
+    return [base_text[0] + ' ' + f'({shift_text})']
 
 
   def plot_vgs_vds( self, list_tension, input_tension_shift, type_data, count, model_data,
@@ -328,13 +281,6 @@ class TFTGraphicsPlot():
           >>> plot_vgs_vds(list_tension, input_tension_shift, type_data, count, model_data,
           ...               shift_list, *exp_data, sample_unit, plot_type, compare)
     """
-
-
-    if isinstance(select_files, str):
-      if not select_files:
-        select_files = ""
-      else:
-        select_files = list(eval(select_files))
 
     shift_list_update = self.__prepare_shift_list(shift_list, select_files, count)
 
@@ -431,10 +377,18 @@ class TFTGraphicsPlot():
                 dash_style = 'solid'  # Linha sólida para modelos otimizados
                 name = '<b>Model OPT<b>'
 
-            legend_voltage = volt_data[i]
+            if volt_data:
+                legend_voltage = volt_data[i] if i < len(volt_data) else volt_data[-1]
+            else:
+                legend_voltage = 0.0
             if type_data == curv_out and shift_list_update:
-                shift_index = min(max(i, 0), len(shift_list_update) - 1)
-                shift_text = self.__format_shift_display(shift_list_update[shift_index])
+                base_output_count = len(new_volt) // 2 if compare else len(new_volt)
+                output_count = max(1, base_output_count)
+                shift_index = i % output_count
+                if shift_index < len(shift_list_update):
+                    shift_text = self.__format_shift_display(shift_list_update[shift_index])
+                else:
+                    shift_text = self.__format_shift_display(0.0)
                 model_name = name + ' ' + f'<b>{self.__format_voltage_display(legend_voltage)}<b>' + ' ' + f'<b>({shift_text})<b>'
             else:
                 model_name = name + ' ' + f'<b>{self.__format_voltage_display(legend_voltage)}<b>'

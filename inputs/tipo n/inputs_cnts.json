@@ -10,7 +10,7 @@
         "enable_pre_processing": "no",
         "apply_pre_process_global_shift": "yes",
         "pre_process_shift_volt_data": "1",
-        "apply_pre_process_threshold": "yes",
+        "apply_pre_process_threshold": "no",
         "pre_process_threshold_voltage": "0",
         "apply_pre_process_hysteresis": "yes",
         "pre_process_hysteresis_mode": "media",
@@ -23,14 +23,14 @@
         "with_transistor": "0.19",
         "type_of_transistor": "nFET",
         "loaded_parameters": {
-            "VTHO": 1.1775,
-            "DELTA": 4.5466e-8,
-            "N": 47.95,
-            "L": 3.97,
-            "LAMBDA": 3141.3572,
-            "VGCRIT": 71.55,
-            "JTH": 1.19,
-            "RS": 0.015
+            "VTHO": 8.57,
+            "DELTA": 0.0123,
+            "N": 108,
+            "L": 3.18,
+            "LAMBDA": 1490.0,
+            "VGCRIT": 32.3,
+            "JTH": 0.097,
+            "RS": 1
         },
         "idleak_mode": "unique idleak value",
         "loaded_idleak": "6.5e-11"
@@ -55,13 +55,34 @@
             "lb_L": 1,
             "lb_LAMBDA": 100,
             "lb_VGCRIT": 10,
-            "lb_JTH": 1e-5,
+            "lb_JTH": 1e-05,
             "lb_RS": 0
         },
         "default_bounds": "no",
         "optimization_method": "trf",
         "tolerance_factor": "4e-7",
-        "vary_parameters": ""
+        "optimization_strategy": "trf",
+        "n_starts": 10,
+        "random_seed": 42,
+        "maxfev": 20000,
+        "enable_optuna": "no",
+        "optuna_trials": 30,
+        "hysteresis_weight_mode": "windows",
+        "hysteresis_weight_factor": 2.0,
+        "hysteresis_weight_windows": [
+            {
+                "min": -5.0,
+                "max": 5.0,
+                "weight": 2.5
+            }
+        ],
+        "vary_parameters": "",
+        "ga_population": 60,
+        "ga_generations": 150,
+        "ga_mutation_rate": 0.1,
+        "ga_crossover_rate": 0.8,
+        "ga_elitism": 2,
+        "ga_stall_generations": 30,
+        "ga_seed": null
     }
 ]
-
