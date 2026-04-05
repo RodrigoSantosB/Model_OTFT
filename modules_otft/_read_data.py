@@ -1274,6 +1274,86 @@ class ReadData:
     )
 
 
+  def detect_duplicate_output_curves(self, path_voltages, current_typic='A',
+                                     scale_transfer='A', scale_output='A',
+                                     atol=1e-15, rtol=1e-9):
+    """
+      Detects output curves that are identical or numerically equivalent.
+
+      The comparison is done after the interpolation-preparation path so the
+      report reflects the same voltage/current basis used elsewhere.
+    """
+    output_curves = [curve for curve in path_voltages if curve[1] == 1]
+    duplicate_report = []
+    prepared_curves = []
+
+    for output_path, _, output_loaded_voltage in output_curves:
+      voltages, currents = self._prepare_curve_for_interpolation(
+          output_path,
+          curve_type=1,
+          current_typic=current_typic,
+          scale_transfer=scale_transfer,
+          scale_output=scale_output,
+      )
+      prepared_curves.append({
+          'path': output_path,
+          'nominal_voltage': float(output_loaded_voltage),
+          'voltages': voltages,
+          'currents': currents,
+      })
+
+    for index, curve_data in enumerate(prepared_curves):
+      duplicate_of = None
+      for reference_curve in prepared_curves[:index]:
+        same_length = (
+            len(curve_data['voltages']) == len(reference_curve['voltages'])
+            and len(curve_data['currents']) == len(reference_curve['currents'])
+        )
+        if not same_length:
+          continue
+
+        same_voltages = np.allclose(
+            curve_data['voltages'],
+            reference_curve['voltages'],
+            atol=atol,
+            rtol=rtol,
+        )
+        same_currents = np.allclose(
+            curve_data['currents'],
+            reference_curve['currents'],
+            atol=atol,
+            rtol=rtol,
+        )
+        if same_voltages and same_currents:
+          duplicate_of = reference_curve
+          break
+
+      warning = None
+      status = 'unique_output_curve'
+      if duplicate_of is not None:
+        status = 'duplicate_output_curve'
+        warning = (
+            f"Aviso: A curva {os.path.basename(curve_data['path'])} possui dados "
+            f"experimentais idênticos aos de {os.path.basename(duplicate_of['path'])}, "
+            "embora represente outra polarização nominal."
+        )
+
+      duplicate_report.append({
+          'output_file': os.path.basename(curve_data['path']),
+          'output_nominal_voltage': curve_data['nominal_voltage'],
+          'duplicate_of_file': (
+              None if duplicate_of is None else os.path.basename(duplicate_of['path'])
+          ),
+          'duplicate_of_nominal_voltage': (
+              None if duplicate_of is None else float(duplicate_of['nominal_voltage'])
+          ),
+          'status': status,
+          'warning': warning,
+      })
+
+    return duplicate_report
+
+
   # Faz o deslocamento de tensão na lista de tensões para as curvas de saída
   def apply_shifts(self, path_voltages, shift_tesion):
     """

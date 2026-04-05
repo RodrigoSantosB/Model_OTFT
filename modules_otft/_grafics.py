@@ -76,11 +76,11 @@ class TFTGraphicsPlot():
     normalized_list = []
     for shift in shift_list:
       if isinstance(shift, dict):
-        normalized_list.append({
-            'manual': float(shift.get('manual', 0.0)),
-            'automatic': float(shift.get('automatic', 0.0)),
-            'total': float(shift.get('total', 0.0)),
-        })
+        normalized_shift = dict(shift)
+        normalized_shift['manual'] = float(shift.get('manual', 0.0))
+        normalized_shift['automatic'] = float(shift.get('automatic', 0.0))
+        normalized_shift['total'] = float(shift.get('total', 0.0))
+        normalized_list.append(normalized_shift)
       else:
         normalized_list.append(float(shift))
     return normalized_list
@@ -101,6 +101,22 @@ class TFTGraphicsPlot():
       return f'{float(voltage_value):.2f}V'
     except (TypeError, ValueError):
       return f'{voltage_value}V'
+
+
+  def __format_consistency_display(self, shift_value):
+    """Formats duplicate-curve diagnostics for plot legends."""
+    if not isinstance(shift_value, dict):
+      return ''
+
+    if shift_value.get('curve_consistency_status') != 'duplicate_output_curve':
+      return ''
+
+    duplicate_voltage = shift_value.get('duplicate_of_nominal_voltage')
+    if duplicate_voltage in (None, ''):
+      duplicate_file = shift_value.get('duplicate_of_file')
+      return f' [dup. de {duplicate_file}]' if duplicate_file else ' [curva duplicada]'
+
+    return f' [dup. de {self.__format_voltage_display(duplicate_voltage)}]'
 
 
   def __normalize_selected_indices(self, select_files):
@@ -197,7 +213,8 @@ class TFTGraphicsPlot():
     if shift is None:
       return str(base_name)
     shift_text = self.__format_shift_display(shift)
-    return str(base_name + ' ' + f'<b> ({shift_text})<b>')
+    consistency_text = self.__format_consistency_display(shift)
+    return str(base_name + ' ' + f'<b> ({shift_text})<b>' + consistency_text)
 
   # Function to generate legend text
   def __legend_text(self, xlegend, volt_data, exp_data, shift_list, j, no_shift=False):
@@ -244,7 +261,8 @@ class TFTGraphicsPlot():
     if shift is None:
       return base_text
     shift_text = self.__format_shift_display(shift)
-    return [base_text[0] + ' ' + f'({shift_text})']
+    consistency_text = self.__format_consistency_display(shift)
+    return [base_text[0] + ' ' + f'({shift_text})' + consistency_text]
 
 
   def plot_vgs_vds( self, list_tension, input_tension_shift, type_data, count, model_data,

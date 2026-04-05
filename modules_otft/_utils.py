@@ -324,6 +324,19 @@ def build_manual_shift_estimate_report(read, settings, path_voltages=None):
   return report
 
 
+def format_curve_consistency_log(consistency_report):
+  """Formats duplicate-output warnings for terminal/session logs."""
+  if not consistency_report:
+      return []
+
+  log_lines = []
+  for detail in consistency_report:
+      warning = detail.get('warning')
+      if warning:
+          log_lines.append(warning)
+  return log_lines
+
+
 def get_shift_list(read, settings):
   # Returns the shifted list with the passed voltage value [V]
   path_voltages = read.read_files_experimental(settings['path'], get_load_voltages(settings))
@@ -339,6 +352,13 @@ def get_shift_list(read, settings):
       settings,
       path_voltages=path_voltages,
   )
+  curve_consistency_report = read.detect_duplicate_output_curves(
+      path_voltages,
+      current_typic=current_typic,
+      scale_transfer=scale_transfer,
+      scale_output=scale_output,
+  )
+  curve_consistency_log = format_curve_consistency_log(curve_consistency_report)
 
   automatic_shift_report = []
   if apply_local_shift:
@@ -352,12 +372,22 @@ def get_shift_list(read, settings):
   else:
       automatic_shifts = [0.0] * sum(1 for _, curve_type, _ in path_voltages if curve_type == 1)
 
-  for shift_entry, automatic_shift in zip(shift_list, automatic_shifts):
+  for index, (shift_entry, automatic_shift) in enumerate(zip(shift_list, automatic_shifts)):
       shift_entry['automatic'] = float(automatic_shift)
       shift_entry['total'] = float(shift_entry.get('manual', 0.0) + shift_entry['automatic'])
+      if index < len(curve_consistency_report):
+          shift_entry['curve_consistency_status'] = curve_consistency_report[index].get('status')
+          shift_entry['curve_consistency_warning'] = curve_consistency_report[index].get('warning')
+          shift_entry['duplicate_of_file'] = curve_consistency_report[index].get('duplicate_of_file')
+          shift_entry['duplicate_of_nominal_voltage'] = curve_consistency_report[index].get('duplicate_of_nominal_voltage')
 
   settings['_shift_metadata'] = shift_list
   settings['_automatic_shift_report'] = automatic_shift_report
+  settings['_curve_consistency_report'] = curve_consistency_report
+  settings['_curve_consistency_log'] = curve_consistency_log
+
+  for log_line in curve_consistency_log:
+      print(log_line)
 
   list_tension_shift = read.apply_shifts(path_voltages, shift_list)
   return list_tension_shift
