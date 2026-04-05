@@ -9,13 +9,15 @@
         "type_read_data_exp": "read original data",
         "enable_pre_processing": "no",
         "apply_pre_process_global_shift": "yes",
-        "pre_process_shift_volt_data": "",
-        "apply_pre_process_threshold": "no",
+        "pre_process_shift_volt_data": "1",
+        "apply_pre_process_threshold": "yes",
         "pre_process_threshold_voltage": "0",
         "apply_pre_process_hysteresis": "yes",
         "pre_process_hysteresis_mode": "maior",
         "apply_local_output_shift": "yes",
-        "select_files": ""
+        "select_files": "",
+        "pre_process_global_shift_persisted": "yes",
+        "pre_process_global_shift_persisted_value": "1.0"
     },
     {
         "resistance_scale": "1e4",

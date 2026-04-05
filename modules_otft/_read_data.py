@@ -731,20 +731,13 @@ class ReadData:
     return float(match.group(1)) if match else None
 
 
-  def _get_interpolation_current_factor(self, curve_type, current_typic='A',
-                                        scale_transfer='A', scale_output='A'):
-    """Returns the current normalization factor used by the interpolation path."""
-    curr_typic = self.__convert_to_ampere_unit(current_typic)
-    if curve_type == 0:
-      scale_factor = self.__convert_to_ampere_unit(scale_transfer)
-    else:
-      scale_factor = self.__convert_to_ampere_unit(scale_output)
-    return float(scale_factor / curr_typic)
-
-
-  def _resolve_curve_type_from_path(self, csv_path):
-    """Infers the experimental curve type from the file name."""
-    return self._classify_experimental_file(os.path.basename(str(csv_path)))
+  def _get_curve_current_factor(self, curve_type=None, current_typic='A',
+                                scale_transfer='A', scale_output='A'):
+    """Returns the factor that converts a curve current to the working unit."""
+    current_typic_factor = self.__convert_to_ampere_unit(current_typic)
+    curve_scale = scale_transfer if curve_type in (0, 'transfer') else scale_output
+    curve_scale_factor = self.__convert_to_ampere_unit(curve_scale)
+    return float(curve_scale_factor / current_typic_factor)
 
 
   def _read_curve_points(self, csv_path, curve_type=None, current_typic='A',
@@ -755,20 +748,14 @@ class ReadData:
       data = np.atleast_2d(data)
 
     voltages = np.asarray(data[:, 0], dtype=float)
-    resolved_curve_type = (
-        self._resolve_curve_type_from_path(csv_path)
-        if curve_type is None else curve_type
-    )
-    if resolved_curve_type not in (0, 1):
-      resolved_curve_type = 0
-    current_factor = self._get_interpolation_current_factor(
-        resolved_curve_type,
+    currents = np.asarray(data[:, 1], dtype=float)
+    current_factor = self._get_curve_current_factor(
+        curve_type,
         current_typic=current_typic,
         scale_transfer=scale_transfer,
         scale_output=scale_output,
     )
-    currents = np.asarray(data[:, 1], dtype=float) * current_factor
-    return voltages, np.abs(currents)
+    return voltages, np.abs(currents * current_factor)
 
 
   def _collapse_duplicate_axis(self, axis_values, target_values):
@@ -837,6 +824,90 @@ class ReadData:
     return float(sign * abs(filename_voltage))
 
 
+  def _value_in_voltage_window(self, voltage_value, voltage_window, tolerance=1e-6):
+    """Checks whether a voltage lies inside an interpolation window."""
+    if voltage_value is None or voltage_window is None:
+      return False
+
+    return (
+        float(voltage_window['min_voltage']) - tolerance
+        <= float(voltage_value)
+        <= float(voltage_window['max_voltage']) + tolerance
+    )
+
+
+  def _resolve_largest_common_voltage(self, voltage_window, requested_voltage):
+    """Finds the largest common voltage compatible with the requested polarity."""
+    if voltage_window is None:
+      return None
+
+    min_voltage = float(voltage_window['min_voltage'])
+    max_voltage = float(voltage_window['max_voltage'])
+    if min_voltage > max_voltage:
+      return None
+
+    if requested_voltage is None:
+      return min_voltage if abs(min_voltage) >= abs(max_voltage) else max_voltage
+
+    requested_voltage = float(requested_voltage)
+    if requested_voltage < 0:
+      return min_voltage if min_voltage <= 0 else None
+    if requested_voltage > 0:
+      return max_voltage if max_voltage >= 0 else None
+    return 0.0 if min_voltage <= 0 <= max_voltage else None
+
+
+  def _resolve_common_vds_reference(self, reference_transfer_curve, output_curves):
+    """Resolves a valid VDS reference common to the reference transfer and outputs."""
+    reference_transfer_path, _, reference_transfer_loaded_voltage = reference_transfer_curve
+    reference_transfer_filename_voltage = self._get_signed_filename_voltage(
+        reference_transfer_path,
+        fallback_voltage=reference_transfer_loaded_voltage,
+    )
+    reference_transfer_range = self._get_curve_voltage_range(reference_transfer_path)
+    output_ranges = [self._get_curve_voltage_range(output_path) for output_path, _, _ in output_curves]
+
+    common_min_voltage = max(
+        [reference_transfer_range['min_voltage']]
+        + [voltage_range['min_voltage'] for voltage_range in output_ranges]
+    )
+    common_max_voltage = min(
+        [reference_transfer_range['max_voltage']]
+        + [voltage_range['max_voltage'] for voltage_range in output_ranges]
+    )
+
+    common_voltage_window = None
+    if common_min_voltage <= common_max_voltage:
+      common_voltage_window = {
+          'min_voltage': float(common_min_voltage),
+          'max_voltage': float(common_max_voltage),
+      }
+
+    vds_ref_requested = reference_transfer_filename_voltage
+    if self._value_in_voltage_window(vds_ref_requested, common_voltage_window):
+      vds_ref_effective = float(vds_ref_requested)
+      reference_mode = 'filename_voltage'
+    else:
+      vds_ref_effective = self._resolve_largest_common_voltage(
+          common_voltage_window,
+          vds_ref_requested,
+      )
+      reference_mode = 'largest_common_voltage' if vds_ref_effective is not None else 'no_common_voltage'
+
+    return {
+        'reference_transfer_file': os.path.basename(reference_transfer_path),
+        'reference_transfer_loaded_voltage': (
+            None if reference_transfer_loaded_voltage is None else float(reference_transfer_loaded_voltage)
+        ),
+        'reference_transfer_filename_voltage': reference_transfer_filename_voltage,
+        'reference_transfer_voltage_range': reference_transfer_range,
+        'common_output_voltage_range': common_voltage_window,
+        'vds_ref_requested': vds_ref_requested,
+        'vds_ref_effective': vds_ref_effective,
+        'reference_mode': reference_mode,
+    }
+
+
   def _interpolate_current_at_voltage(self, csv_path, target_voltage, curve_type=None,
                                       current_typic='A', scale_transfer='A', scale_output='A'):
     """Interpolates the current value in a curve for a given voltage."""
@@ -868,8 +939,9 @@ class ReadData:
 
 
   def _interpolate_voltage_for_current(self, csv_path, target_current, reference_voltage=None,
-                                       curve_type=None, current_typic='A', scale_transfer='A',
-                                       scale_output='A', tolerance=1e-12):
+                                       curve_type=None, current_typic='A',
+                                       scale_transfer='A', scale_output='A',
+                                       tolerance=1e-12):
     """
       Finds the voltage in a transfer curve that best matches a target current.
 
@@ -882,17 +954,18 @@ class ReadData:
         scale_transfer=scale_transfer,
         scale_output=scale_output,
     )
-    min_current = float(np.min(currents))
-    max_current = float(np.max(currents))
-    target_current = float(target_current)
-    if target_current < (min_current - tolerance) or target_current > (max_current + tolerance):
+    current_range = {
+        'min_current': float(np.min(currents)),
+        'max_current': float(np.max(currents)),
+    }
+    if (
+        float(target_current) < current_range['min_current'] - tolerance
+        or float(target_current) > current_range['max_current'] + tolerance
+    ):
       return {
           'voltage': None,
           'status': 'target_current_out_of_transfer_range',
-          'current_range': {
-              'min_current': min_current,
-              'max_current': max_current,
-          },
+          'current_range': current_range,
       }
 
     delta = currents - float(target_current)
@@ -911,26 +984,19 @@ class ReadData:
       candidates.append(float(interpolated_voltage))
 
     if candidates:
-      if reference_voltage is None:
-        selected_voltage = candidates[0]
-      else:
-        selected_voltage = min(candidates, key=lambda voltage: abs(voltage - reference_voltage))
+      best_voltage = candidates[0]
+      if reference_voltage is not None:
+        best_voltage = min(candidates, key=lambda voltage: abs(voltage - reference_voltage))
       return {
-          'voltage': float(selected_voltage),
+          'voltage': float(best_voltage),
           'status': 'matched',
-          'current_range': {
-              'min_current': min_current,
-              'max_current': max_current,
-          },
+          'current_range': current_range,
       }
 
     return {
         'voltage': None,
-        'status': 'target_current_without_crossing',
-        'current_range': {
-            'min_current': min_current,
-            'max_current': max_current,
-        },
+        'status': 'no_transfer_current_crossing',
+        'current_range': current_range,
     }
 
 
@@ -975,31 +1041,22 @@ class ReadData:
     return float(limited_voltage), warning, True
 
 
-  def _calculate_output_correction_factor(self, nominal_voltage, effective_voltage,
-                                          pre_process_shift=None):
-    """Builds the signed correction factor applied to the original output VGS."""
-    nominal_magnitude = abs(float(nominal_voltage))
-    effective_magnitude = abs(float(effective_voltage))
-    magnitude_delta = abs(effective_magnitude - nominal_magnitude)
+  def _adjust_shift_with_preprocess(self, automatic_shift, pre_process_shift_volt_data=None):
+    """Adjusts the local shift using the preprocessing shift while preserving local sign."""
+    automatic_shift = float(automatic_shift)
+    if pre_process_shift_volt_data in ("", None):
+      return automatic_shift, False
 
-    if pre_process_shift in ("", None):
-      factor_magnitude = magnitude_delta
-      reference_shift = None
-    else:
-      reference_shift = abs(float(pre_process_shift))
-      factor_magnitude = abs(reference_shift - magnitude_delta)
-
-    signal = -1.0 if float(effective_voltage) < 0 else 1.0
-    return {
-        'signed_factor': float(signal * factor_magnitude),
-        'magnitude_delta': float(magnitude_delta),
-        'reference_shift': reference_shift,
-    }
+    preprocess_shift = float(pre_process_shift_volt_data)
+    shift_signal = -1.0 if automatic_shift < 0 else 1.0
+    adjusted_magnitude = abs(preprocess_shift - abs(automatic_shift))
+    adjusted_shift = shift_signal * adjusted_magnitude
+    return float(adjusted_shift), True
 
 
   def estimate_output_shifts(self, path_voltages, min_gate_separation=0.5,
-                             current_typic='A', scale_transfer='A', scale_output='A',
-                             pre_process_shift=None):
+                             pre_process_shift_volt_data=None, current_typic='A',
+                             scale_transfer='A', scale_output='A'):
     """
       Estimates automatic output shifts using a fixed VDS reference taken from
       the transfer curve with the highest polarization magnitude.
@@ -1027,29 +1084,25 @@ class ReadData:
             'vds_ref_requested': None,
             'vds_ref_effective': None,
             'id_at_vds_ref': None,
+            'transfer_current_range': None,
             'vgs_nominal': float(output_loaded_voltage),
             'vgs_effective_raw': None,
             'vgs_effective_limited': None,
             'delta_vgs': 0.0,
+            'automatic_shift_base': 0.0,
             'automatic_shift': 0.0,
+            'pre_process_shift_volt_data': pre_process_shift_volt_data,
+            'automatic_shift_adjusted_by_preprocess': False,
             'status': 'no_reference_transfer',
             'reference_mode': 'no_reference_transfer',
             'warning': None,
         })
       return auto_shifts, shift_details
 
-    reference_transfer_path, _, reference_transfer_loaded_voltage = reference_transfer_curve
-    reference_transfer_filename_voltage = self._get_signed_filename_voltage(
-        reference_transfer_path,
-        fallback_voltage=reference_transfer_loaded_voltage,
-    )
-    reference_transfer_range = self._get_curve_voltage_range(reference_transfer_path)
-    vds_ref_requested = reference_transfer_filename_voltage
-    vds_ref_effective = (
-        float(reference_transfer_filename_voltage)
-        if reference_transfer_filename_voltage is not None
-        else (None if reference_transfer_loaded_voltage is None else float(reference_transfer_loaded_voltage))
-    )
+    reference_transfer_path, _, _ = reference_transfer_curve
+    reference_info = self._resolve_common_vds_reference(reference_transfer_curve, output_curves)
+    vds_ref_requested = reference_info['vds_ref_requested']
+    vds_ref_effective = reference_info['vds_ref_effective']
     ordered_details = [{} for _ in output_curves]
     if vds_ref_effective is None:
       for original_index, (output_path, _, output_loaded_voltage) in enumerate(output_curves):
@@ -1057,24 +1110,29 @@ class ReadData:
             'output_file': os.path.basename(output_path),
             'output_nominal_voltage': float(output_loaded_voltage),
             'output_filename_voltage': self._extract_voltage_from_filename(output_path),
-            'reference_transfer_file': os.path.basename(reference_transfer_path),
-            'reference_transfer_loaded_voltage': (
-                None if reference_transfer_loaded_voltage is None else float(reference_transfer_loaded_voltage)
-            ),
-            'reference_transfer_filename_voltage': reference_transfer_filename_voltage,
-            'reference_transfer_voltage_range': reference_transfer_range,
-            'common_output_voltage_range': None,
+            'reference_transfer_file': reference_info['reference_transfer_file'],
+            'reference_transfer_loaded_voltage': reference_info['reference_transfer_loaded_voltage'],
+            'reference_transfer_filename_voltage': reference_info['reference_transfer_filename_voltage'],
+            'reference_transfer_voltage_range': reference_info['reference_transfer_voltage_range'],
+            'common_output_voltage_range': reference_info['common_output_voltage_range'],
             'vds_ref_requested': vds_ref_requested,
             'vds_ref_effective': None,
             'id_at_vds_ref': None,
+            'transfer_current_range': None,
             'vgs_nominal': float(output_loaded_voltage),
             'vgs_effective_raw': None,
             'vgs_effective_limited': None,
             'delta_vgs': 0.0,
+            'automatic_shift_base': 0.0,
             'automatic_shift': 0.0,
-            'status': 'no_reference_transfer_voltage',
-            'reference_mode': 'loaded_voltage_fallback' if reference_transfer_loaded_voltage is not None else 'no_reference_voltage',
-            'warning': 'Aviso: Nao foi possivel determinar o VDS de referencia da curva de transferencia.',
+            'pre_process_shift_volt_data': pre_process_shift_volt_data,
+            'automatic_shift_adjusted_by_preprocess': False,
+            'status': 'no_common_vds_reference',
+            'reference_mode': reference_info['reference_mode'],
+            'warning': (
+                'Aviso: Nenhum VDS comum foi encontrado entre a transfer de referência '
+                'e as curvas de saída desta tecnologia.'
+            ),
         }
       return auto_shifts, ordered_details
 
@@ -1093,24 +1151,26 @@ class ReadData:
           'output_file': os.path.basename(output_path),
           'output_nominal_voltage': output_nominal_voltage,
           'output_filename_voltage': output_filename_voltage,
-          'reference_transfer_file': os.path.basename(reference_transfer_path),
-          'reference_transfer_loaded_voltage': (
-              None if reference_transfer_loaded_voltage is None else float(reference_transfer_loaded_voltage)
-          ),
-          'reference_transfer_filename_voltage': reference_transfer_filename_voltage,
-          'reference_transfer_voltage_range': reference_transfer_range,
-          'common_output_voltage_range': None,
+          'reference_transfer_file': reference_info['reference_transfer_file'],
+          'reference_transfer_loaded_voltage': reference_info['reference_transfer_loaded_voltage'],
+          'reference_transfer_filename_voltage': reference_info['reference_transfer_filename_voltage'],
+          'reference_transfer_voltage_range': reference_info['reference_transfer_voltage_range'],
+          'common_output_voltage_range': reference_info['common_output_voltage_range'],
           'vds_ref_requested': vds_ref_requested,
           'vds_ref_effective': vds_ref_effective,
           'id_at_vds_ref': None,
+          'transfer_current_range': None,
           'vgs_nominal': output_nominal_voltage,
           'vgs_effective_raw': None,
           'vgs_effective_limited': None,
           'delta_vgs': 0.0,
+          'automatic_shift_base': 0.0,
           'automatic_shift': 0.0,
+          'pre_process_shift_volt_data': pre_process_shift_volt_data,
+          'automatic_shift_adjusted_by_preprocess': False,
           'output_voltage_match': output_voltage_match,
-          'status': 'reference_vds_not_in_output_range',
-          'reference_mode': 'filename_voltage' if reference_transfer_filename_voltage is not None else 'loaded_voltage_fallback',
+          'status': 'no_common_vds_reference',
+          'reference_mode': reference_info['reference_mode'],
           'warning': None,
       }
 
@@ -1137,16 +1197,15 @@ class ReadData:
       )
       detail['id_at_vds_ref'] = float(id_at_vds_ref)
       detail['transfer_current_range'] = voltage_match.get('current_range')
-      voltage_match_status = voltage_match.get('status', 'unknown')
+
       if voltage_match.get('voltage') is None:
         detail.update({
-            'status': voltage_match_status,
+            'status': voltage_match.get('status', 'target_current_out_of_transfer_range'),
             'warning': (
-                'Aviso: A corrente extraida da curva de saida ficou fora da faixa '
-                'fisica da curva de transferencia de referencia.'
-                if voltage_match_status == 'target_current_out_of_transfer_range'
-                else 'Aviso: Nao foi possivel localizar um cruzamento fisico entre '
-                     'a corrente alvo e a curva de transferencia de referencia.'
+                'Aviso: A corrente de referência da curva de saída ficou fora da faixa '
+                'válida da curva de transferência.'
+                if voltage_match.get('status') == 'target_current_out_of_transfer_range'
+                else 'Aviso: Nenhum cruzamento físico válido foi encontrado na curva de transferência.'
             ),
         })
         ordered_details[original_index] = detail
@@ -1161,22 +1220,22 @@ class ReadData:
           previous_effective_voltage=previous_effective_voltage,
           min_gate_separation=min_gate_separation,
       )
-      correction_factor = self._calculate_output_correction_factor(
-          output_nominal_voltage,
-          vgs_effective_limited,
-          pre_process_shift=pre_process_shift,
-      )
 
       delta_vgs = float(vgs_effective_limited - output_nominal_voltage)
-      automatic_shift = float(correction_factor['signed_factor'])
+      automatic_shift_base = float(output_nominal_voltage - vgs_effective_limited)
+      automatic_shift, adjusted_by_preprocess = self._adjust_shift_with_preprocess(
+          automatic_shift_base,
+          pre_process_shift_volt_data=pre_process_shift_volt_data,
+      )
 
       detail.update({
-          'vgs_effective_raw': float(vgs_effective_raw),
+          'vgs_effective_raw': vgs_effective_raw,
           'vgs_effective_limited': float(vgs_effective_limited),
           'delta_vgs': delta_vgs,
+          'automatic_shift_base': automatic_shift_base,
           'automatic_shift': automatic_shift,
-          'magnitude_delta': correction_factor['magnitude_delta'],
-          'pre_process_reference_shift': correction_factor['reference_shift'],
+          'pre_process_shift_volt_data': pre_process_shift_volt_data,
+          'automatic_shift_adjusted_by_preprocess': adjusted_by_preprocess,
           'status': 'matched_with_monotonicity_limit' if was_limited else 'matched',
           'warning': warning,
       })
@@ -1189,19 +1248,29 @@ class ReadData:
     return auto_shifts, ordered_details
 
 
-  def calculate_automatic_output_shifts(self, path_voltages, min_gate_separation=0.5,
-                                        current_typic='A', scale_transfer='A', scale_output='A',
-                                        pre_process_shift=None):
+  def calculate_automatic_output_shifts(self, path_voltages, pre_process_shift_volt_data=None,
+                                        current_typic='A', scale_transfer='A', scale_output='A'):
     """
       Backward-compatible wrapper around the VDS-match shift estimator.
     """
     return self.estimate_output_shifts(
         path_voltages,
-        min_gate_separation=min_gate_separation,
+        pre_process_shift_volt_data=pre_process_shift_volt_data,
         current_typic=current_typic,
         scale_transfer=scale_transfer,
         scale_output=scale_output,
-        pre_process_shift=pre_process_shift,
+    )
+
+
+  def estimate_output_curve_shifts(self, path_voltages, pre_process_shift_volt_data=None,
+                                   current_typic='A', scale_transfer='A', scale_output='A'):
+    """Compatibility alias for callers using the older method name."""
+    return self.estimate_output_shifts(
+        path_voltages,
+        pre_process_shift_volt_data=pre_process_shift_volt_data,
+        current_typic=current_typic,
+        scale_transfer=scale_transfer,
+        scale_output=scale_output,
     )
 
 
@@ -1261,7 +1330,14 @@ class ReadData:
     if shift_tesion is not None:
       for tension, shift_item in zip(after_values, shift_tesion):
         shift = _extract_shift_value(shift_item)
-        shifted_values.append(float(tension) + float(shift))
+        if shift >= 0 and tension >= 0:
+          shifted_values.append(shift + tension)
+        elif shift < 0 and tension >= 0:
+          shifted_values.append(shift + tension)
+        elif shift < 0 and tension < 0:
+          shifted_values.append(abs(shift) + tension)
+        elif shift >= 0 and tension < 0:
+          shifted_values.append(-shift + tension)
 
       # Identify the remaining non-altered values
       remaining_values = after_values[len(shifted_values):]

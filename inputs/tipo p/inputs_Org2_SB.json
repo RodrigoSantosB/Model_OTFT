@@ -70,9 +70,9 @@
     },
     {
         "default_bounds": "no",
-        "optimization_method": "ga",
+        "optimization_method": "trf",
         "tolerance_factor": "4e-7",
-        "optimization_strategy": "ga",
+        "optimization_strategy": "curve_fit",
         "ga_population": 60,
         "ga_generations": 150,
         "ga_mutation_rate": 0.1,
