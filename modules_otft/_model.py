@@ -383,7 +383,7 @@ class TFTModel:
       return Vd, Vg
 
     # Versão com Lambda
-    def calc_model(self, V, Vtho=1, Delta=1, N=1, L=1, Lambda=1, Vcrit=1, Jth=1, Rs=1):
+    def calc_model(self, V, Vtho=1, Delta=1, N=1, L=1, Lambda=1, Vcrit=1, Jth=1, Rs=1, debug_terms=False):
       """
         This function is part of the MOSFET transistor simulation model. It is responsible for performing calculations
         involving various physical parameters of the transistor and operating conditions to determine the current
@@ -438,6 +438,46 @@ class TFTModel:
       # Create current matrix
       chain_matrix_id = self._creat_matrix(V, n_rows=self.n_points)
 
+      debug_idleak = None
+      debug_conduction = None
+      debug_total = None
+      debug_vd = None
+      debug_vg = None
+      debug_vds = None
+      debug_vgs_ref = None
+      debug_vgd_ref = None
+      debug_vgs_eff = None
+      debug_vdsi = None
+      debug_vgsi = None
+      debug_vtp_initial = None
+      debug_vtp_final = None
+      debug_theta_initial = None
+      debug_theta_final = None
+      debug_qtot_initial = None
+      debug_qtot_final = None
+      debug_fsat_initial = None
+      debug_fsat_final = None
+      if debug_terms:
+        debug_idleak = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_conduction = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_total = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vd = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vg = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vds = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vgs_ref = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vgd_ref = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vgs_eff = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vdsi = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vgsi = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vtp_initial = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_vtp_final = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_theta_initial = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_theta_final = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_qtot_initial = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_qtot_final = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_fsat_initial = np.zeros_like(chain_matrix_id, dtype=float)
+        debug_fsat_final = np.zeros_like(chain_matrix_id, dtype=float)
+
       vdv = np.array(self._convert(self.tension_list))
 
       # quantity of columns
@@ -451,6 +491,8 @@ class TFTModel:
         dir = self._calc_dir(Vd, Vs)
 
         Vds = np.abs(Vd-Vs)
+        Vgs_ref = self.__TYPE_OF_TRANSISTOR * (Vg - Vs)
+        Vgd_ref = self.__TYPE_OF_TRANSISTOR * (Vg - Vd)
         Vgs = self._calc_vgs_or_vbs(Vd, Vg, Vs)
         Vbs = self._calc_vgs_or_vbs(Vd, Vg, Vs)
 
@@ -465,6 +507,10 @@ class TFTModel:
 
         # Fsat calculation - Long channel device
         Fsat, eta = self._fsat_calculation(Vds, nphit, qtot, Vcrit, Lambda)
+        Vtp_initial = np.array(Vtp, copy=True)
+        theta_initial = np.array(theta, copy=True)
+        qtot_initial = np.array(qtot, copy=True)
+        Fsat_initial = np.array(Fsat, copy=True)
 
 
         #  Current calculation
@@ -498,6 +544,8 @@ class TFTModel:
         Idxx = Idleak
         dvg = Idxx * Rs
         dvd = Idxx * Rd
+        Vdsi = np.array(Vds, copy=True)
+        Vgsi = np.array(Vgs, copy=True)
         count = 1
 
         # Use a protected denominator when computing relative change to avoid division by zero
@@ -539,6 +587,15 @@ class TFTModel:
 
         # Substituir valores NaN e infinitos por valores finitos e limitar amplitude
         Idx = np.nan_to_num(Idx, nan=0.0, posinf=1e30, neginf=-1e30)
+        if debug_terms:
+          idleak_term = np.nan_to_num(np.asarray(Idleak, dtype=float), nan=0.0, posinf=1e30, neginf=-1e30)
+          if np.ndim(idleak_term) == 0:
+            idleak_term = np.full_like(Idx, float(idleak_term), dtype=float)
+          conduction_term = np.nan_to_num(
+            self.__WIDTH_TRANSISTOR * np.asarray(Jfree, dtype=float) * np.asarray(Fsat, dtype=float),
+            nan=0.0, posinf=1e30, neginf=-1e30
+          )
+          total_term = np.nan_to_num(idleak_term + conduction_term, nan=0.0, posinf=1e30, neginf=-1e30)
         # Garantir limites inferiores para operações logarítmicas e divisões
         # (manter o sinal de corrente quando aplicável)
         Id = self.__TYPE_OF_TRANSISTOR * dir * Idx
@@ -575,34 +632,231 @@ class TFTModel:
         # Para pFET (type = -1): manter comportamento original (negativo)
         current_sign = 1 if self.__TYPE_OF_TRANSISTOR == 1 else -1
 
+        if debug_terms:
+          def _assign_debug(target, values, use_abs=False):
+            arr = np.nan_to_num(np.asarray(values, dtype=float), nan=0.0, posinf=1e30, neginf=-1e30)
+            if np.ndim(arr) == 0:
+              arr = np.full_like(Idx, float(arr), dtype=float)
+            if use_abs and self.type_curve == 'log' and (trsf_curve or trsf_curve_vet):
+              arr = np.abs(arr)
+            if trsf_curve or out_curve:
+              target[:, i] = arr
+              return target
+            return arr
+
         if self.type_curve == 'log':
           if trsf_curve:
             # Use valores absolutos e evite <=0 para log10
             safe_vals = np.maximum(np.abs(Idx), 1e-30)
             chain_matrix_id[:, i] = np.log10(safe_vals)
+            if debug_terms:
+              debug_idleak = _assign_debug(debug_idleak, idleak_term, use_abs=True)
+              debug_conduction = _assign_debug(debug_conduction, conduction_term, use_abs=True)
+              debug_total = _assign_debug(debug_total, total_term, use_abs=True)
+              debug_vd = _assign_debug(debug_vd, Vd)
+              debug_vg = _assign_debug(debug_vg, Vg)
+              debug_vds = _assign_debug(debug_vds, Vds)
+              debug_vgs_ref = _assign_debug(debug_vgs_ref, Vgs_ref)
+              debug_vgd_ref = _assign_debug(debug_vgd_ref, Vgd_ref)
+              debug_vgs_eff = _assign_debug(debug_vgs_eff, Vgs)
+              debug_vdsi = _assign_debug(debug_vdsi, Vdsi)
+              debug_vgsi = _assign_debug(debug_vgsi, Vgsi)
+              debug_vtp_initial = _assign_debug(debug_vtp_initial, Vtp_initial)
+              debug_vtp_final = _assign_debug(debug_vtp_final, Vtp)
+              debug_theta_initial = _assign_debug(debug_theta_initial, theta_initial)
+              debug_theta_final = _assign_debug(debug_theta_final, theta)
+              debug_qtot_initial = _assign_debug(debug_qtot_initial, qtot_initial)
+              debug_qtot_final = _assign_debug(debug_qtot_final, qtot)
+              debug_fsat_initial = _assign_debug(debug_fsat_initial, Fsat_initial)
+              debug_fsat_final = _assign_debug(debug_fsat_final, Fsat)
           elif out_curve:
             chain_matrix_id[:, i] = current_sign * Idx / curr_typic
+            if debug_terms:
+              debug_idleak = _assign_debug(debug_idleak, idleak_term)
+              debug_conduction = _assign_debug(debug_conduction, conduction_term)
+              debug_total = _assign_debug(debug_total, total_term)
+              debug_vd = _assign_debug(debug_vd, Vd)
+              debug_vg = _assign_debug(debug_vg, Vg)
+              debug_vds = _assign_debug(debug_vds, Vds)
+              debug_vgs_ref = _assign_debug(debug_vgs_ref, Vgs_ref)
+              debug_vgd_ref = _assign_debug(debug_vgd_ref, Vgd_ref)
+              debug_vgs_eff = _assign_debug(debug_vgs_eff, Vgs)
+              debug_vdsi = _assign_debug(debug_vdsi, Vdsi)
+              debug_vgsi = _assign_debug(debug_vgsi, Vgsi)
+              debug_vtp_initial = _assign_debug(debug_vtp_initial, Vtp_initial)
+              debug_vtp_final = _assign_debug(debug_vtp_final, Vtp)
+              debug_theta_initial = _assign_debug(debug_theta_initial, theta_initial)
+              debug_theta_final = _assign_debug(debug_theta_final, theta)
+              debug_qtot_initial = _assign_debug(debug_qtot_initial, qtot_initial)
+              debug_qtot_final = _assign_debug(debug_qtot_final, qtot)
+              debug_fsat_initial = _assign_debug(debug_fsat_initial, Fsat_initial)
+              debug_fsat_final = _assign_debug(debug_fsat_final, Fsat)
           elif trsf_curve_vet:
             safe_vals = np.maximum(np.abs(Idx), 1e-30)
             chain_matrix_id = np.log10(safe_vals)
+            if debug_terms:
+              debug_idleak = _assign_debug(debug_idleak, idleak_term, use_abs=True)
+              debug_conduction = _assign_debug(debug_conduction, conduction_term, use_abs=True)
+              debug_total = _assign_debug(debug_total, total_term, use_abs=True)
+              debug_vd = _assign_debug(debug_vd, Vd)
+              debug_vg = _assign_debug(debug_vg, Vg)
+              debug_vds = _assign_debug(debug_vds, Vds)
+              debug_vgs_ref = _assign_debug(debug_vgs_ref, Vgs_ref)
+              debug_vgd_ref = _assign_debug(debug_vgd_ref, Vgd_ref)
+              debug_vgs_eff = _assign_debug(debug_vgs_eff, Vgs)
+              debug_vdsi = _assign_debug(debug_vdsi, Vdsi)
+              debug_vgsi = _assign_debug(debug_vgsi, Vgsi)
+              debug_vtp_initial = _assign_debug(debug_vtp_initial, Vtp_initial)
+              debug_vtp_final = _assign_debug(debug_vtp_final, Vtp)
+              debug_theta_initial = _assign_debug(debug_theta_initial, theta_initial)
+              debug_theta_final = _assign_debug(debug_theta_final, theta)
+              debug_qtot_initial = _assign_debug(debug_qtot_initial, qtot_initial)
+              debug_qtot_final = _assign_debug(debug_qtot_final, qtot)
+              debug_fsat_initial = _assign_debug(debug_fsat_initial, Fsat_initial)
+              debug_fsat_final = _assign_debug(debug_fsat_final, Fsat)
           elif out_curve_vet:
             chain_matrix_id = current_sign * Idx / curr_typic
+            if debug_terms:
+              debug_idleak = _assign_debug(debug_idleak, idleak_term)
+              debug_conduction = _assign_debug(debug_conduction, conduction_term)
+              debug_total = _assign_debug(debug_total, total_term)
+              debug_vd = _assign_debug(debug_vd, Vd)
+              debug_vg = _assign_debug(debug_vg, Vg)
+              debug_vds = _assign_debug(debug_vds, Vds)
+              debug_vgs_ref = _assign_debug(debug_vgs_ref, Vgs_ref)
+              debug_vgd_ref = _assign_debug(debug_vgd_ref, Vgd_ref)
+              debug_vgs_eff = _assign_debug(debug_vgs_eff, Vgs)
+              debug_vdsi = _assign_debug(debug_vdsi, Vdsi)
+              debug_vgsi = _assign_debug(debug_vgsi, Vgsi)
+              debug_vtp_initial = _assign_debug(debug_vtp_initial, Vtp_initial)
+              debug_vtp_final = _assign_debug(debug_vtp_final, Vtp)
+              debug_theta_initial = _assign_debug(debug_theta_initial, theta_initial)
+              debug_theta_final = _assign_debug(debug_theta_final, theta)
+              debug_qtot_initial = _assign_debug(debug_qtot_initial, qtot_initial)
+              debug_qtot_final = _assign_debug(debug_qtot_final, qtot)
+              debug_fsat_initial = _assign_debug(debug_fsat_initial, Fsat_initial)
+              debug_fsat_final = _assign_debug(debug_fsat_final, Fsat)
 
         else:
           if self.type_curve == 'linear':
             # Curva de transferencia
             if trsf_curve:
               chain_matrix_id[:, i] = current_sign * Idx / curr_typic
+              if debug_terms:
+                debug_idleak = _assign_debug(debug_idleak, idleak_term)
+                debug_conduction = _assign_debug(debug_conduction, conduction_term)
+                debug_total = _assign_debug(debug_total, total_term)
+                debug_vd = _assign_debug(debug_vd, Vd)
+                debug_vg = _assign_debug(debug_vg, Vg)
+                debug_vds = _assign_debug(debug_vds, Vds)
+                debug_vgs_ref = _assign_debug(debug_vgs_ref, Vgs_ref)
+                debug_vgd_ref = _assign_debug(debug_vgd_ref, Vgd_ref)
+                debug_vgs_eff = _assign_debug(debug_vgs_eff, Vgs)
+                debug_vdsi = _assign_debug(debug_vdsi, Vdsi)
+                debug_vgsi = _assign_debug(debug_vgsi, Vgsi)
+                debug_vtp_initial = _assign_debug(debug_vtp_initial, Vtp_initial)
+                debug_vtp_final = _assign_debug(debug_vtp_final, Vtp)
+                debug_theta_initial = _assign_debug(debug_theta_initial, theta_initial)
+                debug_theta_final = _assign_debug(debug_theta_final, theta)
+                debug_qtot_initial = _assign_debug(debug_qtot_initial, qtot_initial)
+                debug_qtot_final = _assign_debug(debug_qtot_final, qtot)
+                debug_fsat_initial = _assign_debug(debug_fsat_initial, Fsat_initial)
+                debug_fsat_final = _assign_debug(debug_fsat_final, Fsat)
                 # print("ENTREI no LINEAR")
             # Curvas de saída
             elif out_curve:
                 chain_matrix_id[:, i] = current_sign * Idx / curr_typic
+                if debug_terms:
+                  debug_idleak = _assign_debug(debug_idleak, idleak_term)
+                  debug_conduction = _assign_debug(debug_conduction, conduction_term)
+                  debug_total = _assign_debug(debug_total, total_term)
+                  debug_vd = _assign_debug(debug_vd, Vd)
+                  debug_vg = _assign_debug(debug_vg, Vg)
+                  debug_vds = _assign_debug(debug_vds, Vds)
+                  debug_vgs_ref = _assign_debug(debug_vgs_ref, Vgs_ref)
+                  debug_vgd_ref = _assign_debug(debug_vgd_ref, Vgd_ref)
+                  debug_vgs_eff = _assign_debug(debug_vgs_eff, Vgs)
+                  debug_vdsi = _assign_debug(debug_vdsi, Vdsi)
+                  debug_vgsi = _assign_debug(debug_vgsi, Vgsi)
+                  debug_vtp_initial = _assign_debug(debug_vtp_initial, Vtp_initial)
+                  debug_vtp_final = _assign_debug(debug_vtp_final, Vtp)
+                  debug_theta_initial = _assign_debug(debug_theta_initial, theta_initial)
+                  debug_theta_final = _assign_debug(debug_theta_final, theta)
+                  debug_qtot_initial = _assign_debug(debug_qtot_initial, qtot_initial)
+                  debug_qtot_final = _assign_debug(debug_qtot_final, qtot)
+                  debug_fsat_initial = _assign_debug(debug_fsat_initial, Fsat_initial)
+                  debug_fsat_final = _assign_debug(debug_fsat_final, Fsat)
             # Curva de transferencia
             elif trsf_curve_vet:
                 chain_matrix_id = current_sign * Idx / curr_typic
+                if debug_terms:
+                  debug_idleak = _assign_debug(debug_idleak, idleak_term)
+                  debug_conduction = _assign_debug(debug_conduction, conduction_term)
+                  debug_total = _assign_debug(debug_total, total_term)
+                  debug_vd = _assign_debug(debug_vd, Vd)
+                  debug_vg = _assign_debug(debug_vg, Vg)
+                  debug_vds = _assign_debug(debug_vds, Vds)
+                  debug_vgs_ref = _assign_debug(debug_vgs_ref, Vgs_ref)
+                  debug_vgd_ref = _assign_debug(debug_vgd_ref, Vgd_ref)
+                  debug_vgs_eff = _assign_debug(debug_vgs_eff, Vgs)
+                  debug_vdsi = _assign_debug(debug_vdsi, Vdsi)
+                  debug_vgsi = _assign_debug(debug_vgsi, Vgsi)
+                  debug_vtp_initial = _assign_debug(debug_vtp_initial, Vtp_initial)
+                  debug_vtp_final = _assign_debug(debug_vtp_final, Vtp)
+                  debug_theta_initial = _assign_debug(debug_theta_initial, theta_initial)
+                  debug_theta_final = _assign_debug(debug_theta_final, theta)
+                  debug_qtot_initial = _assign_debug(debug_qtot_initial, qtot_initial)
+                  debug_qtot_final = _assign_debug(debug_qtot_final, qtot)
+                  debug_fsat_initial = _assign_debug(debug_fsat_initial, Fsat_initial)
+                  debug_fsat_final = _assign_debug(debug_fsat_final, Fsat)
             # Curvas de saída
             elif out_curve_vet:
                 chain_matrix_id = current_sign * Idx / curr_typic
+                if debug_terms:
+                  debug_idleak = _assign_debug(debug_idleak, idleak_term)
+                  debug_conduction = _assign_debug(debug_conduction, conduction_term)
+                  debug_total = _assign_debug(debug_total, total_term)
+                  debug_vd = _assign_debug(debug_vd, Vd)
+                  debug_vg = _assign_debug(debug_vg, Vg)
+                  debug_vds = _assign_debug(debug_vds, Vds)
+                  debug_vgs_ref = _assign_debug(debug_vgs_ref, Vgs_ref)
+                  debug_vgd_ref = _assign_debug(debug_vgd_ref, Vgd_ref)
+                  debug_vgs_eff = _assign_debug(debug_vgs_eff, Vgs)
+                  debug_vdsi = _assign_debug(debug_vdsi, Vdsi)
+                  debug_vgsi = _assign_debug(debug_vgsi, Vgsi)
+                  debug_vtp_initial = _assign_debug(debug_vtp_initial, Vtp_initial)
+                  debug_vtp_final = _assign_debug(debug_vtp_final, Vtp)
+                  debug_theta_initial = _assign_debug(debug_theta_initial, theta_initial)
+                  debug_theta_final = _assign_debug(debug_theta_final, theta)
+                  debug_qtot_initial = _assign_debug(debug_qtot_initial, qtot_initial)
+                  debug_qtot_final = _assign_debug(debug_qtot_final, qtot)
+                  debug_fsat_initial = _assign_debug(debug_fsat_initial, Fsat_initial)
+                  debug_fsat_final = _assign_debug(debug_fsat_final, Fsat)
+
+      if debug_terms:
+        self.last_terms = {
+          "idleak_A": debug_idleak,
+          "conduction_A": debug_conduction,
+          "total_A": debug_total,
+          "vd_V": debug_vd,
+          "vg_V": debug_vg,
+          "vds_V": debug_vds,
+          "vgs_ref_V": debug_vgs_ref,
+          "vgd_ref_V": debug_vgd_ref,
+          "vgs_effective_V": debug_vgs_eff,
+          "vdsi_V": debug_vdsi,
+          "vgsi_V": debug_vgsi,
+          "vtp_initial_V": debug_vtp_initial,
+          "vtp_final_V": debug_vtp_final,
+          "theta_initial": debug_theta_initial,
+          "theta_final": debug_theta_final,
+          "qtot_initial": debug_qtot_initial,
+          "qtot_final": debug_qtot_final,
+          "fsat_initial": debug_fsat_initial,
+          "fsat_final": debug_fsat_final,
+          "type_curve": self.type_curve,
+          "type_data": self.type_data,
+        }
 
       return np.ravel(chain_matrix_id)
 

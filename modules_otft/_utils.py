@@ -4,6 +4,7 @@ from modules_otft._grafics import  TFTGraphicsPlot
 from modules_otft._optmization import ModelOptmization
 from modules_otft._pre_processing_data import PreProcessingData
 from modules_otft._read_data import ReadData
+from modules_otft._idleak_resolve import resolve_idleak_for_transfers
 
 import json
 
@@ -59,6 +60,44 @@ def _get_float_setting(settings, key, default=0.0):
     return float(value)
 
 
+def _get_int_setting(settings, key, default=0):
+    value = settings.get(key, default)
+    if value in ("", None):
+        return default
+    return int(value)
+
+
+def _build_hysteresis_diagnostics(summary):
+    """Agrega flags de deteccao de histerese por ficheiro (transfer vs saida)."""
+    if not summary:
+        return {
+            "any_detected": False,
+            "transfer_any": False,
+            "output_any": False,
+            "per_file": [],
+        }
+    keys = (
+        "input_file",
+        "curve_type",
+        "hysteresis_detected",
+        "hysteresis_duplicate_groups",
+        "hysteresis_redundant_points",
+        "hysteresis_max_spread_abs",
+        "hysteresis_max_spread_rel",
+    )
+    per_file = [{k: row.get(k) for k in keys} for row in summary]
+    return {
+        "any_detected": any(row.get("hysteresis_detected") for row in summary),
+        "transfer_any": any(
+            row.get("hysteresis_detected") for row in summary if row.get("curve_type") == "transfer"
+        ),
+        "output_any": any(
+            row.get("hysteresis_detected") for row in summary if row.get("curve_type") == "output"
+        ),
+        "per_file": per_file,
+    }
+
+
 def _set_json_setting(blocks, key, value, default_block_index=0):
     for block in blocks:
         if isinstance(block, dict) and key in block:
@@ -101,11 +140,13 @@ def maybe_apply_preprocessing(settings):
 
     if not _is_truthy_setting(settings.get("enable_pre_processing"), default=False):
         settings["_preprocessing_applied"] = False
+        settings["_hysteresis_diagnostics"] = _build_hysteresis_diagnostics([])
         return settings
 
     input_path = settings.get("path")
     if not input_path:
         settings["_preprocessing_applied"] = False
+        settings["_hysteresis_diagnostics"] = _build_hysteresis_diagnostics([])
         return settings
 
     apply_global_shift = _is_truthy_setting(settings.get("apply_pre_process_global_shift"), default=False)
@@ -115,6 +156,7 @@ def maybe_apply_preprocessing(settings):
     if not any((apply_global_shift, apply_threshold, apply_hysteresis)):
         settings["_preprocessing_applied"] = False
         settings["_preprocessing_report"] = []
+        settings["_hysteresis_diagnostics"] = _build_hysteresis_diagnostics([])
         return settings
 
     global_shift_value = (
@@ -129,6 +171,13 @@ def maybe_apply_preprocessing(settings):
         hysteresis_mode=settings.get("pre_process_hysteresis_mode", "media"),
         apply_hysteresis=apply_hysteresis,
         recursive=True,
+        hysteresis_detect_min_groups=max(1, _get_int_setting(settings, "hysteresis_detect_min_groups", 1)),
+        hysteresis_detect_min_rel_spread=_get_float_setting(
+            settings, "hysteresis_detect_min_rel_spread", 1e-6
+        ),
+        hysteresis_detect_min_abs_spread=_get_float_setting(
+            settings, "hysteresis_detect_min_abs_spread", 1e-12
+        ),
     )
 
     persisted_updates = {
@@ -143,28 +192,28 @@ def maybe_apply_preprocessing(settings):
     _persist_settings_to_json(settings, persisted_updates)
     settings["_preprocessing_applied"] = True
     settings["_preprocessing_report"] = summary
+    settings["_hysteresis_diagnostics"] = _build_hysteresis_diagnostics(summary)
     return settings
 
 
 def get_load_voltages(settings):
-    """Loads voltage values."""
+    """Returns curve voltages discovered directly from the experimental files."""
     
     if not isinstance(settings, dict):
         print("Error: settings must be a dictionary.")
         return []
     
-    if 'loaded_voltages' not in settings:
-        print("Error: 'loaded_voltages' key not found in settings.")
+    path = settings.get('path')
+    if not path:
+        print("Error: 'path' key not found in settings.")
         return []
 
     try:
-        value = eval(settings['loaded_voltages'])
-        if isinstance(value, int):
-            return [value]
-        elif isinstance(value, (list, tuple)) and len(value) > 2:
-            return list(value)
-    except (SyntaxError, NameError):
-        print("No parameters entered in --- settings['loaded_voltages'] ---, please load them\n")
+        read = ReadData()
+        path_voltages = read.read_files_experimental(path)
+        return [curve[2] for curve in path_voltages if len(curve) >= 3]
+    except (OSError, ValueError) as exc:
+        print(f"Unable to load voltages directly from experimental files: {exc}\n")
     
     return []
 
@@ -196,10 +245,7 @@ def get_configured_output_shift_values(settings, output_count=None):
       discovered_path_voltages = []
       if settings.get('path'):
           read_for_count = ReadData()
-          discovered_path_voltages = read_for_count.read_files_experimental(
-              settings['path'],
-              get_load_voltages(settings),
-          )
+          discovered_path_voltages = read_for_count.read_files_experimental(settings['path'])
       output_count = sum(1 for _, curve_type, _ in discovered_path_voltages if curve_type == 1)
 
   shift_key = 'output_shift_volt_data' if 'output_shift_volt_data' in settings else 'shift_volt_data'
@@ -239,7 +285,7 @@ def calculate_shift_list(settings):
   discovered_path_voltages = []
   if settings.get('path'):
       read_for_count = ReadData()
-      discovered_path_voltages = read_for_count.read_files_experimental(settings['path'], get_load_voltages(settings))
+      discovered_path_voltages = read_for_count.read_files_experimental(settings['path'])
 
   output_count = sum(1 for _, curve_type, _ in discovered_path_voltages if curve_type == 1)
   max_curves = output_count
@@ -293,7 +339,7 @@ def build_manual_shift_estimate_report(read, settings, path_voltages=None):
       return []
 
   if path_voltages is None:
-      path_voltages = read.read_files_experimental(settings['path'], get_load_voltages(settings))
+      path_voltages = read.read_files_experimental(settings['path'])
 
   output_count = sum(1 for _, curve_type, _ in path_voltages if curve_type == 1)
   manual_values = get_configured_output_shift_values(settings, output_count=output_count)
@@ -341,7 +387,7 @@ def format_curve_consistency_log(consistency_report):
 
 def get_shift_list(read, settings):
   # Returns the shifted list with the passed voltage value [V]
-  path_voltages = read.read_files_experimental(settings['path'], get_load_voltages(settings))
+  path_voltages = read.read_files_experimental(settings['path'])
   shift_list = calculate_shift_list(settings)
   apply_local_shift = _is_truthy_setting(settings.get('apply_local_output_shift'), default=True)
   raw_preprocess_shift = settings.get('pre_process_shift_volt_data')
@@ -555,24 +601,57 @@ def load_coefficients(settings):
         return []
 
 
+def idleak_scalar_for_transfer_curve(load_idleak, mode_idleak, path_voltages, count_transfer, transfer_idx):
+    """Scalar idleak for one transfer curve (for single-curve TFTModel diagnostics)."""
+    if mode_idleak == 0:
+        return float(load_idleak)
+    if isinstance(load_idleak, dict):
+        seq = resolve_idleak_for_transfers(load_idleak, path_voltages, count_transfer)
+        return float(seq[int(transfer_idx)])
+    if isinstance(load_idleak, (list, tuple)):
+        return float(load_idleak[int(transfer_idx)])
+    return float(load_idleak)
+
+
 def load_idleak_parameters(settings):
-    """Loads idleak parameters."""
+    """Loads idleak parameters.
+
+    Returns (mode_idleak, value) where value is float (unique mode), list of floats,
+    or dict mapping curve ids to values (multi mode; resolve with path_voltages later).
+    Optional settings['mult_idleak'] truthy forces multi mode alongside idleak_mode.
+    """
     if not isinstance(settings, dict):
         print("Error: settings must be a dictionary.")
         return []
-    
+
     if 'idleak_mode' not in settings or 'loaded_idleak' not in settings:
         print("Error: 'idleak_mode' or loaded_idleak key not found in settings.")
         return []
-    
-    mode_idleak = 0 if settings['idleak_mode'] == 'unique idleak value' else 1
+
+    mult_flag = settings.get("mult_idleak")
+    force_multi = mult_flag in (True, 1, "1", "yes", "true", "True", "YES")
+    if force_multi:
+        mode_idleak = 1
+    else:
+        mode_idleak = 0 if settings['idleak_mode'] == 'unique idleak value' else 1
+
+    raw = settings['loaded_idleak']
     try:
         if mode_idleak == 0:
-            return mode_idleak, float(settings['loaded_idleak'])
-        else:
-            return mode_idleak, list(eval(settings['loaded_idleak']))
-    except SyntaxError:
-        print("No parameters entered, please load them\n")
+            return mode_idleak, float(raw)
+
+        if isinstance(raw, dict):
+            return mode_idleak, raw
+        if isinstance(raw, (list, tuple)):
+            return mode_idleak, [float(x) for x in raw]
+        if isinstance(raw, str):
+            ev = eval(raw)
+            if isinstance(ev, (list, tuple)):
+                return mode_idleak, [float(x) for x in ev]
+            return mode_idleak, [float(ev)]
+        return mode_idleak, [float(raw)]
+    except (SyntaxError, TypeError, ValueError) as err:
+        print("No parameters entered, please load them (%s)\n" % err)
         return mode_idleak, []
 
 
@@ -633,13 +712,24 @@ def configure_bounds(settings):
     return settings['lw_bounds'], settings['up_bounds']
 
 
+def _path_voltages_for_idleak_dict(path_voltages, read):
+    """Use explicit path_voltages, or the last list passed to read.load_data (same ReadData instance)."""
+    if path_voltages is not None:
+        return path_voltages
+    return getattr(read, "_last_path_voltages", None)
+
+
 def instance_model(read, TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv, load_idleak, width_t,
-                            count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current):
+                            count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current,
+                            path_voltages=None):
     """Creates an instance of the model with the provided data."""
-    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters, 
-                                    input_voltage, Vv, load_idleak, width_t, count_transfer, 
+    if isinstance(load_idleak, dict):
+        path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
+    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters,
+                                    input_voltage, Vv, load_idleak, width_t, count_transfer,
                                     tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
-                                    current_typic=current_typic, res=resistance, curr=current)
+                                    current_typic=current_typic, res=resistance, curr=current,
+                                    path_voltages=path_voltages)
 
 
 def load_experimental_data(read, count_transfer, Vv, Id, model, count_output):
@@ -651,10 +741,18 @@ def load_experimental_data(read, count_transfer, Vv, Id, model, count_output):
 
 def create_model_opt(TFTModel, input_voltage, n_points, type_curve_plot, current_typic,
                      experimental_data_scale_transfer, load_idleak, mode_idleak, count_transfer,
-                     resistance, current, width_t=0.1, tp_tst=-1):
+                     resistance, current, width_t=0.1, tp_tst=-1, path_voltages=None, read=None):
     """Creates an optimization model."""
+    il = load_idleak
+    if mode_idleak == 1 and isinstance(load_idleak, dict):
+        path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
+        if path_voltages is None:
+            raise ValueError(
+                "path_voltages (or read=ReadData used in load_data) is required when load_idleak is a dict."
+            )
+        il = resolve_idleak_for_transfers(load_idleak, path_voltages, count_transfer)
     return TFTModel(input_voltage, n_points, type_curve_plot, current_typic=current_typic,
-                    scale_factor=experimental_data_scale_transfer, idleak=load_idleak,
+                    scale_factor=experimental_data_scale_transfer, idleak=il,
                     mult_idleak=mode_idleak, curv_transfer=count_transfer,
                     with_transistor=width_t, type_transitor=tp_tst,
                     sr_resistance=resistance, curr_carry=current)
@@ -761,15 +859,18 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt,
     print('\n\n\n')
 
 
-def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt, 
-                           input_voltage, Vv, load_idleak, width_t, count_transfer, 
-                           tp_tst, experimental_data_scale_transfer, 
-                           current_typic, resistance, current):
+def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt,
+                           input_voltage, Vv, load_idleak, width_t, count_transfer,
+                           tp_tst, experimental_data_scale_transfer,
+                           current_typic, resistance, current, path_voltages=None):
     """Creates the model with the optimized coefficients."""
-    return read.create_models_datas(TFTModel, n_points, type_curve_plot, coeff_opt, 
-                                    input_voltage, Vv, load_idleak, width_t, count_transfer, 
+    if isinstance(load_idleak, dict):
+        path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
+    return read.create_models_datas(TFTModel, n_points, type_curve_plot, coeff_opt,
+                                    input_voltage, Vv, load_idleak, width_t, count_transfer,
                                     tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
-                                    current_typic=current_typic, res=resistance, curr=current)
+                                    current_typic=current_typic, res=resistance, curr=current,
+                                    path_voltages=path_voltages)
     
 
 def get_model_data(read, count_transfer, count_output, Vv, Id, model_opt, model=None, compare=False):

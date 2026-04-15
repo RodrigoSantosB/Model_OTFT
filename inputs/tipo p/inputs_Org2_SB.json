@@ -4,7 +4,6 @@
         "experimental_data_scale_transfer": "A",
         "experimental_data_scale_output": "uA",
         "current_typic": "uA",
-        "loaded_voltages": "-5, -40, -20, -30, -40",
         "type_curve_plot": "logarithmic",
         "type_read_data_exp": "read interpolated data",
         "enable_pre_processing": "no",

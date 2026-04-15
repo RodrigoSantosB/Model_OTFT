@@ -33,6 +33,6 @@ def display_settings(menu, settings, path_voltages, shift_list, list_tension_shi
     print()
     print('A tabela acima mostra todos os arquivos lidos no diretorio. Para filtrar, informe em select_files')
     print('os indices das curvas que deseja MANTER, usando base 1 (primeira curva = 1), separados por virgula.')
-    print('Exemplo: 1:transfer-5v, 4:output-40v e assim por diante.')
+    print('Exemplo: 1:org1_2VDS, 4:org1_40VGS ou qualquer outro nome listado na tabela.')
     print('---------------------------------')
     print()

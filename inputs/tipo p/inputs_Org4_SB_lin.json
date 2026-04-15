@@ -4,7 +4,6 @@
         "experimental_data_scale_transfer": "A",
         "experimental_data_scale_output": "A",
         "current_typic": "uA",
-        "loaded_voltages": "-40, -20, -40, -60, -80",
         "type_curve_plot": "linear",
         "type_read_data_exp": "read original data",
         "enable_pre_processing": "no",

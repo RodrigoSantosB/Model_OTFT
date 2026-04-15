@@ -195,7 +195,7 @@ pip3 install -r requirements.txt
 It's beneficial to use the Jupyter Notebook extension in VS Code for interactive work. You can download it from the VS Code extension marketplace by searching for `Jupyter`. After downloading, make sure to select the created virtual environment in the `kernel` dropdown menu in VS Code.
 
 --- 
-After setting up the entire environment, we must adjust the script paths to match the local machine. First, in the `datas` folder, it's essential to maintain a consistent naming convention and separate data by the type of transistor they represent. For example, in the `datas` folder, files are organized into samples of p-type and n-type voltage and currents. There's a naming convention for reading files, meaning all data elements within the folder will be read as long as they are named `transfer-voltage_of_the_experiment` and `output-voltage_of_the_experiment`. This way, when these data pass through the data processing module, they will be correctly dimensioned.
+After setting up the entire environment, we must adjust the script paths to match the local machine. First, in the `datas` folder, it's essential to maintain a consistent naming convention and separate data by the type of transistor they represent. For example, in the `datas` folder, files are organized into samples of p-type and n-type voltage and currents. The experimental reader now identifies each curve directly from the file contents: every CSV must contain the named columns `VGS`, `VDS`, and `ID`. Curves with fixed `VGS` are treated as output curves, while curves with fixed `VDS` are treated as transfer curves. The nominal voltage is also read from this fixed column, preserving its sign.
 
 Once this task is complete, ensure the `.JSON` file is correctly configured. This file basically defines all the variables the model needs to run, such as parameter values, paths, intervals, and optimizer. Therefore, it is extremely important that it is loaded correctly. Below is a sample of how this `.JSON` is configured and how each variable behaves:
 
@@ -206,7 +206,6 @@ Once this task is complete, ensure the `.JSON` file is correctly configured. Thi
     "experimental_data_scale_transfer"  : "A",
     "experimental_data_scale_output"    : "A",
     "current_typic"                     : "uA",
-    "loaded_voltages"                   : "-40, -20, -40, -60, -80",
     "curves_transfer"                   :  0,
     "type_curve_plot"                   : "logarithmic",
     "type_read_data_exp"                : "read original data",
@@ -314,10 +313,13 @@ This documentation provides a comprehensive explanation of the model parameters 
 - **Options**: `A`, `mA`, `uA`, `nA`, `pA`
 - **Usage**: Parameterizes input and output data considering the scales.
 
-#### `loaded_voltages` (str)
-- **Description**: Stores a list of voltages at which experimental points were obtained.
-- **Format**: Comma-separated string of values.
-- **Example**: `"-5, -8, -6, ..." `
+#### Experimental CSV format
+- **Description**: Experimental voltages are no longer configured in the JSON file.
+- **Required columns**: `VGS`, `VDS`, `ID`
+- **Curve typing**:
+  - Fixed `VDS` with varying `VGS` => transfer curve
+  - Fixed `VGS` with varying `VDS` => output curve
+- **Nominal voltage**: extracted directly from the fixed column, including the sign
 
 #### `curves_transfer` (int)
 - **Description**: Number of transfer curves in the experiment.
@@ -371,11 +373,29 @@ This documentation provides a comprehensive explanation of the model parameters 
 #### `pre_process_hysteresis_mode` (str)
 - **Description**: Defines how repeated current values are consolidated when removing hysteresis.
 - **Options**: `media`, `menor`, `maior`
-- **Equivalent aliases accepted by the code**: `mean`, `min`, `max`, `average`, `minimum`, `maximum`
+- **Equivalent aliases accepted by the code**: `mean`, `min`, `max`, `average`, `minimum`, `maximum`, `cima`, `baixo`, `top`, `bottom`, `upper`, `lower` (where `cima`/`top`/`upper` map to `maior` and `baixo`/`bottom`/`lower` map to `menor`).
 - **Usage**:
   - `media`: uses the mean current
-  - `menor`: uses the minimum current
-  - `maior`: uses the maximum current
+  - `menor`: uses the minimum current (lower branch of the hysteresis loop)
+  - `maior`: uses the maximum current (upper branch)
+- **Transfer vs output**: During one preprocessing run, the **same** mode is applied to **every** CSV under `path` (transfer and output curves together), so the chosen branch is consistent across curve types.
+
+#### Hysteresis detection (optional tuning)
+
+After preprocessing, the in-memory `settings` dict includes `settings["_hysteresis_diagnostics"]` with `any_detected`, `transfer_any`, `output_any`, and a `per_file` list. The generated `resumo_processamento.csv` adds columns:
+
+- `hysteresis_duplicate_groups`: count of rounded-voltage groups with more than one sample
+- `hysteresis_redundant_points`: points that would be merged when cleaning
+- `hysteresis_max_spread_abs` / `hysteresis_max_spread_rel`: largest current spread within a duplicate group (absolute and relative to mean |I|)
+- `hysteresis_detected`: `True` when duplicate groups meet the thresholds below **and** the spread is significant
+
+Optional JSON keys (defaults shown):
+
+- `hysteresis_detect_min_groups` (default `1`): minimum number of duplicate voltage groups required to flag detection
+- `hysteresis_detect_min_rel_spread` (default `1e-6`): minimum relative spread (max spread / mean |I| in a duplicate group) to count as hysteresis
+- `hysteresis_detect_min_abs_spread` (default `1e-12`): minimum absolute current spread (A) to count as hysteresis
+
+You can also call `PreProcessingData().analyze_hysteresis(df)` on a prepared `voltage`/`current` dataframe.
 
 #### `apply_local_output_shift` (str)
 - **Description**: Enables the existing local shift logic applied only to output curves.
@@ -619,14 +639,14 @@ www.linkedin.com/in/rodrigo-santos-16029986
 - **Arquivos principais:**
   - `scripts/generate_synthetic_data.py` : script que automatiza todo o fluxo de geração.
   - `modules_otft/_model.py` : implementa `TFTModel` usado para calcular as correntes.
-  - `inputs/*.json` : arquivos de configuração com parâmetros-base (ex.: `loaded_voltages`, `loaded_parameters`).
+  - `inputs/*.json` : arquivos de configuração com parâmetros-base (ex.: `loaded_parameters`, `loaded_idleak`).
   - `Dados sinteticos/` : pasta de saída onde os CSVs são gravados (`<json_name>_varX/`).
 
 - **Fluxo passo-a-passo (o que o script faz):**
   1. **Localiza** todos os arquivos JSON em `Model_OTFT/inputs/`.
  2. **Lê** cada objeto do JSON (o script suporta arquivos que sejam listas de objetos).
- 3. **Extrai** valores importantes: `loaded_voltages`, `curves_transfer`, `loaded_parameters`, `loaded_idleak`, `type_curve_plot`, `with_transistor`, etc.
- 4. **Parseia** `loaded_voltages` — aceita string com vírgulas (`"-2, -50, -30"`) ou listas e converte para `List[float]`.
+ 3. **Extrai** valores importantes: `loaded_parameters`, `loaded_idleak`, `type_curve_plot`, `with_transistor`, etc.
+ 4. **Lê** cada CSV experimental com colunas `VGS`, `VDS` e `ID`, identifica se a curva é `transfer` ou `output` pela coluna fixa e usa esse valor fixo como tensão nominal.
  5. **Parseia** `loaded_idleak` — aceita valor único, lista ou string com múltiplos valores (ex.: `"4e-10, 3e-9"`) e define `mult_idleak` quando necessário.
  6. **Gera variantes** das tensões usando dois modos:
      - `systematic`: offsets lineares no intervalo `[-shift, +shift]` (muda todas as tensões pelo mesmo offset);
@@ -634,7 +654,7 @@ www.linkedin.com/in/rodrigo-santos-16029986
  7. **Monta** uma matriz `V` com dimensão `n_points x n_tensions` onde as colunas são sweeps de `Vg` (para transfer) ou `Vd` (para output). O número de pontos é `--npoints`.
  8. **Instancia** `TFTModel` com os parâmetros mapeados de `loaded_parameters` e com `idleak`/`mult_idleak` conforme o JSON.
  9. **Chama** `calc_model(V, *params)` para obter as correntes sintéticas (vetor achatado), reorganiza em matriz `(n_points x n_tensions)` e normaliza conforme as escalas.
- 10. **Salva** cada curva em CSVs com o mesmo padrão dos dados experimentais: `transfer-<V>V.csv` ou `output-<V>V.csv` dentro de `Model_OTFT/Dados sinteticos/<json_name>_var{K}/`.
+ 10. **Salva** cada curva sintética em CSV com colunas `VGS`, `VDS` e `ID`, mantendo o mesmo padrão tabular usado pelos dados experimentais.
 
 - **Comandos de exemplo (PowerShell)**
   - Gerar 3 variantes sistemáticas (deslocamento ±5 V) com 100 pontos:
@@ -648,7 +668,7 @@ www.linkedin.com/in/rodrigo-santos-16029986
 
 - **Formato de saída esperado**
   - `Model_OTFT/Dados sinteticos/<json_name>_var1/transfer-<V>V.csv`
-  - Cada CSV tem duas colunas (sem cabeçalho): coluna 0 = tensão (Vg ou Vd), coluna 1 = corrente (Id).
+  - Cada CSV possui cabeçalho com `VGS`, `VDS` e `ID`.
 
 - **Observações e dicas**
   - Se ocorrer `ModuleNotFoundError: No module named 'modules_otft'`, execute o script a partir da raiz do projeto ou adicione `Model_OTFT` ao `PYTHONPATH`. Exemplo para PowerShell:

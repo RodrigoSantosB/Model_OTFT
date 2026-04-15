@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 
 from modules_otft._model import TFTModel
+from modules_otft._read_data import ReadData
 
 
 class SyntheticFromSettings:
@@ -18,6 +19,7 @@ class SyntheticFromSettings:
         self.path = settings["path"]
         self.model_cls = model_cls
         self.out_root = out_root
+        self.reader = ReadData()
 
         # -----------------------------
         # Função para garantir floats
@@ -82,21 +84,8 @@ class SyntheticFromSettings:
             if f.lower().endswith(".csv")
         ])
 
-    def _parse_voltage_from_name(self, fname):
-        base = os.path.basename(fname)
-        m = re.search(r"(-?\d+\.?\d*)\s*[vV]", base)
-        if m:
-            return float(m.group(1))
-        m2 = re.search(r"(-?\d+\.?\d*)", base)
-        if m2:
-            return float(m2.group(1))
-        return None
-
-    def _is_transfer(self, fname):
-        return "transfer" in os.path.basename(fname).lower()
-
-    def _is_output(self, fname):
-        return "output" in os.path.basename(fname).lower()
+    def _inspect_curve(self, csv_path):
+        return self.reader._inspect_curve_file(csv_path)
 
     def _sample_params_within_bounds(self):
         """
@@ -168,7 +157,14 @@ class SyntheticFromSettings:
         
         # --- Valores Configuráveis Dinâmicos (Omitidos para brevidade) ---
         current_typic = self.settings.get("current_typic", "uA")
-        loaded_idleak = float(self.settings.get("loaded_idleak", 0.0))
+        _raw_idleak = self.settings.get("loaded_idleak", 0.0)
+        if isinstance(_raw_idleak, dict):
+            _vals = list(_raw_idleak.values())
+            loaded_idleak = float(_vals[0]) if _vals else 0.0
+        elif isinstance(_raw_idleak, (list, tuple)):
+            loaded_idleak = float(_raw_idleak[0]) if _raw_idleak else 0.0
+        else:
+            loaded_idleak = float(_raw_idleak)
         with_transistor = float(self.settings.get("with_transistor", 0.1))
         sr_resistance = float(self.settings.get("resistance_scale", 1e4))
         curr_carry = float(self.settings.get("current_carry", 1e-6))
@@ -180,16 +176,17 @@ class SyntheticFromSettings:
         # 2. Loop principal: Iterar sobre os arquivos CSV
         for csv_path in csvs:
             
-            # [Bloco de leitura de CSV e Fixed Voltage omitido para brevidade]
-            is_transfer = self._is_transfer(csv_path)
-            is_output = self._is_output(csv_path)
-            if not (is_transfer or is_output): continue
-            
-            df = pd.read_csv(csv_path, header=None, names=["V_exp", "I_exp"])
-            V_exp = df["V_exp"].astype(float).values
+            curve_info = self._inspect_curve(csv_path)
+            curve_type = curve_info.get("curve_type")
+            if curve_type not in (0, 1):
+                continue
+
+            is_transfer = curve_type == 0
+            V_exp = np.asarray(curve_info["sweep_values"], dtype=float)
             V_model = np.linspace(V_exp.min(), V_exp.max(), resample_n_points) if resample_n_points is not None else V_exp.copy()
-            fixed_voltage_from_name = self._parse_voltage_from_name(csv_path)
-            if fixed_voltage_from_name is None: continue
+            fixed_voltage_from_name = curve_info.get("fixed_voltage")
+            if fixed_voltage_from_name is None:
+                continue
 
 
             # --- Determinar listas de variação ---
@@ -255,7 +252,20 @@ class SyntheticFromSettings:
                 base_name_with_v = f"{mode_folder}-{v_label}"; out_base = f"{base_name_with_v}_synth_{i:03d}"
                 out_csv = os.path.join(out_dir, out_base + ".csv"); out_npz = os.path.join(out_dir, out_base + ".npz")
 
-                if save_csv: pd.DataFrame({"V": V_model, "I": Id_gen}).to_csv(out_csv, index=False, header=False)
+                if save_csv:
+                    if is_transfer:
+                        output_df = pd.DataFrame({
+                            "VGS": V_model,
+                            "VDS": np.full(len(V_model), current_sim_v, dtype=float),
+                            "ID": Id_gen,
+                        })
+                    else:
+                        output_df = pd.DataFrame({
+                            "VGS": np.full(len(V_model), current_sim_v, dtype=float),
+                            "VDS": V_model,
+                            "ID": Id_gen,
+                        })
+                    output_df.to_csv(out_csv, index=False, float_format="%.10E")
 
                 params_dict = dict(zip(self.PARAM_KEYS, params))
                 meta = {"origin_file": os.path.abspath(csv_path), "is_transfer": is_transfer, "fixed_voltage_simulated": current_sim_v, "params": params_dict, "settings": self.settings}
@@ -288,10 +298,11 @@ class SyntheticFromSettings:
     # -----------------------------------
     @staticmethod
     def load_and_plot(csv_path, log_plot=False, show=True):
-        # ... (Mantido inalterado)
-        df = pd.read_csv(csv_path, header=None, names=["V", "I"])
-        V = df["V"].values
-        I = df["I"].values
+        reader = ReadData()
+        curve_info = reader._inspect_curve_file(csv_path)
+        V = np.asarray(curve_info["sweep_values"], dtype=float)
+        I = np.asarray(curve_info["current_values"], dtype=float)
+        df = pd.DataFrame({"V": V, "I": I})
 
         npz_path = os.path.splitext(csv_path)[0] + ".npz"
         meta = None

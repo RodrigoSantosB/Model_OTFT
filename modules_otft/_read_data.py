@@ -1,9 +1,14 @@
 from IPython.display import clear_output
 from ._imports import *
+from ._idleak_resolve import resolve_idleak_for_transfers
+
+
 class ReadData:
 
   def __init__(self, factor_correction=1):
     self.factor_correction = factor_correction
+    self._last_path_voltages = None
+    self._curve_cache = {}
 
 
   # AGRUPA PATHS, TIPO DE DADOS E TENSÂO EM TUPLAS
@@ -83,28 +88,165 @@ class ReadData:
     return correction_factor
 
 
-  def _classify_experimental_file(self, filename, transfer_pattern='transfer', output_pattern='output'):
-    """Classifies an experimental CSV as transfer/output from its filename."""
-    lowered = filename.lower()
-    transfer_prefix = f'{transfer_pattern.lower()}-'
-    output_prefix = f'{output_pattern.lower()}-'
+  def _normalize_curve_header(self, value):
+    """Normalizes CSV headers so VGS/VDS/ID can be recognized reliably."""
+    return str(value).strip().upper().replace(" ", "")
 
-    if lowered.endswith('.csv') and lowered.startswith(transfer_prefix):
+
+  def _is_effectively_constant(self, values, atol=1e-9, rtol=1e-6):
+    """Checks whether a voltage column can be treated as fixed."""
+    numeric_values = np.asarray(values, dtype=float)
+    if numeric_values.size == 0:
+      return False
+
+    span = float(np.nanmax(numeric_values) - np.nanmin(numeric_values))
+    reference = max(float(np.nanmax(np.abs(numeric_values))), 1.0)
+    return span <= max(float(atol), float(rtol) * reference)
+
+
+  def _detect_legacy_curve_type(self, filename):
+    """Best-effort curve typing for the historical two-column format."""
+    lowered = os.path.basename(str(filename)).lower()
+    if "transfer" in lowered or "transf" in lowered:
       return 0
-    if lowered.endswith('.csv') and lowered.startswith(output_prefix):
+    if "output" in lowered or "saida" in lowered:
       return 1
     return None
 
 
-  def _experimental_sort_key(self, filename):
-    voltage = self._extract_voltage_from_filename(filename)
-    return (voltage is None, voltage if voltage is not None else filename.lower())
+  def _read_with_supported_delimiters(self, csv_path, header='infer', min_columns=2):
+    """Reads a table trying explicit delimiters before autodetection."""
+    candidate_delimiters = ['\t', ',', ';']
+    for delimiter in candidate_delimiters:
+      try:
+        frame = pd.read_csv(csv_path, sep=delimiter, engine='python', header=header)
+        if frame.shape[1] >= min_columns:
+          return frame
+      except pd.errors.ParserError:
+        continue
+
+    frame = pd.read_csv(csv_path, sep=None, engine='python', header=header)
+    if frame.shape[1] < min_columns:
+      raise ValueError(f"Esperado ao menos {min_columns} colunas em {csv_path}.")
+    return frame
+
+
+  def _read_structured_curve_file(self, csv_path):
+    """Reads the new 3-column format and infers curve type from the fixed column."""
+    raw_frame = self._read_with_supported_delimiters(csv_path)
+    normalized_columns = {
+        self._normalize_curve_header(column): column
+        for column in raw_frame.columns
+    }
+    required_columns = ["VGS", "VDS", "ID"]
+    if not all(column in normalized_columns for column in required_columns):
+      return None
+
+    frame = raw_frame[[normalized_columns[column] for column in required_columns]].copy()
+    frame.columns = required_columns
+    for column in required_columns:
+      frame[column] = pd.to_numeric(frame[column], errors='coerce')
+    frame = frame.dropna(subset=required_columns).reset_index(drop=True)
+    if frame.empty:
+      raise ValueError(f"Nenhum ponto numerico valido encontrado em {csv_path}.")
+
+    vgs_values = frame["VGS"].to_numpy(dtype=float)
+    vds_values = frame["VDS"].to_numpy(dtype=float)
+    id_values = frame["ID"].to_numpy(dtype=float)
+    vgs_constant = self._is_effectively_constant(vgs_values)
+    vds_constant = self._is_effectively_constant(vds_values)
+
+    if vgs_constant and not vds_constant:
+      curve_type = 1
+      fixed_column = "VGS"
+      sweep_column = "VDS"
+    elif vds_constant and not vgs_constant:
+      curve_type = 0
+      fixed_column = "VDS"
+      sweep_column = "VGS"
+    else:
+      raise ValueError(
+          "Nao foi possivel classificar a curva. O novo padrao exige uma coluna "
+          f"fixa entre VGS e VDS em {csv_path}."
+      )
+
+    fixed_voltage = float(frame[fixed_column].mean())
+    return {
+        "curve_type": curve_type,
+        "fixed_voltage": fixed_voltage,
+        "fixed_column": fixed_column,
+        "sweep_column": sweep_column,
+        "sweep_values": frame[sweep_column].to_numpy(dtype=float),
+        "current_values": id_values,
+        "format": "structured",
+    }
+
+
+  def _read_legacy_curve_file(self, csv_path):
+    """Reads the historical two-column format kept as compatibility fallback."""
+    raw_frame = self._read_with_supported_delimiters(csv_path, header=None)
+    if raw_frame.shape[1] < 2:
+      raise ValueError(f"Esperado ao menos 2 colunas em {csv_path}.")
+
+    frame = raw_frame.iloc[:, :2].copy()
+    frame.columns = ["V", "I"]
+    for column in ["V", "I"]:
+      frame[column] = pd.to_numeric(frame[column], errors='coerce')
+    frame = frame.dropna(subset=["V", "I"]).reset_index(drop=True)
+    if frame.empty:
+      raise ValueError(f"Nenhum ponto numerico valido encontrado em {csv_path}.")
+
+    fixed_voltage = self._get_signed_filename_voltage(
+        csv_path,
+        fallback_voltage=self._extract_voltage_from_filename(csv_path),
+        curve_info={
+            "sweep_values": frame["V"].to_numpy(dtype=float),
+            "fixed_voltage": None,
+        },
+    )
+    return {
+        "curve_type": self._detect_legacy_curve_type(csv_path),
+        "fixed_voltage": fixed_voltage,
+        "fixed_column": None,
+        "sweep_column": "V",
+        "sweep_values": frame["V"].to_numpy(dtype=float),
+        "current_values": frame["I"].to_numpy(dtype=float),
+        "format": "legacy",
+    }
+
+
+  def _inspect_curve_file(self, csv_path):
+    """Returns cached curve metadata and numeric arrays for a data file."""
+    cache_key = os.path.abspath(str(csv_path))
+    if cache_key in self._curve_cache:
+      return self._curve_cache[cache_key]
+
+    try:
+      curve_info = self._read_structured_curve_file(csv_path)
+    except pd.errors.ParserError:
+      curve_info = None
+
+    if curve_info is None:
+      curve_info = self._read_legacy_curve_file(csv_path)
+
+    self._curve_cache[cache_key] = curve_info
+    return curve_info
+
+
+  def _experimental_sort_key(self, curve_entry):
+    fixed_voltage = curve_entry.get("fixed_voltage")
+    filename = curve_entry.get("filename", "")
+    return (
+        fixed_voltage is None,
+        float(fixed_voltage) if fixed_voltage is not None else 0.0,
+        filename.lower(),
+    )
 
 
   def _get_experimental_file_lists(self, directory, selected_files=None,
                                    transfer_pattern='transfer', output_pattern='output'):
     """
-      Returns sorted transfer and output filenames discovered from the directory.
+      Returns sorted experimental files discovered from the directory by file content.
     """
     files = os.listdir(directory)
     selected_set = None if selected_files is None else {str(file_name).lower() for file_name in selected_files}
@@ -113,16 +255,27 @@ class ReadData:
     output_files = []
 
     for filename in files:
-      curve_type = self._classify_experimental_file(filename, transfer_pattern, output_pattern)
-      if curve_type is None:
+      lowered = filename.lower()
+      if not lowered.endswith(('.csv', '.txt')):
         continue
-      if selected_set is not None and filename.lower() not in selected_set:
+      if selected_set is not None and lowered not in selected_set:
         continue
 
+      file_path = os.path.join(directory, filename)
+      curve_info = self._inspect_curve_file(file_path)
+      curve_type = curve_info.get("curve_type")
+      if curve_type is None:
+        continue
+
+      entry = {
+          "filename": filename,
+          "curve_type": curve_type,
+          "fixed_voltage": curve_info.get("fixed_voltage"),
+      }
       if curve_type == 0:
-        transfer_files.append(filename)
+        transfer_files.append(entry)
       else:
-        output_files.append(filename)
+        output_files.append(entry)
 
     transfer_files.sort(key=self._experimental_sort_key)
     output_files.sort(key=self._experimental_sort_key)
@@ -136,7 +289,7 @@ class ReadData:
     return count_transfer, count_output
 
 
-  def read_files_experimental(  self, directory, list_tension, selected_files=None,
+  def read_files_experimental(  self, directory, list_tension=None, selected_files=None,
                                 transfer_pattern=r'transfer', output_pattern=r'output'):
     """
       Reads experimental files in a directory and returns a list of paths and associated information.
@@ -173,16 +326,20 @@ class ReadData:
     transfer_count = len(transfer_files)
 
     for index, transfer_file in enumerate(transfer_files):
-      filename_voltage = self._extract_voltage_from_filename(transfer_file)
-      associated_voltage = normalized_tensions[index] if index < len(normalized_tensions) else filename_voltage
-      typed_paths.append((os.path.join(directory, transfer_file), 0, associated_voltage))
+      detected_voltage = transfer_file.get("fixed_voltage")
+      associated_voltage = detected_voltage
+      if index < len(normalized_tensions):
+        associated_voltage = normalized_tensions[index]
+      typed_paths.append((os.path.join(directory, transfer_file["filename"]), 0, associated_voltage))
 
     output_offset = transfer_count
     for index, output_file in enumerate(output_files):
-      filename_voltage = self._extract_voltage_from_filename(output_file)
       tension_index = output_offset + index
-      associated_voltage = normalized_tensions[tension_index] if tension_index < len(normalized_tensions) else filename_voltage
-      typed_paths.append((os.path.join(directory, output_file), 1, associated_voltage))
+      detected_voltage = output_file.get("fixed_voltage")
+      associated_voltage = detected_voltage
+      if tension_index < len(normalized_tensions):
+        associated_voltage = normalized_tensions[tension_index]
+      typed_paths.append((os.path.join(directory, output_file["filename"]), 1, associated_voltage))
 
     return typed_paths
 
@@ -242,13 +399,9 @@ class ReadData:
     # obtem o número de pontos da amostra
     def get_points(args, transfer, out):
       for arg in args:
-        data = np.loadtxt(arg[0], delimiter=',')
-        if arg[1] == out:
-          max_points = len(data[:,1])
-          n_points.append(max_points)
-
-        elif arg[1] == transfer:
-          max_points = len(data[:,0])
+        curve_info = self._inspect_curve_file(arg[0])
+        max_points = len(curve_info["current_values"])
+        if arg[1] in (out, transfer):
           n_points.append(max_points)
 
 
@@ -274,27 +427,26 @@ class ReadData:
             lê os dados de um arquivo CSV usando pd.read_csv, onde arg[0]
             contém o caminho do arquivo
             '''
-            data = pd.read_csv(arg[0], header=None)
-            Vv_temp = data[0].values[:min_value]
-            Id_temp = data[1].values[:min_value] * (sc_output / curr_typic)
+            curve_info = self._inspect_curve_file(arg[0])
+            Vv_temp = curve_info["sweep_values"][:min_value]
+            Id_temp = curve_info["current_values"][:min_value] * (sc_output / curr_typic)
             type_out.append((Vv_temp, Id_temp))
             list_type_out.append(arg[2])
             count_output+=1
 
 
           elif arg[1] == curv_transfer:
-              data = pd.read_csv(arg[0], header=None)
+              curve_info = self._inspect_curve_file(arg[0])
 
               #aloca em Vv_temp apenas os pontos até min_value
-              Vv_temp = data[0].values[:min_value]
+              Vv_temp = curve_info["sweep_values"][:min_value]
 
               #aloca em Id_temp o log10 das correntes
               if curve == 'log':
-                Id_temp = np.log10(abs((data[1].values[:min_value])))
+                Id_temp = np.log10(abs((curve_info["current_values"][:min_value])))
 
               elif curve == 'linear':
-                # Id_temp = data[1].values[:min_value]
-                Id_temp = (-1)*abs((data[1].values[:min_value] * sc_transfer / curr_typic))
+                Id_temp = (-1)*abs((curve_info["current_values"][:min_value] * sc_transfer / curr_typic))
               else:
                 raise ValueError("Option not valide\n")
 
@@ -391,14 +543,9 @@ class ReadData:
     # Obtem o número de pontos da amostra
     def get_points(args, transfer, out):
       for arg in args:
-        data = np.loadtxt(arg[0], delimiter=',')
-        if arg[1] == out:
-          Id_temp = data[:,1]
-          max_points = len(Id_temp)
-          n_points.append(max_points)
-
-        elif arg[1] == transfer:
-          max_points = len(data[:,0])
+        curve_info = self._inspect_curve_file(arg[0])
+        max_points = len(curve_info["current_values"])
+        if arg[1] in (out, transfer):
           n_points.append(max_points)
 
 
@@ -418,19 +565,25 @@ class ReadData:
 
       try:
         if arg[1] == curv_out:
-            data = np.loadtxt(arg[0], delimiter=',')
-            Vv_temp = data[:, 0]
-            Id_temp = (data[:, 1])
+            curve_info = self._inspect_curve_file(arg[0])
+            Vv_temp, Id_temp = self._collapse_duplicate_axis(
+                curve_info["sweep_values"],
+                curve_info["current_values"],
+            )
 
             type_out.append((Vv_temp, Id_temp * (sc_output / curr_typic)))
             list_type_out.append(arg[2])
             count_output+=1
 
         elif arg[1] == curv_transfer:
-            data = np.loadtxt(arg[0], delimiter=',')
-            Vmax, Vmin = np.max(data[:,0]), np.min(data[:,0])
+            curve_info = self._inspect_curve_file(arg[0])
+            prepared_voltages, prepared_currents = self._collapse_duplicate_axis(
+                curve_info["sweep_values"],
+                curve_info["current_values"],
+            )
+            Vmax, Vmin = np.max(prepared_voltages), np.min(prepared_voltages)
             Vv_temp = np.linspace(Vmin, Vmax, nv)
-            Id_temp = np.interp(Vv_temp, data[:,0], data[:,1])
+            Id_temp = np.interp(Vv_temp, prepared_voltages, prepared_currents)
 
             #plotar dados em escala log ou linear só para o caso em que vamos otimizar linear também
             if curve == 'log':
@@ -596,7 +749,7 @@ class ReadData:
   # CRIA INSTÂNCIAS DO MODELO
   def create_models_datas(self, model, n_points, type_curve, parameters, tensions, Vv, idleak,
                           w, count, tp_tst, current_typic='A', scale_factor='A',
-                          res=None, curr=None):
+                          res=None, curr=None, path_voltages=None):
     """
       Creates model instances based on input data and provided parameters.
 
@@ -607,7 +760,9 @@ class ReadData:
           parameters (tuple): A tuple of model parameters.
           tensions (list): A list of voltages associated with the input data.
           Vv (array): An array of input data voltages.
-          idleak (float, list): The static idleak value or a list of dynamic idleak values.
+          idleak (float, list, dict): Static value, per-transfer list, or dict mapping curve ids
+              to values (dict requires path_voltages).
+          path_voltages (list, optional): (path, curve_type, voltage) tuples; required if idleak is a dict.
           w (float): Indicates the width of a transistor for a given technology.
           count (int): The index limit for classifying input data.
           lambda_factor (bool): Defines if the lambda factor is present in estimating other parameters.
@@ -648,6 +803,20 @@ class ReadData:
           >>> print(model_instances)
           [<MyModel object at 0x7f84ac50b610>, <MyModel object at 0x7f84ac50b5e0>]
     """
+
+    if isinstance(idleak, dict):
+      if path_voltages is None:
+        raise ValueError(
+          "path_voltages must be provided when idleak is a dict (per-curve idleak mapping), "
+          "or call read.load_data(...) first on the same ReadData instance so path_voltages is cached."
+        )
+      idleak = resolve_idleak_for_transfers(idleak, path_voltages, count)
+    elif isinstance(idleak, list) and count:
+      if len(idleak) != count:
+        raise ValueError(
+          "loaded_idleak list length (%s) must equal count_transfer (%s) in multi-idleak mode."
+          % (len(idleak), count)
+        )
 
     # input datas Transfer
     Model_data = []
@@ -727,7 +896,11 @@ class ReadData:
   def _extract_voltage_from_filename(self, file_path):
     """Extracts the reference voltage encoded in the CSV filename."""
     filename = os.path.basename(str(file_path))
-    match = re.search(r'(\d+(?:\.\d+)?)\s*V?(?=\.csv$)', filename, flags=re.IGNORECASE)
+    match = re.search(
+        r'(-?\d+(?:\.\d+)?)\s*(?=(?:_?V(?:GS|DS)|V)?(?:\.csv|\.txt)$)',
+        filename,
+        flags=re.IGNORECASE,
+    )
     return float(match.group(1)) if match else None
 
 
@@ -742,15 +915,13 @@ class ReadData:
 
   def _read_curve_points(self, csv_path, curve_type=None, current_typic='A',
                          scale_transfer='A', scale_output='A'):
-    """Reads a two-column CSV curve and returns voltage/current arrays."""
-    data = np.loadtxt(csv_path, delimiter=',')
-    if data.ndim == 1:
-      data = np.atleast_2d(data)
-
-    voltages = np.asarray(data[:, 0], dtype=float)
-    currents = np.asarray(data[:, 1], dtype=float)
+    """Reads a curve file and returns the sweep axis with scaled current values."""
+    curve_info = self._inspect_curve_file(csv_path)
+    resolved_curve_type = curve_info["curve_type"] if curve_type is None else curve_type
+    voltages = np.asarray(curve_info["sweep_values"], dtype=float)
+    currents = np.asarray(curve_info["current_values"], dtype=float)
     current_factor = self._get_curve_current_factor(
-        curve_type,
+        resolved_curve_type,
         current_typic=current_typic,
         scale_transfer=scale_transfer,
         scale_output=scale_output,
@@ -812,8 +983,15 @@ class ReadData:
     return -1.0 if abs(min_voltage) >= abs(max_voltage) else 1.0
 
 
-  def _get_signed_filename_voltage(self, csv_path, fallback_voltage=None):
-    """Reads the voltage encoded in the filename and restores its sign."""
+  def _get_signed_filename_voltage(self, csv_path, fallback_voltage=None, curve_info=None):
+    """Resolves the nominal curve voltage, preferring the fixed column from the CSV."""
+    if curve_info is None:
+      curve_info = self._inspect_curve_file(csv_path)
+
+    fixed_voltage = curve_info.get("fixed_voltage")
+    if fixed_voltage is not None:
+      return float(fixed_voltage)
+
     filename_voltage = self._extract_voltage_from_filename(csv_path)
     if filename_voltage is None:
       if fallback_voltage is None:
@@ -1098,7 +1276,10 @@ class ReadData:
         shift_details.append({
             'output_file': os.path.basename(output_path),
             'output_nominal_voltage': float(output_loaded_voltage),
-            'output_filename_voltage': self._extract_voltage_from_filename(output_path),
+            'output_filename_voltage': self._get_signed_filename_voltage(
+                output_path,
+                fallback_voltage=output_loaded_voltage,
+            ),
             'reference_transfer_file': None,
             'reference_transfer_loaded_voltage': None,
             'reference_transfer_filename_voltage': None,
@@ -1133,7 +1314,10 @@ class ReadData:
         ordered_details[original_index] = {
             'output_file': os.path.basename(output_path),
             'output_nominal_voltage': float(output_loaded_voltage),
-            'output_filename_voltage': self._extract_voltage_from_filename(output_path),
+            'output_filename_voltage': self._get_signed_filename_voltage(
+                output_path,
+                fallback_voltage=output_loaded_voltage,
+            ),
             'reference_transfer_file': reference_info['reference_transfer_file'],
             'reference_transfer_loaded_voltage': reference_info['reference_transfer_loaded_voltage'],
             'reference_transfer_filename_voltage': reference_info['reference_transfer_filename_voltage'],
@@ -1170,7 +1354,10 @@ class ReadData:
 
     for original_index, (output_path, _, output_loaded_voltage) in ordered_outputs:
       output_nominal_voltage = float(output_loaded_voltage)
-      output_filename_voltage = self._extract_voltage_from_filename(output_path)
+      output_filename_voltage = self._get_signed_filename_voltage(
+          output_path,
+          fallback_voltage=output_loaded_voltage,
+      )
       output_voltage_match = self._curve_contains_voltage(output_path, vds_ref_effective)
       detail = {
           'output_file': os.path.basename(output_path),
@@ -1497,11 +1684,14 @@ class ReadData:
     if type_read_data_exp == 'read interpolated data':
         Vv, Id, input_voltage, n_points, count_transfer, count_output = self.read_interpoll_datas(*path_voltages, current_typic=curr_typic, scale_transfer=scale_trfr,
                                                                                                                         scale_output=scale_out, curve=type_curve_plot)
+        self._last_path_voltages = list(path_voltages)
     elif type_read_data_exp == 'read original data':
         Vv, Id, input_voltage, n_points, count_transfer, count_output = self.read_pure_data(*path_voltages, current_typic=curr_typic, scale_transfer=scale_trfr,
                                                                                                                   scale_output=scale_out, curve=type_curve_plot)
+        self._last_path_voltages = list(path_voltages)
     else:
         print("No type available\n")
+        return None, None, None, None, 0, 0
 
     return Vv, Id, input_voltage, n_points, count_transfer, count_output
 

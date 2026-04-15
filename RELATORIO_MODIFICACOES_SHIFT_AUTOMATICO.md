@@ -17,11 +17,11 @@ O valor automatico calculado:
 
 Para cada curva de saida:
 
-1. usa-se como referencia principal a ordem e os valores presentes em `loaded_voltages` no JSON;
-2. os primeiros `curves_transfer` valores sao associados as curvas de transferencia e o restante as curvas de saida;
-3. o valor nominal e validado contra o nome do arquivo e contra a faixa de tensao disponivel no CSV;
-4. busca-se a curva de transferencia correspondente com a mesma tensao nominal definida no JSON;
-5. na curva de saida, calcula-se a corrente no ponto `VDS = V_nominal_json`;
+1. usa-se como referencia principal a tensao nominal lida diretamente da coluna fixa do CSV;
+2. curvas com `VDS` fixo sao tratadas como transferencia e curvas com `VGS` fixo como saida;
+3. o valor nominal e validado contra a faixa de tensao disponivel no proprio CSV;
+4. busca-se a curva de transferencia correspondente com a mesma tensao nominal identificada na curva;
+5. na curva de saida, calcula-se a corrente no ponto `VDS = V_nominal_csv`;
 6. na curva de transferencia correspondente, procura-se o valor de tensao cujo valor de corrente melhor coincide com a corrente obtida no passo anterior;
 7. o `shift` automatico e calculado como:
 
@@ -37,7 +37,7 @@ Para cada curva de saida:
 
 Foram adicionadas rotinas auxiliares para:
 
-- extrair a tensao nominal do nome do arquivo CSV;
+- extrair a tensao nominal da coluna fixa do arquivo CSV;
 - ler curvas experimentais diretamente dos arquivos;
 - consolidar tensoes repetidas em curvas com histerese;
 - interpolar corrente em funcao da tensao;

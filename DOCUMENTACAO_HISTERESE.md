@@ -81,6 +81,20 @@ Os modos disponiveis sao:
 - `menor`: usa a menor corrente associada aquela tensao;
 - `maior`: usa a maior corrente associada aquela tensao.
 
+Aliases aceitos pelo codigo (equivalentes): `mean`, `avg`, `average`; `min`, `minimum`, `baixo`, `bottom`, `lower`; `max`, `maximum`, `cima`, `top`, `upper`.
+
+### Correspondencia entre curvas de transferencia e de saida
+
+Numa mesma execucao de pre-processamento sobre a pasta `path`, o mesmo `hysteresis_mode` e aplicado a **todos** os ficheiros CSV (transferencia e saida). Assim, se escolher o ramo superior (`maior` / `cima`), todas as curvas — incluindo transferencia e saida — usam essa mesma regra; o mesmo para `menor` / `baixo` ou `media`.
+
+### Deteccao de assinatura de histerese
+
+A classe `PreProcessingData` expoe `analyze_hysteresis(df)`, que calcula metricas sobre o dataframe ja preparado (colunas `voltage`, `current`), usando o mesmo arredondamento de tensao que `_clean_hysteresis`.
+
+O resumo escrito em `resumo_processamento.csv` inclui colunas com prefixo `hysteresis_` (grupos duplicados, pontos redundantes, spreads maximo absoluto e relativo, e `hysteresis_detected`). Apos `maybe_apply_preprocessing`, o dicionario `settings` pode conter `settings["_hysteresis_diagnostics"]` com agregados (`any_detected`, `transfer_any`, `output_any`) e lista `per_file`.
+
+Limiares opcionais no JSON: `hysteresis_detect_min_groups`, `hysteresis_detect_min_rel_spread`, `hysteresis_detect_min_abs_spread` (ver README).
+
 De forma geral:
 
 - `I_representativa(V) = media(I_1, I_2, ..., I_n)` no modo `media`;
@@ -160,7 +174,7 @@ Algumas implicacoes:
 
 A escolha da estrategia de eliminacao da histerese e feita pelo parametro `hysteresis_mode`, aceito nas rotinas de processamento.
 
-Valores aceitos:
+Valores aceitos (e aliases listados acima):
 
 - `media`
 - `menor`

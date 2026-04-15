@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import shutil
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -19,11 +19,85 @@ class PreProcessingData:
       curvas de transferencia;
     - selecao opcional de curvas especificas para receber o shift;
     - limpeza de histerese por consolidacao de tensoes redundantes;
+    - analise de assinatura de histerese (tensoes repetidas com correntes distintas);
     - salvamento dos dados tratados em uma nova pasta.
     """
 
     def __init__(self, voltage_round_decimals: int = 9):
         self.voltage_round_decimals = voltage_round_decimals
+
+    def analyze_hysteresis(
+        self,
+        df: pd.DataFrame,
+        min_duplicate_groups: int = 1,
+        min_relative_spread: float = 1e-6,
+        min_absolute_spread: float = 1e-12,
+    ) -> dict[str, Any]:
+        """
+        Mede redundancia por tensao (apos o mesmo arredondamento de _clean_hysteresis).
+
+        hysteresis_detected e True se existir numero suficiente de grupos com tensao
+        repetida e diferenca de corrente acima dos limiares (absoluto ou relativo).
+        """
+        empty = {
+            "hysteresis_duplicate_groups": 0,
+            "hysteresis_redundant_points": 0,
+            "hysteresis_max_spread_abs": 0.0,
+            "hysteresis_max_spread_rel": 0.0,
+            "hysteresis_detected": False,
+        }
+        if df is None or df.empty:
+            return empty
+
+        work = df[["voltage", "current"]].copy()
+        work["voltage_key"] = work["voltage"].round(self.voltage_round_decimals)
+        sizes = work.groupby("voltage_key", sort=False).size()
+        duplicate_mask = sizes > 1
+        duplicate_groups = int(duplicate_mask.sum())
+        redundant_points = int((sizes - 1).clip(lower=0).sum())
+
+        max_spread_abs = 0.0
+        max_spread_rel = 0.0
+        for _, sub in work.groupby("voltage_key", sort=False):
+            if len(sub) < 2:
+                continue
+            curr = sub["current"].to_numpy(dtype=float)
+            spread = float(np.max(curr) - np.min(curr))
+            max_spread_abs = max(max_spread_abs, spread)
+            scale = max(float(np.mean(np.abs(curr))), 1e-30)
+            max_spread_rel = max(max_spread_rel, spread / scale)
+
+        significant_spread = (
+            max_spread_rel >= float(min_relative_spread)
+            or max_spread_abs >= float(min_absolute_spread)
+        )
+        detected = (
+            duplicate_groups >= int(min_duplicate_groups) and significant_spread
+        )
+
+        return {
+            "hysteresis_duplicate_groups": duplicate_groups,
+            "hysteresis_redundant_points": redundant_points,
+            "hysteresis_max_spread_abs": max_spread_abs,
+            "hysteresis_max_spread_rel": max_spread_rel,
+            "hysteresis_detected": bool(detected),
+        }
+
+    def _pipeline_before_hysteresis_clean(
+        self,
+        csv_path: str | Path,
+        shift_voltage: float,
+        threshold_voltage: float | None,
+    ) -> pd.DataFrame:
+        csv_path = Path(csv_path)
+        df = self._read_curve(csv_path)
+        curve_attrs = dict(df.attrs)
+        curve_type = df.attrs.get("curve_type", self._detect_curve_type(csv_path.name))
+        if self._should_apply_physical_shift(curve_type):
+            df = df.copy()
+            df["voltage"] = df["voltage"] + shift_voltage
+            df.attrs.update(curve_attrs)
+        return self._apply_voltage_threshold(df, threshold_voltage=threshold_voltage)
 
     def process_directory(
         self,
@@ -35,6 +109,9 @@ class PreProcessingData:
         selected_curves: Iterable[str] | None = None,
         output_folder_name: str = "dados_tratados",
         recursive: bool = True,
+        hysteresis_detect_min_groups: int = 1,
+        hysteresis_detect_min_rel_spread: float = 1e-6,
+        hysteresis_detect_min_abs_spread: float = 1e-12,
     ) -> list[dict]:
         """
         Processa todos os CSVs de um diretorio.
@@ -76,7 +153,7 @@ class PreProcessingData:
             if output_folder_name in csv_path.parts:
                 continue
 
-            curve_type = self._detect_curve_type(csv_path.name)
+            curve_type = self._detect_curve_type(csv_path)
             apply_shift = self._should_apply_shift(
                 csv_path=csv_path,
                 base_dir=input_dir,
@@ -84,12 +161,15 @@ class PreProcessingData:
             )
             physical_shift_applied = apply_shift and self._should_apply_physical_shift(curve_type)
 
-            processed_df = self.process_file(
+            processed_df, hyst_metrics = self._process_prepared_curve(
                 csv_path=csv_path,
                 shift_voltage=shift_voltage if apply_shift else 0.0,
                 threshold_voltage=threshold_voltage,
                 hysteresis_mode=hysteresis_mode,
                 apply_hysteresis=apply_hysteresis,
+                min_duplicate_groups=hysteresis_detect_min_groups,
+                min_relative_spread=hysteresis_detect_min_rel_spread,
+                min_absolute_spread=hysteresis_detect_min_abs_spread,
             )
 
             relative_parent = csv_path.relative_to(input_dir).parent
@@ -98,7 +178,7 @@ class PreProcessingData:
 
             target_name = f"{csv_path.stem}.csv"
             target_path = target_dir / target_name
-            processed_df.to_csv(target_path, header=False, index=False, float_format="%.10E")
+            self._write_curve(processed_df, target_path)
 
             summary.append(
                 {
@@ -108,16 +188,47 @@ class PreProcessingData:
                     "shift_applied": physical_shift_applied,
                     "shift_voltage": shift_voltage if physical_shift_applied else 0.0,
                     "threshold_voltage": threshold_voltage,
-                    "hysteresis_mode": hysteresis_mode,
+                    "hysteresis_mode": (
+                        self._normalize_hysteresis_mode(str(hysteresis_mode))
+                        if apply_hysteresis
+                        else str(hysteresis_mode).strip().lower()
+                    ),
                     "hysteresis_applied": apply_hysteresis,
                     "original_points": self._count_rows(csv_path),
                     "processed_points": len(processed_df),
+                    **hyst_metrics,
                 }
             )
 
         summary_df = pd.DataFrame(summary)
         summary_df.to_csv(output_dir / "resumo_processamento.csv", index=False)
         return summary
+
+    def _process_prepared_curve(
+        self,
+        csv_path: str | Path,
+        shift_voltage: float,
+        threshold_voltage: float | None,
+        hysteresis_mode: str,
+        apply_hysteresis: bool,
+        min_duplicate_groups: int = 1,
+        min_relative_spread: float = 1e-6,
+        min_absolute_spread: float = 1e-12,
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        df_pre = self._pipeline_before_hysteresis_clean(
+            csv_path, shift_voltage=shift_voltage, threshold_voltage=threshold_voltage
+        )
+        metrics = self.analyze_hysteresis(
+            df_pre,
+            min_duplicate_groups=min_duplicate_groups,
+            min_relative_spread=min_relative_spread,
+            min_absolute_spread=min_absolute_spread,
+        )
+        if apply_hysteresis:
+            df_out = self._clean_hysteresis(df_pre, mode=hysteresis_mode)
+        else:
+            df_out = df_pre
+        return df_out, metrics
 
     def process_file(
         self,
@@ -126,20 +237,25 @@ class PreProcessingData:
         threshold_voltage: float | None = 0.0,
         hysteresis_mode: str = "media",
         apply_hysteresis: bool = True,
+        hysteresis_detect_min_groups: int = 1,
+        hysteresis_detect_min_rel_spread: float = 1e-6,
+        hysteresis_detect_min_abs_spread: float = 1e-12,
     ) -> pd.DataFrame:
         """
         Le um CSV, aplica shift horizontal apenas em curvas de transferencia,
         corta por limiar de tensao e remove redundancias por histerese.
         """
-        csv_path = Path(csv_path)
-        df = self._read_curve(csv_path)
-        curve_type = self._detect_curve_type(csv_path.name)
-        if self._should_apply_physical_shift(curve_type):
-            df["voltage"] = df["voltage"] + shift_voltage
-        df = self._apply_voltage_threshold(df, threshold_voltage=threshold_voltage)
-        if apply_hysteresis:
-            df = self._clean_hysteresis(df, mode=hysteresis_mode)
-        return df
+        df_out, _ = self._process_prepared_curve(
+            csv_path=csv_path,
+            shift_voltage=shift_voltage,
+            threshold_voltage=threshold_voltage,
+            hysteresis_mode=hysteresis_mode,
+            apply_hysteresis=apply_hysteresis,
+            min_duplicate_groups=hysteresis_detect_min_groups,
+            min_relative_spread=hysteresis_detect_min_rel_spread,
+            min_absolute_spread=hysteresis_detect_min_abs_spread,
+        )
+        return df_out
 
     def process_directory_in_place(
         self,
@@ -151,6 +267,9 @@ class PreProcessingData:
         selected_curves: Iterable[str] | None = None,
         recursive: bool = True,
         backup_suffix: str = "_old",
+        hysteresis_detect_min_groups: int = 1,
+        hysteresis_detect_min_rel_spread: float = 1e-6,
+        hysteresis_detect_min_abs_spread: float = 1e-12,
     ) -> list[dict]:
         """
         Processa os CSVs no proprio diretorio de origem.
@@ -196,7 +315,7 @@ class PreProcessingData:
                 backup_file = str(backup_path) if backup_path.exists() else None
                 original_points = self._count_rows(csv_path)
 
-            curve_type = self._detect_curve_type(source_path.name)
+            curve_type = self._detect_curve_type(source_path)
             apply_shift = self._should_apply_shift(
                 csv_path=source_path,
                 base_dir=backup_dir if not backup_exists else input_dir,
@@ -204,16 +323,19 @@ class PreProcessingData:
             )
             physical_shift_applied = apply_shift and self._should_apply_physical_shift(curve_type)
 
-            processed_df = self.process_file(
+            processed_df, hyst_metrics = self._process_prepared_curve(
                 csv_path=source_path,
                 shift_voltage=shift_voltage if apply_shift else 0.0,
                 threshold_voltage=threshold_voltage,
                 hysteresis_mode=hysteresis_mode,
                 apply_hysteresis=apply_hysteresis,
+                min_duplicate_groups=hysteresis_detect_min_groups,
+                min_relative_spread=hysteresis_detect_min_rel_spread,
+                min_absolute_spread=hysteresis_detect_min_abs_spread,
             )
 
             csv_path.parent.mkdir(parents=True, exist_ok=True)
-            processed_df.to_csv(csv_path, header=False, index=False, float_format="%.10E")
+            self._write_curve(processed_df, csv_path)
 
             summary.append(
                 {
@@ -226,10 +348,15 @@ class PreProcessingData:
                     "shift_applied": physical_shift_applied,
                     "shift_voltage": shift_voltage if physical_shift_applied else 0.0,
                     "threshold_voltage": threshold_voltage,
-                    "hysteresis_mode": hysteresis_mode,
+                    "hysteresis_mode": (
+                        self._normalize_hysteresis_mode(str(hysteresis_mode))
+                        if apply_hysteresis
+                        else str(hysteresis_mode).strip().lower()
+                    ),
                     "hysteresis_applied": apply_hysteresis,
                     "original_points": original_points,
                     "processed_points": len(processed_df),
+                    **hyst_metrics,
                 }
             )
 
@@ -252,9 +379,93 @@ class PreProcessingData:
             and not any(part in excluded_directories for part in path.parts)
         )
 
+    def _normalize_curve_header(self, value: str) -> str:
+        return str(value).strip().upper().replace(" ", "")
+
+    def _is_effectively_constant(
+        self,
+        values: np.ndarray,
+        atol: float = 1e-9,
+        rtol: float = 1e-6,
+    ) -> bool:
+        numeric_values = np.asarray(values, dtype=float)
+        if numeric_values.size == 0:
+            return False
+        span = float(np.nanmax(numeric_values) - np.nanmin(numeric_values))
+        reference = max(float(np.nanmax(np.abs(numeric_values))), 1.0)
+        return span <= max(float(atol), float(rtol) * reference)
+
+    def _read_with_supported_delimiters(
+        self,
+        csv_path: str | Path,
+        header: int | None | str = "infer",
+        min_columns: int = 2,
+    ) -> pd.DataFrame:
+        for delimiter in ("\t", ",", ";"):
+            try:
+                frame = pd.read_csv(csv_path, sep=delimiter, engine="python", header=header)
+                if frame.shape[1] >= min_columns:
+                    return frame
+            except pd.errors.ParserError:
+                continue
+
+        frame = pd.read_csv(csv_path, sep=None, engine="python", header=header)
+        if frame.shape[1] < min_columns:
+            raise ValueError(f"O arquivo precisa ter ao menos {min_columns} colunas: {csv_path}")
+        return frame
+
     def _read_curve(self, csv_path: str | Path) -> pd.DataFrame:
         csv_path = Path(csv_path)
-        data = pd.read_csv(csv_path, header=None)
+        raw_data = self._read_with_supported_delimiters(csv_path)
+        normalized_columns = {
+            self._normalize_curve_header(column): column
+            for column in raw_data.columns
+        }
+
+        if all(column in normalized_columns for column in ["VGS", "VDS", "ID"]):
+            df = raw_data[[normalized_columns["VGS"], normalized_columns["VDS"], normalized_columns["ID"]]].copy()
+            df.columns = ["VGS", "VDS", "ID"]
+            for column in ["VGS", "VDS", "ID"]:
+                df[column] = pd.to_numeric(df[column], errors="coerce")
+            df = df.dropna(subset=["VGS", "VDS", "ID"]).reset_index(drop=True)
+
+            if df.empty:
+                raise ValueError(f"O arquivo nao contem dados numericos validos: {csv_path}")
+
+            vgs_constant = self._is_effectively_constant(df["VGS"].to_numpy(dtype=float))
+            vds_constant = self._is_effectively_constant(df["VDS"].to_numpy(dtype=float))
+            if vgs_constant and not vds_constant:
+                curve_type = "output"
+                sweep_column = "VDS"
+                fixed_column = "VGS"
+            elif vds_constant and not vgs_constant:
+                curve_type = "transfer"
+                sweep_column = "VGS"
+                fixed_column = "VDS"
+            else:
+                raise ValueError(
+                    "Nao foi possivel identificar a coluna fixa entre VGS e VDS "
+                    f"em {csv_path}."
+                )
+
+            curve_df = pd.DataFrame(
+                {
+                    "voltage": df[sweep_column].to_numpy(dtype=float),
+                    "current": df["ID"].to_numpy(dtype=float),
+                }
+            )
+            curve_df.attrs.update(
+                {
+                    "curve_type": curve_type,
+                    "format": "structured",
+                    "sweep_column": sweep_column,
+                    "fixed_column": fixed_column,
+                    "fixed_voltage": float(df[fixed_column].mean()),
+                }
+            )
+            return curve_df
+
+        data = self._read_with_supported_delimiters(csv_path, header=None)
 
         if data.shape[1] < 2:
             raise ValueError(f"O arquivo precisa ter ao menos 2 colunas: {csv_path}")
@@ -268,7 +479,36 @@ class PreProcessingData:
         if df.empty:
             raise ValueError(f"O arquivo nao contem dados numericos validos: {csv_path}")
 
+        df.attrs.update(
+            {
+                "curve_type": self._detect_curve_type_from_name(csv_path.name),
+                "format": "legacy",
+                "sweep_column": "voltage",
+                "fixed_column": None,
+                "fixed_voltage": None,
+            }
+        )
         return df
+
+    def _write_curve(self, df: pd.DataFrame, target_path: str | Path) -> None:
+        target_path = Path(target_path)
+        if df.attrs.get("format") == "structured":
+            sweep_column = df.attrs["sweep_column"]
+            fixed_column = df.attrs["fixed_column"]
+            fixed_voltage = float(df.attrs["fixed_voltage"])
+            output_df = pd.DataFrame(
+                {
+                    "VGS": np.full(len(df), fixed_voltage, dtype=float),
+                    "VDS": np.full(len(df), fixed_voltage, dtype=float),
+                    "ID": df["current"].to_numpy(dtype=float),
+                }
+            )
+            output_df[sweep_column] = df["voltage"].to_numpy(dtype=float)
+            output_df[fixed_column] = fixed_voltage
+            output_df.to_csv(target_path, index=False, float_format="%.10E")
+            return
+
+        df.to_csv(target_path, header=False, index=False, float_format="%.10E")
 
     def _clean_hysteresis(self, df: pd.DataFrame, mode: str = "media") -> pd.DataFrame:
         """
@@ -300,7 +540,9 @@ class PreProcessingData:
             .reset_index(drop=True)
         )
 
-        return cleaned[["voltage", "current"]]
+        cleaned_df = cleaned[["voltage", "current"]]
+        cleaned_df.attrs.update(df.attrs)
+        return cleaned_df
 
     def _normalize_hysteresis_mode(self, mode: str) -> str:
         normalized = mode.strip().lower()
@@ -312,15 +554,21 @@ class PreProcessingData:
             "menor": "menor",
             "min": "menor",
             "minimum": "menor",
+            "baixo": "menor",
+            "bottom": "menor",
+            "lower": "menor",
             "maior": "maior",
             "max": "maior",
             "maximum": "maior",
+            "cima": "maior",
+            "top": "maior",
+            "upper": "maior",
         }
 
         if normalized not in aliases:
             raise ValueError(
                 "Modo de eliminacao de histerese invalido. "
-                "Use 'media', 'menor' ou 'maior'."
+                "Use 'media', 'menor' (ou 'baixo'), 'maior' (ou 'cima'), ou equivalentes em ingles."
             )
 
         return aliases[normalized]
@@ -334,7 +582,9 @@ class PreProcessingData:
         Mantem apenas os pontos a partir do limiar informado.
         """
         if threshold_voltage is None:
-            return df.reset_index(drop=True)
+            result = df.reset_index(drop=True)
+            result.attrs.update(df.attrs)
+            return result
 
         filtered = df[df["voltage"] >= threshold_voltage].copy()
         if filtered.empty:
@@ -342,16 +592,27 @@ class PreProcessingData:
                 "Nenhum ponto restante apos aplicar o limiar de tensao "
                 f"{threshold_voltage} V."
             )
-        return filtered.reset_index(drop=True)
+        result = filtered.reset_index(drop=True)
+        result.attrs.update(df.attrs)
+        return result
 
     def _count_rows(self, csv_path: Path) -> int:
-        return len(pd.read_csv(csv_path, header=None))
+        return len(self._read_curve(csv_path))
 
-    def _detect_curve_type(self, filename: str) -> str:
-        lowered = filename.lower()
+    def _detect_curve_type_from_name(self, filename: str) -> str:
+        lowered = str(filename).lower()
         if "transfer" in lowered or "transf" in lowered:
             return "transfer"
         return "output" if "output" in lowered or "saida" in lowered else "unknown"
+
+    def _detect_curve_type(self, filename: str | Path) -> str:
+        candidate_path = Path(filename)
+        if candidate_path.exists() and candidate_path.is_file():
+            try:
+                return self._read_curve(candidate_path).attrs.get("curve_type", "unknown")
+            except ValueError:
+                pass
+        return self._detect_curve_type_from_name(candidate_path.name)
 
     def _should_apply_physical_shift(self, curve_type: str) -> bool:
         # Curvas de saida nao devem ser deslocadas fisicamente no eixo x.
@@ -398,6 +659,9 @@ def process_experimental_data(
     output_folder_name: str = "dados_tratados",
     recursive: bool = True,
     voltage_round_decimals: int = 9,
+    hysteresis_detect_min_groups: int = 1,
+    hysteresis_detect_min_rel_spread: float = 1e-6,
+    hysteresis_detect_min_abs_spread: float = 1e-12,
 ) -> list[dict]:
     """
     Funcao de conveniencia para processar um diretorio sem instanciar a classe.
@@ -412,6 +676,9 @@ def process_experimental_data(
         selected_curves=selected_curves,
         output_folder_name=output_folder_name,
         recursive=recursive,
+        hysteresis_detect_min_groups=hysteresis_detect_min_groups,
+        hysteresis_detect_min_rel_spread=hysteresis_detect_min_rel_spread,
+        hysteresis_detect_min_abs_spread=hysteresis_detect_min_abs_spread,
     )
 
 
@@ -420,7 +687,12 @@ def extract_voltage_from_filename(filename: str) -> float | None:
     Extrai tensao de nomes como:
     - transfer-1V.csv
     - output-0.1.csv
-    - output-4V.csv
+    - org1_2VGS.csv
+    - org1_-40_VDS.csv
     """
-    match = re.search(r"(-?\d+(?:\.\d+)?)\s*V?(?=\.csv$)", filename, flags=re.IGNORECASE)
+    match = re.search(
+        r"(-?\d+(?:\.\d+)?)\s*(?=(?:_?V(?:GS|DS)|V)?(?:\.csv|\.txt)$)",
+        filename,
+        flags=re.IGNORECASE,
+    )
     return float(match.group(1)) if match else None
