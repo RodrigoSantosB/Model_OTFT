@@ -215,7 +215,8 @@ Once this task is complete, ensure the `.JSON` file is correctly configured. Thi
     "apply_pre_process_threshold"       : "no",
     "pre_process_threshold_voltage"     : "0.0",
     "apply_pre_process_hysteresis"      : "no",
-    "pre_process_hysteresis_mode"       : "media",
+    "pre_process_hysteresis_mode_transfer" : "media",
+    "pre_process_hysteresis_mode_output"   : "media",
     "apply_local_output_shift"          : "yes",
     "output_shift_volt_data"            : "0, -1, -2, -6",
     "shift_volt_data"                   : "0, -1, -2, -6",
@@ -359,26 +360,34 @@ This documentation provides a comprehensive explanation of the model parameters 
 #### `apply_pre_process_threshold` (str)
 - **Description**: Enables threshold-based cutting of the voltage axis during preprocessing.
 - **Options**: `yes`, `no`
-- **Usage**: If enabled, only points with `V >= pre_process_threshold_voltage` are kept.
+- **Usage**: If enabled, the side kept depends on `type_of_transistor`: `nFET` keeps `V >= pre_process_threshold_voltage`, while `pFET` keeps `V <= pre_process_threshold_voltage`.
 
 #### `pre_process_threshold_voltage` (str)
-- **Description**: Voltage threshold used to remove points below a chosen limit.
-- **Usage**: Typical example: `"0.0"` to discard all points from zero backwards after the preprocessing shift.
+- **Description**: Voltage threshold used to define the cutoff applied during preprocessing.
+- **Usage**: Typical example: `"0.0"` keeps the non-negative side for `nFET` and the non-positive side for `pFET` after the preprocessing shift.
 
 #### `apply_pre_process_hysteresis` (str)
 - **Description**: Enables hysteresis cleaning during preprocessing.
 - **Options**: `yes`, `no`
 - **Usage**: If enabled, repeated voltage points in the same curve are consolidated into a single representative point.
 
-#### `pre_process_hysteresis_mode` (str)
-- **Description**: Defines how repeated current values are consolidated when removing hysteresis.
+#### `pre_process_hysteresis_mode_transfer` (str)
+- **Description**: Defines how repeated current values are consolidated only for transfer curves.
 - **Options**: `media`, `menor`, `maior`
 - **Equivalent aliases accepted by the code**: `mean`, `min`, `max`, `average`, `minimum`, `maximum`, `cima`, `baixo`, `top`, `bottom`, `upper`, `lower` (where `cima`/`top`/`upper` map to `maior` and `baixo`/`bottom`/`lower` map to `menor`).
 - **Usage**:
   - `media`: uses the mean current
   - `menor`: uses the minimum current (lower branch of the hysteresis loop)
   - `maior`: uses the maximum current (upper branch)
-- **Transfer vs output**: During one preprocessing run, the **same** mode is applied to **every** CSV under `path` (transfer and output curves together), so the chosen branch is consistent across curve types.
+
+#### `pre_process_hysteresis_mode_output` (str)
+- **Description**: Defines how repeated current values are consolidated only for output curves.
+- **Options**: `media`, `menor`, `maior`
+- **Equivalent aliases accepted by the code**: `mean`, `min`, `max`, `average`, `minimum`, `maximum`, `cima`, `baixo`, `top`, `bottom`, `upper`, `lower` (where `cima`/`top`/`upper` map to `maior` and `baixo`/`bottom`/`lower` map to `menor`).
+- **Usage**:
+  - `media`: uses the mean current
+  - `menor`: uses the minimum current (lower branch of the hysteresis loop)
+  - `maior`: uses the maximum current (upper branch)
 
 #### Hysteresis detection (optional tuning)
 
@@ -458,7 +467,8 @@ This means you can choose any of the following workflows:
 "apply_pre_process_global_shift"    : "no",
 "apply_pre_process_threshold"       : "no",
 "apply_pre_process_hysteresis"      : "yes",
-"pre_process_hysteresis_mode"       : "media",
+"pre_process_hysteresis_mode_transfer" : "media",
+"pre_process_hysteresis_mode_output"   : "media",
 "apply_local_output_shift"          : "no"
 ```
 
@@ -479,7 +489,8 @@ This means you can choose any of the following workflows:
 "apply_pre_process_threshold"       : "yes",
 "pre_process_threshold_voltage"     : "0.0",
 "apply_pre_process_hysteresis"      : "yes",
-"pre_process_hysteresis_mode"       : "menor",
+"pre_process_hysteresis_mode_transfer" : "media",
+"pre_process_hysteresis_mode_output"   : "menor",
 "apply_local_output_shift"          : "yes",
 "output_shift_volt_data"            : "0, -1, -2, -6"
 ```

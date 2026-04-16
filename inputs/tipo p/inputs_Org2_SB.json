@@ -12,60 +12,55 @@
         "apply_pre_process_threshold": "no",
         "pre_process_threshold_voltage": "0.0",
         "apply_pre_process_hysteresis": "no",
-        "pre_process_hysteresis_mode": "media",
         "apply_local_output_shift": "yes",
-        "select_files": ""
+        "select_files": "",
+        "pre_process_hysteresis_mode_transfer": "media",
+        "pre_process_hysteresis_mode_output": "media"
     },
     {
-    "resistance_scale"                  : "1e4",
-    "current_carry"                     : "1e-6",
-    "with_transistor"                   : "0.1",
-    "type_of_transistor"                : "pFET",
-    
-    "loaded_parameters"                 : { "VTHO"  : 8.44,  
-                                            "DELTA" : 0.0032,
-                                            "N"     : 57.4,  
-                                            "L"     : 2.14,   
-                                            "LAMBDA": 3010,
-                                            "VGCRIT": 15.8,   
-                                            "JTH"   : 5.68,
-                                            "RS"    : 1
-                                            },
-
-    "idleak_mode"                       : "more than one value idleak",
-    "loaded_idleak"                     : "4e-10,  3e-9"
-    },
-
-    {
-        "image_size_width"                  : null,
-        "image_size_height"                 : null,
-        
-        "upper_bounds": {
-            "ub_VTHO"   : 12,
-            "ub_DELTA"  : 0.1,
-            "ub_N"      : 130,
-            "ub_L"      : 4,
-            "ub_LAMBDA" : 10000,
-            "ub_VGCRIT" : 80,
-            "ub_JTH"    : 30,
-            "ub_RS"     : 70
+        "resistance_scale": "1e4",
+        "current_carry": "1e-6",
+        "with_transistor": "0.1",
+        "type_of_transistor": "pFET",
+        "loaded_parameters": {
+            "VTHO": 8.44,
+            "DELTA": 0.0032,
+            "N": 57.4,
+            "L": 2.14,
+            "LAMBDA": 3010,
+            "VGCRIT": 15.8,
+            "JTH": 5.68,
+            "RS": 1
         },
-        
+        "idleak_mode": "more than one value idleak",
+        "loaded_idleak": "4e-10,  3e-9"
+    },
+    {
+        "image_size_width": null,
+        "image_size_height": null,
+        "upper_bounds": {
+            "ub_VTHO": 12,
+            "ub_DELTA": 0.1,
+            "ub_N": 130,
+            "ub_L": 4,
+            "ub_LAMBDA": 10000,
+            "ub_VGCRIT": 80,
+            "ub_JTH": 30,
+            "ub_RS": 70
+        },
         "lower_bounds": {
-            "lb_VTHO"   : 8,
-            "lb_DELTA"  : 0,
-            "lb_N"      : 10,
-            "lb_L"      : 1,
-            "lb_LAMBDA" : 100,
-            "lb_VGCRIT" : 0,
-            "lb_JTH"    : 1e-3,
-            "lb_RS"     : 0
-        },    
-        
-        "default_bounds"                    :  "no",
-        "optimization_method"               :  "trf",
-        "tolerance_factor"                  :  "4e-7"
-        
+            "lb_VTHO": 8,
+            "lb_DELTA": 0,
+            "lb_N": 10,
+            "lb_L": 1,
+            "lb_LAMBDA": 100,
+            "lb_VGCRIT": 0,
+            "lb_JTH": 0.001,
+            "lb_RS": 0
+        },
+        "default_bounds": "no",
+        "optimization_method": "trf",
+        "tolerance_factor": "4e-7"
     },
     {
         "default_bounds": "no",

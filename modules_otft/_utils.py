@@ -67,6 +67,17 @@ def _get_int_setting(settings, key, default=0):
     return int(value)
 
 
+def _get_hysteresis_mode_setting(settings):
+    """Returns the hysteresis mode separated by curve type."""
+    transfer_mode = settings.get("pre_process_hysteresis_mode_transfer", "media")
+    output_mode = settings.get("pre_process_hysteresis_mode_output", "media")
+    return {
+        "transfer": transfer_mode if transfer_mode not in ("", None) else "media",
+        "output": output_mode if output_mode not in ("", None) else "media",
+        "default": "media",
+    }
+
+
 def _build_hysteresis_diagnostics(summary):
     """Agrega flags de deteccao de histerese por ficheiro (transfer vs saida)."""
     if not summary:
@@ -163,12 +174,14 @@ def maybe_apply_preprocessing(settings):
         _get_float_setting(settings, "pre_process_shift_volt_data", 0.0)
         if apply_global_shift else 0.0
     )
+    transistor_type = str(settings.get("type_of_transistor", "nFET")).strip() or "nFET"
     processor = PreProcessingData()
     summary = processor.process_directory_in_place(
         input_path=input_path,
         shift_voltage=global_shift_value,
         threshold_voltage=_get_float_setting(settings, "pre_process_threshold_voltage", 0.0) if apply_threshold else None,
-        hysteresis_mode=settings.get("pre_process_hysteresis_mode", "media"),
+        transistor_type=transistor_type,
+        hysteresis_mode=_get_hysteresis_mode_setting(settings),
         apply_hysteresis=apply_hysteresis,
         recursive=True,
         hysteresis_detect_min_groups=max(1, _get_int_setting(settings, "hysteresis_detect_min_groups", 1)),

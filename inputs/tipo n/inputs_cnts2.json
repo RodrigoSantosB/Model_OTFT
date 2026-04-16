@@ -12,9 +12,10 @@
         "apply_pre_process_threshold": "yes",
         "pre_process_threshold_voltage": "0",
         "apply_pre_process_hysteresis": "yes",
-        "pre_process_hysteresis_mode": "maior",
         "apply_local_output_shift": "yes",
-        "select_files": ""
+        "select_files": "",
+        "pre_process_hysteresis_mode_transfer": "media",
+        "pre_process_hysteresis_mode_output": "maior"
     },
     {
         "resistance_scale": "1e4",

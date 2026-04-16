@@ -88,6 +88,7 @@ class PreProcessingData:
         csv_path: str | Path,
         shift_voltage: float,
         threshold_voltage: float | None,
+        transistor_type: str = "nFET",
     ) -> pd.DataFrame:
         csv_path = Path(csv_path)
         df = self._read_curve(csv_path)
@@ -97,14 +98,19 @@ class PreProcessingData:
             df = df.copy()
             df["voltage"] = df["voltage"] + shift_voltage
             df.attrs.update(curve_attrs)
-        return self._apply_voltage_threshold(df, threshold_voltage=threshold_voltage)
+        return self._apply_voltage_threshold(
+            df,
+            threshold_voltage=threshold_voltage,
+            transistor_type=transistor_type,
+        )
 
     def process_directory(
         self,
         input_path: str | Path,
         shift_voltage: float,
         threshold_voltage: float | None = 0.0,
-        hysteresis_mode: str = "media",
+        transistor_type: str = "nFET",
+        hysteresis_mode: Any = "media",
         apply_hysteresis: bool = True,
         selected_curves: Iterable[str] | None = None,
         output_folder_name: str = "dados_tratados",
@@ -119,10 +125,15 @@ class PreProcessingData:
         Args:
             input_path: Pasta raiz com os arquivos CSV.
             shift_voltage: Valor em volts a ser somado no eixo de tensao.
-            threshold_voltage: Mantem apenas os pontos com tensao maior ou igual
-                a este valor apos o shift. Use None para nao aplicar corte.
+            threshold_voltage: Aplica o corte no eixo de tensao apos o shift.
+                Para nFET, mantem pontos com tensao maior ou igual ao limiar.
+                Para pFET, mantem pontos com tensao menor ou igual ao limiar.
+                Use None para nao aplicar corte.
+            transistor_type: Tipo do transistor usado para decidir o lado do
+                eixo preservado pelo corte ("nFET" ou "pFET").
             hysteresis_mode: Estrategia de consolidacao da histerese para
                 tensoes repetidas. Aceita "media", "menor" ou "maior".
+                Tambem aceita um dict com chaves por tipo de curva.
             apply_hysteresis: Se True, aplica a consolidacao da histerese.
             selected_curves: Lista opcional de curvas que receberao shift.
                 Aceita nome do arquivo, stem ou caminho relativo.
@@ -161,11 +172,14 @@ class PreProcessingData:
             )
             physical_shift_applied = apply_shift and self._should_apply_physical_shift(curve_type)
 
+            resolved_hysteresis_mode = self._resolve_hysteresis_mode(curve_type, hysteresis_mode)
+
             processed_df, hyst_metrics = self._process_prepared_curve(
                 csv_path=csv_path,
                 shift_voltage=shift_voltage if apply_shift else 0.0,
                 threshold_voltage=threshold_voltage,
-                hysteresis_mode=hysteresis_mode,
+                transistor_type=transistor_type,
+                hysteresis_mode=resolved_hysteresis_mode,
                 apply_hysteresis=apply_hysteresis,
                 min_duplicate_groups=hysteresis_detect_min_groups,
                 min_relative_spread=hysteresis_detect_min_rel_spread,
@@ -189,9 +203,9 @@ class PreProcessingData:
                     "shift_voltage": shift_voltage if physical_shift_applied else 0.0,
                     "threshold_voltage": threshold_voltage,
                     "hysteresis_mode": (
-                        self._normalize_hysteresis_mode(str(hysteresis_mode))
+                        resolved_hysteresis_mode
                         if apply_hysteresis
-                        else str(hysteresis_mode).strip().lower()
+                        else self._describe_hysteresis_mode(hysteresis_mode)
                     ),
                     "hysteresis_applied": apply_hysteresis,
                     "original_points": self._count_rows(csv_path),
@@ -209,14 +223,18 @@ class PreProcessingData:
         csv_path: str | Path,
         shift_voltage: float,
         threshold_voltage: float | None,
-        hysteresis_mode: str,
+        transistor_type: str,
+        hysteresis_mode: Any,
         apply_hysteresis: bool,
         min_duplicate_groups: int = 1,
         min_relative_spread: float = 1e-6,
         min_absolute_spread: float = 1e-12,
     ) -> tuple[pd.DataFrame, dict[str, Any]]:
         df_pre = self._pipeline_before_hysteresis_clean(
-            csv_path, shift_voltage=shift_voltage, threshold_voltage=threshold_voltage
+            csv_path,
+            shift_voltage=shift_voltage,
+            threshold_voltage=threshold_voltage,
+            transistor_type=transistor_type,
         )
         metrics = self.analyze_hysteresis(
             df_pre,
@@ -235,7 +253,8 @@ class PreProcessingData:
         csv_path: str | Path,
         shift_voltage: float = 0.0,
         threshold_voltage: float | None = 0.0,
-        hysteresis_mode: str = "media",
+        transistor_type: str = "nFET",
+        hysteresis_mode: Any = "media",
         apply_hysteresis: bool = True,
         hysteresis_detect_min_groups: int = 1,
         hysteresis_detect_min_rel_spread: float = 1e-6,
@@ -245,11 +264,17 @@ class PreProcessingData:
         Le um CSV, aplica shift horizontal apenas em curvas de transferencia,
         corta por limiar de tensao e remove redundancias por histerese.
         """
+        resolved_hysteresis_mode = self._resolve_hysteresis_mode(
+            self._detect_curve_type(csv_path),
+            hysteresis_mode,
+        )
+
         df_out, _ = self._process_prepared_curve(
             csv_path=csv_path,
             shift_voltage=shift_voltage,
             threshold_voltage=threshold_voltage,
-            hysteresis_mode=hysteresis_mode,
+            transistor_type=transistor_type,
+            hysteresis_mode=resolved_hysteresis_mode,
             apply_hysteresis=apply_hysteresis,
             min_duplicate_groups=hysteresis_detect_min_groups,
             min_relative_spread=hysteresis_detect_min_rel_spread,
@@ -262,7 +287,8 @@ class PreProcessingData:
         input_path: str | Path,
         shift_voltage: float = 0.0,
         threshold_voltage: float | None = None,
-        hysteresis_mode: str = "media",
+        transistor_type: str = "nFET",
+        hysteresis_mode: Any = "media",
         apply_hysteresis: bool = False,
         selected_curves: Iterable[str] | None = None,
         recursive: bool = True,
@@ -323,11 +349,14 @@ class PreProcessingData:
             )
             physical_shift_applied = apply_shift and self._should_apply_physical_shift(curve_type)
 
+            resolved_hysteresis_mode = self._resolve_hysteresis_mode(curve_type, hysteresis_mode)
+
             processed_df, hyst_metrics = self._process_prepared_curve(
                 csv_path=source_path,
                 shift_voltage=shift_voltage if apply_shift else 0.0,
                 threshold_voltage=threshold_voltage,
-                hysteresis_mode=hysteresis_mode,
+                transistor_type=transistor_type,
+                hysteresis_mode=resolved_hysteresis_mode,
                 apply_hysteresis=apply_hysteresis,
                 min_duplicate_groups=hysteresis_detect_min_groups,
                 min_relative_spread=hysteresis_detect_min_rel_spread,
@@ -349,9 +378,9 @@ class PreProcessingData:
                     "shift_voltage": shift_voltage if physical_shift_applied else 0.0,
                     "threshold_voltage": threshold_voltage,
                     "hysteresis_mode": (
-                        self._normalize_hysteresis_mode(str(hysteresis_mode))
+                        resolved_hysteresis_mode
                         if apply_hysteresis
-                        else str(hysteresis_mode).strip().lower()
+                        else self._describe_hysteresis_mode(hysteresis_mode)
                     ),
                     "hysteresis_applied": apply_hysteresis,
                     "original_points": original_points,
@@ -544,6 +573,34 @@ class PreProcessingData:
         cleaned_df.attrs.update(df.attrs)
         return cleaned_df
 
+    def _describe_hysteresis_mode(self, mode: Any) -> str:
+        """Converts the hysteresis configuration to a readable summary."""
+        if isinstance(mode, dict):
+            normalized = {}
+            for key, value in mode.items():
+                try:
+                    normalized[str(key)] = self._normalize_hysteresis_mode(str(value))
+                except ValueError:
+                    normalized[str(key)] = str(value).strip().lower()
+            return str(normalized)
+        return str(mode).strip().lower()
+
+    def _resolve_hysteresis_mode(self, curve_type: str, mode: Any) -> str:
+        """Resolves a per-curve hysteresis mode with global fallback."""
+        if isinstance(mode, dict):
+            normalized_curve_type = str(curve_type).strip().lower()
+            fallback_mode = (
+                mode.get(normalized_curve_type)
+                or mode.get(curve_type)
+                or mode.get("default")
+                or mode.get("all")
+                or mode.get("global")
+                or mode.get("both")
+                or "media"
+            )
+            return self._normalize_hysteresis_mode(str(fallback_mode))
+        return self._normalize_hysteresis_mode(str(mode))
+
     def _normalize_hysteresis_mode(self, mode: str) -> str:
         normalized = mode.strip().lower()
         aliases = {
@@ -577,6 +634,7 @@ class PreProcessingData:
         self,
         df: pd.DataFrame,
         threshold_voltage: float | None = 0.0,
+        transistor_type: str = "nFET",
     ) -> pd.DataFrame:
         """
         Mantem apenas os pontos a partir do limiar informado.
@@ -586,15 +644,25 @@ class PreProcessingData:
             result.attrs.update(df.attrs)
             return result
 
-        filtered = df[df["voltage"] >= threshold_voltage].copy()
+        normalized_type = self._normalize_transistor_type(transistor_type)
+        if normalized_type == "pFET":
+            filtered = df[df["voltage"] <= threshold_voltage].copy()
+        else:
+            filtered = df[df["voltage"] >= threshold_voltage].copy()
         if filtered.empty:
             raise ValueError(
                 "Nenhum ponto restante apos aplicar o limiar de tensao "
-                f"{threshold_voltage} V."
+                f"{threshold_voltage} V para {normalized_type}."
             )
         result = filtered.reset_index(drop=True)
         result.attrs.update(df.attrs)
         return result
+
+    def _normalize_transistor_type(self, transistor_type: Any) -> str:
+        normalized = str(transistor_type).strip().lower()
+        if normalized == "pfet":
+            return "pFET"
+        return "nFET"
 
     def _count_rows(self, csv_path: Path) -> int:
         return len(self._read_curve(csv_path))
@@ -653,7 +721,7 @@ def process_experimental_data(
     input_path: str | Path,
     shift_voltage: float,
     threshold_voltage: float | None = 0.0,
-    hysteresis_mode: str = "media",
+    hysteresis_mode: Any = "media",
     apply_hysteresis: bool = True,
     selected_curves: Iterable[str] | None = None,
     output_folder_name: str = "dados_tratados",

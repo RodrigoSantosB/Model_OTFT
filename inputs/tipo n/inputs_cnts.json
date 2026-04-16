@@ -1,22 +1,23 @@
 [
     {
-        "path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/cnts/tipo p",
+        "path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/cnts/tipo p",
         "experimental_data_scale_transfer": "A",
         "experimental_data_scale_output": "A",
         "current_typic": "uA",
         "type_curve_plot": "log",
-        "type_read_data_exp": "read original data",
-        "enable_pre_processing": "yes",
-        "apply_pre_process_global_shift": "no",
-        "pre_process_shift_volt_data": "1",
+        "type_read_data_exp": "read interpolated data",
+        "enable_pre_processing": "no",
+        "apply_pre_process_global_shift": "yes",
+        "pre_process_shift_volt_data": "-1",
         "apply_pre_process_threshold": "yes",
         "pre_process_threshold_voltage": "0",
         "apply_pre_process_hysteresis": "yes",
-        "pre_process_hysteresis_mode": "media",
         "apply_local_output_shift": "yes",
         "select_files": "",
+        "pre_process_hysteresis_mode_transfer": "maior",
+        "pre_process_hysteresis_mode_output": "maior",
         "pre_process_global_shift_persisted": "yes",
-        "pre_process_global_shift_persisted_value": "1.0"
+        "pre_process_global_shift_persisted_value": "-1.0"
     },
     {
         "resistance_scale": "1e4",
@@ -35,10 +36,10 @@
         },
         "idleak_mode": "more than one value idleak",
         "loaded_idleak": {
-            "transfer-0.1V": "9e-11",
-            "transfer-1V": "7e-9",
-            "transfer-2V": "6e-8",
-            "transfer-3V": "3e-7"
+            "cnt-0.1VDS": "9e-11",
+            "cnt-1VDS": "7e-9",
+            "cnt-2VDS": "6e-8",
+            "cnt-3VDS": "3e-7"
         }
     },
     {

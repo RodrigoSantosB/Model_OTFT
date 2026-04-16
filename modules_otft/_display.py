@@ -1,5 +1,5 @@
 
-def display_settings(menu, settings, path_voltages, shift_list, list_tension_shift):
+def display_settings(menu, settings, path_voltages, shift_list, list_tension_shift, read_instance=None):
     def format_shift_entries(entries):
         if not entries or not isinstance(entries, list):
             return entries
@@ -16,6 +16,15 @@ def display_settings(menu, settings, path_voltages, shift_list, list_tension_shi
             )
         return formatted
 
+    def format_range(range_info):
+        if not isinstance(range_info, dict):
+            return "-"
+        low = range_info.get("min")
+        high = range_info.get("max")
+        if low is None or high is None:
+            return "-"
+        return f'[{low:.4g}, {high:.4g}]'
+
     print()
     print('Settings:')
     print('---------------------------------')
@@ -29,6 +38,18 @@ def display_settings(menu, settings, path_voltages, shift_list, list_tension_shi
         print('Local shift   : ' + f'{settings["apply_local_output_shift"]}')
     print('Shift value   : ' + f'{format_shift_entries(shift_list)}')
     print('List volt shift: ' +  f'{list_tension_shift}')
+
+    if read_instance is not None and hasattr(read_instance, "get_last_load_data_diagnostics"):
+        diagnostics = read_instance.get_last_load_data_diagnostics() or {}
+        if diagnostics:
+            print('Load diag     : ' + f'{diagnostics.get("read_mode", "-")}')
+            print('Shared points : ' + f'{diagnostics.get("shared_points", "-")}')
+            print('Orig counts   : ' + f'{diagnostics.get("unique_point_counts", [])}')
+            print('VGS range fit : ' + f'{format_range(diagnostics.get("transfer_voltage_range"))}')
+            print('VDS range fit : ' + f'{format_range(diagnostics.get("output_voltage_range"))}')
+            if diagnostics.get("recommendation"):
+                print('Load warning  : ' + f'{diagnostics["recommendation"]}')
+
     menu.view_path_reads(path_voltages, list_tension_shift)
     print()
     print('A tabela acima mostra todos os arquivos lidos no diretorio. Para filtrar, informe em select_files')

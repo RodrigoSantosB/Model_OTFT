@@ -9,6 +9,7 @@ class ReadData:
     self.factor_correction = factor_correction
     self._last_path_voltages = None
     self._curve_cache = {}
+    self._last_load_data_diagnostics = {}
 
 
   # AGRUPA PATHS, TIPO DE DADOS E TENSÂO EM TUPLAS
@@ -107,6 +108,16 @@ class ReadData:
   def _detect_legacy_curve_type(self, filename):
     """Best-effort curve typing for the historical two-column format."""
     lowered = os.path.basename(str(filename)).lower()
+    stem_name, _ = os.path.splitext(lowered)
+
+    # New naming convention: <technology>-<fixed_voltage><axis>.csv
+    # Examples: cnt-2vgs.csv (output), cnt-1vds.csv (transfer).
+    if re.search(r'vgs$', stem_name, flags=re.IGNORECASE):
+      return 1
+    if re.search(r'vds$', stem_name, flags=re.IGNORECASE):
+      return 0
+
+    # Backward compatibility with older naming.
     if "transfer" in lowered or "transf" in lowered:
       return 0
     if "output" in lowered or "saida" in lowered:
@@ -253,16 +264,24 @@ class ReadData:
 
     transfer_files = []
     output_files = []
+    known_non_curve_files = {"resumo_processamento.csv"}
+    skipped_files = []
 
     for filename in files:
       lowered = filename.lower()
       if not lowered.endswith(('.csv', '.txt')):
         continue
+      if lowered in known_non_curve_files:
+        continue
       if selected_set is not None and lowered not in selected_set:
         continue
 
       file_path = os.path.join(directory, filename)
-      curve_info = self._inspect_curve_file(file_path)
+      try:
+        curve_info = self._inspect_curve_file(file_path)
+      except (ValueError, pd.errors.ParserError) as err:
+        skipped_files.append((filename, str(err)))
+        continue
       curve_type = curve_info.get("curve_type")
       if curve_type is None:
         continue
@@ -276,6 +295,13 @@ class ReadData:
         transfer_files.append(entry)
       else:
         output_files.append(entry)
+
+    if skipped_files:
+      print(
+          f"[ReadData] Ignorando {len(skipped_files)} arquivo(s) sem formato de curva em '{directory}'."
+      )
+      for file_name, reason in skipped_files:
+        print(f"  - {file_name}: {reason}")
 
     transfer_files.sort(key=self._experimental_sort_key)
     output_files.sort(key=self._experimental_sort_key)
@@ -389,64 +415,47 @@ class ReadData:
 
     list_type_transfer = []
     list_type_out = []
-    n_points   =  []
-
+    point_counts = []
+    per_curve_diagnostics = []
 
     # Obtem a quantidade de cada curva
     count_transfer = 0
-    count_output   = 0
+    count_output = 0
+    prepared_args = []
 
-    # obtem o número de pontos da amostra
-    def get_points(args, transfer, out):
-      for arg in args:
-        curve_info = self._inspect_curve_file(arg[0])
-        max_points = len(curve_info["current_values"])
-        if arg[1] in (out, transfer):
-          n_points.append(max_points)
+    for arg in args:
+      curve_info = self._inspect_curve_file(arg[0])
+      point_counts.append(len(curve_info["current_values"]))
+      prepared_args.append((arg, curve_info))
 
+    min_value = np.min(point_counts)
 
-    get_points(args, 0, 1)
-    min_value = np.min(n_points)
-
-    # print(min_value)
     curr_typic = self.__convert_to_ampere_unit(current_typic)
     sc_transfer = self.__convert_to_ampere_unit(scale_transfer)
     sc_output = self.__convert_to_ampere_unit(scale_output)
 
-    for arg in args:
-      # print(curr_typic, sc_transfer)
+    for arg, curve_info in prepared_args:
       try:
-          # type of curvs
           curv_transfer = 0
           curv_out = 1
+          Vv_temp, sampled_current, sampling_strategy = self._sample_curve_to_length(
+              curve_info["sweep_values"],
+              curve_info["current_values"],
+              min_value,
+          )
 
           if arg[1] == curv_out:
-            '''
-            verifica se o segundo elemento (arg[1]) da tupla arg é igual a 1.
-            Se for, isso indica que o tipo de dado é do tipo saída. Em seguida,
-            lê os dados de um arquivo CSV usando pd.read_csv, onde arg[0]
-            contém o caminho do arquivo
-            '''
-            curve_info = self._inspect_curve_file(arg[0])
-            Vv_temp = curve_info["sweep_values"][:min_value]
-            Id_temp = curve_info["current_values"][:min_value] * (sc_output / curr_typic)
+            Id_temp = sampled_current * (sc_output / curr_typic)
             type_out.append((Vv_temp, Id_temp))
             list_type_out.append(arg[2])
-            count_output+=1
-
+            count_output += 1
 
           elif arg[1] == curv_transfer:
-              curve_info = self._inspect_curve_file(arg[0])
-
-              #aloca em Vv_temp apenas os pontos até min_value
-              Vv_temp = curve_info["sweep_values"][:min_value]
-
-              #aloca em Id_temp o log10 das correntes
               if curve == 'log':
-                Id_temp = np.log10(abs((curve_info["current_values"][:min_value])))
+                Id_temp = np.log10(abs(sampled_current))
 
               elif curve == 'linear':
-                Id_temp = (-1)*abs((curve_info["current_values"][:min_value] * sc_transfer / curr_typic))
+                Id_temp = (-1) * abs((sampled_current * sc_transfer / curr_typic))
               else:
                 raise ValueError("Option not valide\n")
 
@@ -456,35 +465,47 @@ class ReadData:
           else:
               raise ValueError(f"Tipo de dado desconhecido: {arg[1]}")
 
+          per_curve_diagnostics.append(
+              {
+                  "file": str(arg[0]),
+                  "curve_type": "transfer" if arg[1] == curv_transfer else "output",
+                  "nominal_voltage": arg[2],
+                  "original_points": int(len(curve_info["current_values"])),
+                  "effective_points": int(len(Vv_temp)),
+                  "sampling_strategy": sampling_strategy,
+                  "original_voltage_range": self._get_voltage_range(curve_info["sweep_values"]),
+                  "effective_voltage_range": self._get_voltage_range(Vv_temp),
+              }
+          )
+
       except ValueError as err:
           if "divide by zero encountered in log10" or "invalid value encountered in log10" in str(err):
               print("Possivelmente a entrada é 'Out' e não 'Transfer'.")
           else:
               raise err
 
-    # verifica se o conjunto de pontos passado da amostra possui - ou + dados do que foi passado por nv
-    # se for - ou + ele completa com
-    def process_type(type_, Vv, Id, nv):
+    def append_type(type_, Vv, Id):
       for v, i in type_:
-          if len(v) > nv:
-              idx = np.round(np.linspace(0, len(v) - 1, nv)).astype(int)
-              v = v[idx]
-              i = i[idx]
-          else:
-              v = np.pad(v, (0, nv - len(v)), mode='edge')
-              i = np.pad(i, (0, nv - len(i)), mode='edge')
           Vv.append(v)
           Id.append(i)
       return Vv, Id
 
-    Vv, Id = process_type(type_transfer, Vv, Id, min_value)
-    Vv, Id = process_type(type_out, Vv, Id, min_value)
+    Vv, Id = append_type(type_transfer, Vv, Id)
+    Vv, Id = append_type(type_out, Vv, Id)
 
     Vv = np.vstack(Vv).T
     Id = np.vstack(Id).T
     voltage = list_type_transfer + list_type_out
 
-    n_points = np.min(n_points)
+    n_points = int(min_value)
+    self._store_load_data_diagnostics(
+        read_mode='read original data',
+        shared_points=n_points,
+        original_point_counts=point_counts,
+        per_curve=per_curve_diagnostics,
+        count_transfer=count_transfer,
+        count_output=count_output,
+    )
 
     return Vv, Id, voltage, n_points, count_transfer, count_output
 
@@ -533,26 +554,22 @@ class ReadData:
 
     list_type_transfer = []
     list_type_out = []
-    n_points   =  []
+    point_counts = []
+    per_curve_diagnostics = []
 
     # Obtem a quantidade de cada curva
     count_transfer = 0
-    count_output   = 0
-
-
-    # Obtem o número de pontos da amostra
-    def get_points(args, transfer, out):
-      for arg in args:
-        curve_info = self._inspect_curve_file(arg[0])
-        max_points = len(curve_info["current_values"])
-        if arg[1] in (out, transfer):
-          n_points.append(max_points)
-
-
-    get_points(args, 0, 1)
-    nv = np.max(n_points)
+    count_output = 0
+    prepared_args = []
 
     for arg in args:
+      curve_info = self._inspect_curve_file(arg[0])
+      point_counts.append(len(curve_info["current_values"]))
+      prepared_args.append((arg, curve_info))
+
+    nv = np.max(point_counts)
+
+    for arg, curve_info in prepared_args:
       # type of curvs
       curv_transfer = 0
       curv_out = 1
@@ -565,7 +582,6 @@ class ReadData:
 
       try:
         if arg[1] == curv_out:
-            curve_info = self._inspect_curve_file(arg[0])
             Vv_temp, Id_temp = self._collapse_duplicate_axis(
                 curve_info["sweep_values"],
                 curve_info["current_values"],
@@ -573,10 +589,21 @@ class ReadData:
 
             type_out.append((Vv_temp, Id_temp * (sc_output / curr_typic)))
             list_type_out.append(arg[2])
-            count_output+=1
+            count_output += 1
+            per_curve_diagnostics.append(
+                {
+                    "file": str(arg[0]),
+                    "curve_type": "output",
+                    "nominal_voltage": arg[2],
+                    "original_points": int(len(curve_info["current_values"])),
+                    "effective_points": int(len(Vv_temp)),
+                    "sampling_strategy": "collapse_duplicate_axis",
+                    "original_voltage_range": self._get_voltage_range(curve_info["sweep_values"]),
+                    "effective_voltage_range": self._get_voltage_range(Vv_temp),
+                }
+            )
 
         elif arg[1] == curv_transfer:
-            curve_info = self._inspect_curve_file(arg[0])
             prepared_voltages, prepared_currents = self._collapse_duplicate_axis(
                 curve_info["sweep_values"],
                 curve_info["current_values"],
@@ -599,7 +626,19 @@ class ReadData:
 
             type_transfer.append((Vv_temp, Id_temp))
             list_type_transfer.append(arg[2])
-            count_transfer+=1
+            count_transfer += 1
+            per_curve_diagnostics.append(
+                {
+                    "file": str(arg[0]),
+                    "curve_type": "transfer",
+                    "nominal_voltage": arg[2],
+                    "original_points": int(len(curve_info["current_values"])),
+                    "effective_points": int(len(Vv_temp)),
+                    "sampling_strategy": "collapse_duplicate_axis_and_interpolate",
+                    "original_voltage_range": self._get_voltage_range(curve_info["sweep_values"]),
+                    "effective_voltage_range": self._get_voltage_range(Vv_temp),
+                }
+            )
         else:
             raise ValueError(f"Tipo de dado desconhecido: {arg[1]}")
 
@@ -631,7 +670,15 @@ class ReadData:
     Id = np.vstack(Id).T
     voltage = list_type_transfer + list_type_out
 
-    # n_points = np.max(n_points)
+    self._store_load_data_diagnostics(
+        read_mode='read interpolated data',
+        shared_points=nv,
+        original_point_counts=point_counts,
+        per_curve=per_curve_diagnostics,
+        count_transfer=count_transfer,
+        count_output=count_output,
+    )
+
     return Vv, Id, voltage, nv, count_transfer, count_output
 
 ###############_FUNÇÔES AUXILIARES PARA AGRUPAR DADOS PARA PLOTAGEM DO GRAFICO_####################################
@@ -911,6 +958,84 @@ class ReadData:
     curve_scale = scale_transfer if curve_type in (0, 'transfer') else scale_output
     curve_scale_factor = self.__convert_to_ampere_unit(curve_scale)
     return float(curve_scale_factor / current_typic_factor)
+
+
+  def _get_voltage_range(self, axis_values):
+    """Returns the numeric range of a curve axis."""
+    values = np.asarray(axis_values, dtype=float)
+    if values.size == 0:
+      return {"min": None, "max": None}
+    return {"min": float(np.min(values)), "max": float(np.max(values))}
+
+
+  def _sample_curve_to_length(self, axis_values, target_values, target_len):
+    """Resamples a curve by index so the full span is preserved."""
+    axis = np.asarray(axis_values, dtype=float)
+    target = np.asarray(target_values, dtype=float)
+    current_len = len(axis)
+
+    if current_len == 0 or target_len is None or target_len <= 0:
+      return axis, target, "kept"
+
+    if current_len > target_len:
+      idx = np.round(np.linspace(0, current_len - 1, target_len)).astype(int)
+      return axis[idx], target[idx], "full_span_index_downsample"
+
+    if current_len < target_len:
+      return (
+          np.pad(axis, (0, target_len - current_len), mode='edge'),
+          np.pad(target, (0, target_len - current_len), mode='edge'),
+          "edge_padding",
+      )
+
+    return axis, target, "kept"
+
+
+  def _store_load_data_diagnostics(self, read_mode, shared_points, original_point_counts,
+                                   per_curve, count_transfer, count_output):
+    """Persists diagnostics about the most recent data loading step."""
+    unique_point_counts = sorted({int(value) for value in original_point_counts})
+    had_mismatched_lengths = len(unique_point_counts) > 1
+    recommendation = None
+    if read_mode == 'read original data' and had_mismatched_lengths:
+      recommendation = (
+          "Curvas com comprimentos diferentes foram reamostradas em toda a faixa "
+          "do eixo. Prefira 'read interpolated data' ao comparar dados tratados "
+          "por histerese."
+      )
+
+    def summarize_ranges(curve_type_name):
+      ranges = [
+          item["effective_voltage_range"]
+          for item in per_curve
+          if item["curve_type"] == curve_type_name
+          and item["effective_voltage_range"]["min"] is not None
+      ]
+      if not ranges:
+        return {"min": None, "max": None}
+      return {
+          "min": float(min(entry["min"] for entry in ranges)),
+          "max": float(max(entry["max"] for entry in ranges)),
+      }
+
+    self._last_load_data_diagnostics = {
+        "read_mode": read_mode,
+        "shared_points": int(shared_points) if shared_points is not None else None,
+        "original_point_counts": [int(value) for value in original_point_counts],
+        "unique_point_counts": unique_point_counts,
+        "had_mismatched_lengths": had_mismatched_lengths,
+        "count_transfer": int(count_transfer),
+        "count_output": int(count_output),
+        "transfer_voltage_range": summarize_ranges("transfer"),
+        "output_voltage_range": summarize_ranges("output"),
+        "recommendation": recommendation,
+        "per_curve": per_curve,
+    }
+
+
+  def get_last_load_data_diagnostics(self):
+    """Returns diagnostics about the most recent load_data execution."""
+    return self._last_load_data_diagnostics
 
 
   def _read_curve_points(self, csv_path, curve_type=None, current_typic='A',
@@ -1692,6 +1817,10 @@ class ReadData:
     else:
         print("No type available\n")
         return None, None, None, None, 0, 0
+
+    diagnostics = self.get_last_load_data_diagnostics()
+    if diagnostics.get("recommendation"):
+      print(f"[ReadData] {diagnostics['recommendation']}")
 
     return Vv, Id, input_voltage, n_points, count_transfer, count_output
 

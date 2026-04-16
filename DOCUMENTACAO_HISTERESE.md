@@ -85,7 +85,12 @@ Aliases aceitos pelo codigo (equivalentes): `mean`, `avg`, `average`; `min`, `mi
 
 ### Correspondencia entre curvas de transferencia e de saida
 
-Numa mesma execucao de pre-processamento sobre a pasta `path`, o mesmo `hysteresis_mode` e aplicado a **todos** os ficheiros CSV (transferencia e saida). Assim, se escolher o ramo superior (`maior` / `cima`), todas as curvas — incluindo transferencia e saida — usam essa mesma regra; o mesmo para `menor` / `baixo` ou `media`.
+O fluxo agora usa configuracoes independentes por tipo de curva:
+
+- `pre_process_hysteresis_mode_transfer`
+- `pre_process_hysteresis_mode_output`
+
+Se algum deles nao for informado no JSON, o codigo assume `media` para aquele tipo de curva.
 
 ### Deteccao de assinatura de histerese
 
