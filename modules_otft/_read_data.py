@@ -11,6 +11,10 @@ class ReadData:
     self._curve_cache = {}
     self._last_load_data_diagnostics = {}
 
+  def set_curve_processing_config(self, settings=None):
+    """Backward-compatible no-op after removing loader-specific `nfet_*` rules."""
+    return
+
 
   # AGRUPA PATHS, TIPO DE DADOS E TENSÂO EM TUPLAS
   def _load_paths_in_tuple_data(self, path_voltages, voltage, count):
@@ -243,11 +247,13 @@ class ReadData:
     self._curve_cache[cache_key] = curve_info
     return curve_info
 
-
   def _experimental_sort_key(self, curve_entry):
     fixed_voltage = curve_entry.get("fixed_voltage")
     filename = curve_entry.get("filename", "")
+    sort_rank = curve_entry.get("sort_rank")
     return (
+        sort_rank is None,
+        int(sort_rank) if sort_rank is not None else 0,
         fixed_voltage is None,
         float(fixed_voltage) if fixed_voltage is not None else 0.0,
         filename.lower(),
@@ -260,7 +266,16 @@ class ReadData:
       Returns sorted experimental files discovered from the directory by file content.
     """
     files = os.listdir(directory)
-    selected_set = None if selected_files is None else {str(file_name).lower() for file_name in selected_files}
+    selected_set = None
+    if selected_files is not None:
+      selected_set = set()
+      for file_name in selected_files:
+        normalized = str(file_name).strip().replace("\\", "/").lower()
+        if not normalized:
+          continue
+        selected_set.add(normalized)
+        selected_set.add(os.path.basename(normalized))
+        selected_set.add(os.path.splitext(os.path.basename(normalized))[0])
 
     transfer_files = []
     output_files = []
@@ -273,8 +288,10 @@ class ReadData:
         continue
       if lowered in known_non_curve_files:
         continue
-      if selected_set is not None and lowered not in selected_set:
-        continue
+      if selected_set is not None:
+        stem = os.path.splitext(lowered)[0]
+        if lowered not in selected_set and stem not in selected_set:
+          continue
 
       file_path = os.path.join(directory, filename)
       try:
@@ -438,9 +455,11 @@ class ReadData:
       try:
           curv_transfer = 0
           curv_out = 1
+          raw_voltages = np.asarray(curve_info["sweep_values"], dtype=float)
+          raw_currents = np.asarray(curve_info["current_values"], dtype=float)
           Vv_temp, sampled_current, sampling_strategy = self._sample_curve_to_length(
-              curve_info["sweep_values"],
-              curve_info["current_values"],
+              raw_voltages,
+              raw_currents,
               min_value,
           )
 
@@ -582,10 +601,15 @@ class ReadData:
 
       try:
         if arg[1] == curv_out:
-            Vv_temp, Id_temp = self._collapse_duplicate_axis(
-                curve_info["sweep_values"],
-                curve_info["current_values"],
+            prepared_voltages = np.asarray(curve_info["sweep_values"], dtype=float)
+            prepared_currents = np.asarray(curve_info["current_values"], dtype=float)
+            prepared_voltages, prepared_currents = self._collapse_duplicate_axis(
+                prepared_voltages, prepared_currents
             )
+            Vmax, Vmin = np.max(prepared_voltages), np.min(prepared_voltages)
+            Vv_temp = np.linspace(Vmin, Vmax, nv)
+            Id_temp = np.interp(Vv_temp, prepared_voltages, prepared_currents)
+            sampling_strategy = "collapse_duplicate_axis_and_interpolate"
 
             type_out.append((Vv_temp, Id_temp * (sc_output / curr_typic)))
             list_type_out.append(arg[2])
@@ -597,16 +621,17 @@ class ReadData:
                     "nominal_voltage": arg[2],
                     "original_points": int(len(curve_info["current_values"])),
                     "effective_points": int(len(Vv_temp)),
-                    "sampling_strategy": "collapse_duplicate_axis",
+                    "sampling_strategy": sampling_strategy,
                     "original_voltage_range": self._get_voltage_range(curve_info["sweep_values"]),
                     "effective_voltage_range": self._get_voltage_range(Vv_temp),
                 }
             )
 
         elif arg[1] == curv_transfer:
+            prepared_voltages = np.asarray(curve_info["sweep_values"], dtype=float)
+            prepared_currents = np.asarray(curve_info["current_values"], dtype=float)
             prepared_voltages, prepared_currents = self._collapse_duplicate_axis(
-                curve_info["sweep_values"],
-                curve_info["current_values"],
+                prepared_voltages, prepared_currents
             )
             Vmax, Vmin = np.max(prepared_voltages), np.min(prepared_voltages)
             Vv_temp = np.linspace(Vmin, Vmax, nv)
@@ -850,6 +875,10 @@ class ReadData:
           >>> print(model_instances)
           [<MyModel object at 0x7f84ac50b610>, <MyModel object at 0x7f84ac50b5e0>]
     """
+
+    if getattr(model, "__name__", "") == "TFTModel" and getattr(model, "__module__", "") == "modules_otft._model" and int(tp_tst) == 1:
+      from .model_tft_n import TFTModelN
+      model = TFTModelN
 
     if isinstance(idleak, dict):
       if path_voltages is None:
@@ -1825,12 +1854,12 @@ class ReadData:
     return Vv, Id, input_voltage, n_points, count_transfer, count_output
 
 
-  def filter_files(self, select_files, list_curves, list_tension_shift, list_tension):
+  def filter_files(self, selected_curves, list_curves, list_tension_shift, list_tension):
     """
-      Filters and selects files, voltage shift values, and associated voltages based on the provided choices.
+      Filters and selects files, voltage shift values, and associated voltages based on curve names.
 
       Args:
-          select_files (list): A list of indices of files to be selected.
+          selected_curves (list): A list of curve names or stems to be selected.
           list_curves (list): A list of paths to curve files.
           list_tension_shift (list): A list of voltage shift values corresponding to the files.
           list_tension (list): A list of voltages associated with the curves.
@@ -1842,45 +1871,54 @@ class ReadData:
               - new_list_tension (list): List of voltages associated with the selected curves.
 
       Example:
-          >>> select_files = [0, 2, 4]
+          >>> selected_curves = ['curve1', 'curve3']
           >>> list_curves = ['curve1.csv', 'curve2.csv', 'curve3.csv', 'curve4.csv']
           >>> list_tension_shift = [0.1, -0.2, 0.0, 0.3]
           >>> list_tension = [1.0, 2.0, 3.0, 4.0]
-          >>> new_files_filter, new_values_tension, new_list_tension = filter_files(select_files, list_curves, list_tension_shift, list_tension)
+          >>> new_files_filter, new_values_tension, new_list_tension = filter_files(selected_curves, list_curves, list_tension_shift, list_tension)
     """
 
     new_files_filter = []
     new_values_tension = []
     new_list_tension= []
 
-    if select_files is None:
+    if selected_curves is None:
       return list_curves, list_tension_shift, list_tension
 
-    if not isinstance(select_files, (list, tuple)):
-      raise TypeError("select_files must be a list or tuple of indices.")
+    if not isinstance(selected_curves, (list, tuple, set)):
+      raise TypeError("selected_curves must be a list, tuple, or set of curve names.")
 
-    seen_indices = set()
+    seen_curves = set()
     normalized_indices = []
     total_curves = len(list_curves)
+    curve_aliases = []
 
-    for raw_index in select_files:
-      try:
-        index = int(raw_index)
-      except (TypeError, ValueError) as err:
-        raise ValueError(f"Invalid index in select_files: {raw_index}") from err
+    for curve_name in list_curves:
+      normalized_curve = str(curve_name).strip().replace("\\", "/").lower()
+      filename = os.path.basename(normalized_curve)
+      stem = os.path.splitext(filename)[0]
+      curve_aliases.append({normalized_curve, filename, stem})
 
-      if index < 0 or index >= total_curves:
-        raise IndexError(
-            f"select_files index out of range: {index}. "
-            f"Valid range is 0 to {max(total_curves - 1, 0)}."
-        )
-      if index in seen_indices:
-        raise ValueError(f"Duplicate index in select_files: {index}")
+    for raw_curve_name in selected_curves:
+      normalized_curve_name = str(raw_curve_name).strip().replace("\\", "/").lower()
+      if normalized_curve_name == "":
+        continue
 
-      seen_indices.add(index)
-      normalized_indices.append(index)
+      matched_index = None
+      for index, aliases in enumerate(curve_aliases):
+        if normalized_curve_name in aliases:
+          matched_index = index
+          break
 
-    for i in sorted(normalized_indices):
+      if matched_index is None:
+        raise ValueError(f"selected_curves entry not found: {raw_curve_name}")
+      if matched_index in seen_curves:
+        raise ValueError(f"Duplicate curve in selected_curves: {raw_curve_name}")
+
+      seen_curves.add(matched_index)
+      normalized_indices.append(matched_index)
+
+    for i in normalized_indices:
       new_files_filter.append(list_curves[i])
       new_values_tension.append(list_tension_shift[i])
       new_list_tension.append(list_tension[i])

@@ -6,7 +6,7 @@ class TFTModel:
     __WIDTH_TRANSISTOR      = 0.1000        # Transistor width [cm]
     __TYPE_OF_TRANSISTOR    = 0             # type of transistor. nFET type=1; pFET type=-1
     __BOLTZMANN_CONST_KB    = 8.617e-5      # Boltzmann constant [eV/K]
-    __JUNCTION_TEMPERATURE  = 298           # Junction temperature [K].
+    __JUNCTION_TEMPERATURE  = 293           # Junction temperature [K].
     __PHIT = (__BOLTZMANN_CONST_KB * __JUNCTION_TEMPERATURE)
     # __HYSTERESIS_EFFECT = 0
 

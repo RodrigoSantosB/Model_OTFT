@@ -87,10 +87,10 @@ class TFTGraphicsPlot():
 
 
   def __format_shift_display(self, shift_value):
-    """Formats only the automatic shift with two decimal places."""
+    """Formats the effective applied shift with two decimal places."""
     if isinstance(shift_value, dict):
-      automatic = float(shift_value.get('automatic', 0.0))
-      return f'{automatic:.2f}V'
+      applied_shift = float(shift_value.get('total', shift_value.get('automatic', 0.0)))
+      return f'{applied_shift:.2f}V'
 
     return f'{float(shift_value):.2f}V'
 
@@ -119,57 +119,62 @@ class TFTGraphicsPlot():
     return f' [dup. de {self.__format_voltage_display(duplicate_voltage)}]'
 
 
-  def __normalize_selected_indices(self, select_files):
+  def __normalize_selected_curves(self, selected_curves):
     """
-      Normalizes selected curve indices to 0-based integers.
-
-      String inputs are treated as user-facing 1-based values (e.g. "1,3,5").
-      Iterable/int inputs are treated as already normalized 0-based values.
+      Normalizes selected curve names preserving user order.
     """
-    if select_files in (None, "", []):
+    if selected_curves in (None, "", []):
       return []
 
-    if isinstance(select_files, str):
-      tokens = [token.strip() for token in select_files.split(",")]
-      normalized = []
-      for token in tokens:
-        if token == "":
-          continue
-        try:
-          user_index = int(token)
-        except (TypeError, ValueError) as err:
-          raise ValueError(f"Invalid select_files token: {token}") from err
-        if user_index < 1:
-          raise ValueError("select_files string must use 1-based indices (first curve = 1).")
-        normalized.append(user_index - 1)
-      return normalized
+    if isinstance(selected_curves, str):
+      tokens = [token.strip() for token in selected_curves.split(",")]
+      return [token.lower() for token in tokens if token]
 
-    if isinstance(select_files, int):
-      return [int(select_files)]
-
-    normalized = []
-    for value in select_files:
-      normalized.append(int(value))
-    return normalized
+    return [
+      str(value).strip().replace("\\", "/").lower()
+      for value in selected_curves
+      if str(value).strip() != ""
+    ]
 
 
-  def __prepare_shift_list(self, shift_list, select_files, count):
+  def __prepare_shift_list(self, shift_list, selected_curves, count, type_data):
     """Prepares the shift list used by both model and experimental legends."""
-    shift_list_update = []
-
     if shift_list is None:
+      return []
+
+    if shift_list and isinstance(shift_list[0], dict):
+      expected_curve_type = 'transfer' if type_data == 0 else 'output'
+      shift_list = [
+        shift_entry for shift_entry in shift_list
+        if str(shift_entry.get('curve_type', expected_curve_type)).strip().lower() == expected_curve_type
+      ]
+
+    normalized_selected_curves = self.__normalize_selected_curves(selected_curves)
+    if len(normalized_selected_curves) == 0:
+      return shift_list
+
+    alias_map = {}
+    for shift_entry in shift_list:
+      curve_name = shift_entry.get('curve_name') if isinstance(shift_entry, dict) else None
+      if not curve_name:
+        return shift_list
+
+      normalized_curve_name = str(curve_name).strip().replace("\\", "/").lower()
+      filename = os.path.basename(normalized_curve_name)
+      stem = os.path.splitext(filename)[0]
+      alias_map.setdefault(normalized_curve_name, shift_entry)
+      alias_map.setdefault(filename, shift_entry)
+      alias_map.setdefault(stem, shift_entry)
+
+    shift_list_update = []
+    for selected_curve in normalized_selected_curves:
+      shift_entry = alias_map.get(selected_curve)
+      if shift_entry is not None and shift_entry not in shift_list_update:
+        shift_list_update.append(shift_entry)
+
+    if shift_list_update:
       return shift_list_update
-
-    select_files = self.__normalize_selected_indices(select_files)
-
-    if len(select_files) != 0:
-      output_relative_indices = sorted({index - count for index in select_files if index >= count})
-      for output_index in output_relative_indices:
-        if 0 <= output_index < len(shift_list):
-          shift_list_update.append(shift_list[output_index])
-      return shift_list_update
-
-    return shift_list
+    return shift_list_update
 
   # Function to generate legend names
   def __legend_name(self, volt_data, exp_data, shift_list, j, no_shift=False):
@@ -266,7 +271,7 @@ class TFTGraphicsPlot():
 
 
   def plot_vgs_vds( self, list_tension, input_tension_shift, type_data, count, model_data,
-                    shift_list, select_files, *exp_data, sample_unit='A', plot_type='linear', compare=False):
+                    shift_list, selected_curves, *exp_data, sample_unit='A', plot_type='linear', compare=False):
     """
       Generates a graph comparing experimental data and models for transfer or output curves.
 
@@ -300,7 +305,7 @@ class TFTGraphicsPlot():
           ...               shift_list, *exp_data, sample_unit, plot_type, compare)
     """
 
-    shift_list_update = self.__prepare_shift_list(shift_list, select_files, count)
+    shift_list_update = self.__prepare_shift_list(shift_list, selected_curves, count, type_data)
 
     # Predefined color options for plotting
     list_colors = ['rgb(255, 0, 0)', 'rgb(0, 0, 255)', 'rgb(30, 144, 255)',
@@ -399,7 +404,7 @@ class TFTGraphicsPlot():
                 legend_voltage = volt_data[i] if i < len(volt_data) else volt_data[-1]
             else:
                 legend_voltage = 0.0
-            if type_data == curv_out and shift_list_update:
+            if shift_list_update:
                 base_output_count = len(new_volt) // 2 if compare else len(new_volt)
                 output_count = max(1, base_output_count)
                 shift_index = i % output_count
@@ -435,15 +440,15 @@ class TFTGraphicsPlot():
         colors = list_colors[j % len(list_colors)]
         if type_data == curv_transfer and scale == 'log':
             data = 10**(exp_data[i + 1])
-            no_shift = True
+            no_shift = not bool(shift_list_update)
 
         elif type_data == curv_transfer and scale == 'linear':
             data = exp_data[i + 1]
-            no_shift = True
+            no_shift = not bool(shift_list_update)
 
         else:
             data = exp_data[i + 1]
-            no_shift = False
+            no_shift = not bool(shift_list_update)
 
         fig.add_trace(go.Scatter(x=exp_data[i], y=data,
                                 mode='markers+text',

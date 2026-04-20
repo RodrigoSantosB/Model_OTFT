@@ -220,7 +220,7 @@ Once this task is complete, ensure the `.JSON` file is correctly configured. Thi
     "apply_local_output_shift"          : "yes",
     "output_shift_volt_data"            : "0, -1, -2, -6",
     "shift_volt_data"                   : "0, -1, -2, -6",
-    "select_files"                      : "1,2,3,4"
+    "selected_curves"                  : "cnt-1VGS, cnt-3VDS, cnt-5VGS"
     
 },
 
@@ -418,14 +418,14 @@ You can also call `PreProcessingData().analyze_hysteresis(df)` on a prepared `vo
 - **Behavior**: These values are combined with the automatically calculated local shift used by the output curves. The total value is passed to the model.
 - **Compatibility**: If this field is empty, the code falls back to `shift_volt_data`.
 
-#### `select_files` (str)
-- **Description**: Filters files by inclusion (only listed curves are read).
-- **Format**: Comma-separated indices of the experiment curves using **1-based indexing**.
+#### `selected_curves` (str)
+- **Description**: Filters files by inclusion (only listed curves are kept in the execution flow).
+- **Format**: Comma-separated curve names, using the same identifiers shown in the loaded-files table.
 - **Rules**:
-  - first curve is `1`;
-  - use only positive integers;
-  - duplicated indices are not allowed.
-- **Example**: `"1, 4, 6"`
+  - use the explicit curve names, for example `cnt-1VGS` or `cnt-3VDS`;
+  - spaces around commas are ignored;
+  - the `.csv` suffix is optional.
+- **Example**: `"cnt-1VGS, cnt-3VDS, cnt-5VGS"`
 
 ### Preprocessing and Shift Combinations
 

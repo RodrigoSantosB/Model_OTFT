@@ -52,8 +52,8 @@ def display_settings(menu, settings, path_voltages, shift_list, list_tension_shi
 
     menu.view_path_reads(path_voltages, list_tension_shift)
     print()
-    print('A tabela acima mostra todos os arquivos lidos no diretorio. Para filtrar, informe em select_files')
-    print('os indices das curvas que deseja MANTER, usando base 1 (primeira curva = 1), separados por virgula.')
-    print('Exemplo: 1:org1_2VDS, 4:org1_40VGS ou qualquer outro nome listado na tabela.')
+    print('A tabela acima mostra todos os arquivos lidos no diretorio. Para filtrar, informe em selected_curves')
+    print('os nomes das curvas que deseja MANTER, separados por virgula.')
+    print('Exemplo: cnt-1VGS, cnt-3VDS ou qualquer outro nome listado na tabela.')
     print('---------------------------------')
     print()

@@ -1,0 +1,105 @@
+[
+    {
+        "path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/Au2/tipo n",
+        "experimental_data_scale_transfer": "A",
+        "experimental_data_scale_output": "uA",
+        "current_typic": "uA",
+        "type_curve_plot": "log",
+        "type_read_data_exp": "read original data",
+        "enable_pre_processing": "no",
+        "apply_pre_process_global_shift": "no",
+        "pre_process_shift_volt_data": "",
+        "apply_pre_process_threshold": "no",
+        "pre_process_threshold_voltage": "0",
+        "apply_pre_process_hysteresis": "no",
+        "apply_local_output_shift": "no",
+        "enable_manual_shift_data": "yes",
+        "manual_shift_data": {
+            "au2-60VDS": -10.0,
+            "au22-60VDS": -10.0,
+            "au2-60VGS": -13.0,
+            "au2-45VGS": -5.0,
+            "au2-30VGS": 3.0
+        },
+        "selected_curves": "au2-60VDS, au22-60VDS, au2-60VGS, au2-45VGS, au2-30VGS",
+        "pre_process_hysteresis_mode_transfer": "media",
+        "pre_process_hysteresis_mode_output": "maior"
+    },
+    {
+        "resistance_scale": "1e4",
+        "current_carry": "1e-6",
+        "with_transistor": "0.1",
+        "type_of_transistor": "nFET",
+        "loaded_parameters": {
+            "VTHO": 21.006,
+            "DELTA": 0.082833,
+            "N": 112.75,
+            "L": 1.0082,
+            "LAMBDA": 25865.0,
+            "VGCRIT": 66.733,
+            "JTH": 62.9,
+            "RS": 196.32,
+            "VTUN": 1.0,
+            "V0": 5.0,
+            "RMAX": 10000.0
+        },
+        "idleak_mode": "unique idleak value",
+        "loaded_idleak": "5.4e-10"
+    },
+    {
+        "image_size_width": null,
+        "image_size_height": null,
+        "upper_bounds": {
+            "ub_VTHO": 24,
+            "ub_DELTA": 0.1,
+            "ub_N": 130,
+            "ub_L": 4.0,
+            "ub_LAMBDA": 1000000,
+            "ub_VGCRIT": 80,
+            "ub_JTH": 100,
+            "ub_RS": 500,
+            "ub_VTUN": 5,
+            "ub_V0": 8,
+            "ub_RMAX": 12000
+        },
+        "lower_bounds": {
+            "lb_VTHO": 10,
+            "lb_DELTA": 0.01,
+            "lb_N": 10,
+            "lb_L": 1,
+            "lb_LAMBDA": 10000,
+            "lb_VGCRIT": 1,
+            "lb_JTH": 1,
+            "lb_RS": 0,
+            "lb_VTUN": 1,
+            "lb_V0": 2,
+            "lb_RMAX": 2000
+        },
+        "default_bounds": "no",
+        "optimization_method": "trf",
+        "tolerance_factor": "4e-7",
+        "optimization_strategy": "trf",
+        "n_starts": 10,
+        "random_seed": 42,
+        "maxfev": 20000,
+        "enable_optuna": "no",
+        "optuna_trials": 30,
+        "hysteresis_weight_mode": "windows",
+        "hysteresis_weight_factor": 2.0,
+        "hysteresis_weight_windows": [
+            {
+                "min": -5.0,
+                "max": 5.0,
+                "weight": 2.5
+            }
+        ],
+        "vary_parameters": "",
+        "ga_population": 2000,
+        "ga_generations": 500,
+        "ga_mutation_rate": 0.01,
+        "ga_crossover_rate": 0.08,
+        "ga_elitism": 5,
+        "ga_stall_generations": 30,
+        "ga_seed": null
+    }
+]

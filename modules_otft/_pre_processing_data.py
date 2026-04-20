@@ -18,6 +18,8 @@ class PreProcessingData:
     - aplicacao de shift horizontal (shift right) na tensao apenas em
       curvas de transferencia;
     - selecao opcional de curvas especificas para receber o shift;
+    - limpeza generica de curvas nFET para remover pontos invalidos e
+      normalizar o eixo das saidas;
     - limpeza de histerese por consolidacao de tensoes redundantes;
     - analise de assinatura de histerese (tensoes repetidas com correntes distintas);
     - salvamento dos dados tratados em uma nova pasta.
@@ -98,11 +100,44 @@ class PreProcessingData:
             df = df.copy()
             df["voltage"] = df["voltage"] + shift_voltage
             df.attrs.update(curve_attrs)
+        df = self._apply_generic_nfet_cleanup(df, transistor_type=transistor_type)
         return self._apply_voltage_threshold(
             df,
             threshold_voltage=threshold_voltage,
             transistor_type=transistor_type,
         )
+
+    def _apply_generic_nfet_cleanup(
+        self,
+        df: pd.DataFrame,
+        transistor_type: str = "nFET",
+    ) -> pd.DataFrame:
+        normalized_type = self._normalize_transistor_type(transistor_type)
+        curve_type = str(df.attrs.get("curve_type", "")).strip().lower()
+        strategy = "none"
+
+        cleaned = df.copy()
+        if normalized_type == "nFET" and curve_type == "transfer":
+            cleaned["current"] = np.abs(cleaned["current"].to_numpy(dtype=float))
+            cleaned = cleaned[np.abs(cleaned["current"]) > 0].copy()
+            strategy = "nfet_transfer_abs_and_zero_filter"
+        elif normalized_type == "nFET" and curve_type == "output":
+            cleaned = cleaned[cleaned["current"] > 0].copy()
+            if not cleaned.empty:
+                first_valid_voltage = float(cleaned["voltage"].iloc[0])
+                cleaned["voltage"] = cleaned["voltage"] - first_valid_voltage
+            strategy = "nfet_output_positive_filter_and_rebase"
+
+        if cleaned.empty:
+            raise ValueError(
+                "Nenhum ponto restante apos a limpeza generica "
+                f"para {normalized_type} ({curve_type})."
+            )
+
+        result = cleaned.reset_index(drop=True)
+        result.attrs.update(df.attrs)
+        result.attrs["generic_cleanup_strategy"] = strategy
+        return result
 
     def process_directory(
         self,
@@ -208,6 +243,7 @@ class PreProcessingData:
                         else self._describe_hysteresis_mode(hysteresis_mode)
                     ),
                     "hysteresis_applied": apply_hysteresis,
+                    "generic_cleanup_strategy": processed_df.attrs.get("generic_cleanup_strategy", "none"),
                     "original_points": self._count_rows(csv_path),
                     "processed_points": len(processed_df),
                     **hyst_metrics,
@@ -383,6 +419,7 @@ class PreProcessingData:
                         else self._describe_hysteresis_mode(hysteresis_mode)
                     ),
                     "hysteresis_applied": apply_hysteresis,
+                    "generic_cleanup_strategy": processed_df.attrs.get("generic_cleanup_strategy", "none"),
                     "original_points": original_points,
                     "processed_points": len(processed_df),
                     **hyst_metrics,

@@ -13,7 +13,7 @@
         "pre_process_threshold_voltage": "0",
         "apply_pre_process_hysteresis": "yes",
         "apply_local_output_shift": "yes",
-        "select_files": "",
+        "selected_curves": "",
         "pre_process_hysteresis_mode_transfer": "media",
         "pre_process_hysteresis_mode_output": "maior"
     },
@@ -30,7 +30,10 @@
             "LAMBDA": 1490.0,
             "VGCRIT": 32.3,
             "JTH": 0.097,
-            "RS": 1
+            "RS": 1,
+            "VTUN": 1.0,
+            "V0": 5.0,
+            "RMAX": 4000.0
         },
         "idleak_mode": "unique idleak value",
         "loaded_idleak": "6.5e-11"
@@ -46,7 +49,10 @@
             "ub_LAMBDA": 10000,
             "ub_VGCRIT": 80,
             "ub_JTH": 10,
-            "ub_RS": 70
+            "ub_RS": 70,
+            "ub_VTUN": 5,
+            "ub_V0": 8,
+            "ub_RMAX": 6000
         },
         "lower_bounds": {
             "lb_VTHO": 8,
@@ -56,7 +62,10 @@
             "lb_LAMBDA": 100,
             "lb_VGCRIT": 10,
             "lb_JTH": 0.001,
-            "lb_RS": 0
+            "lb_RS": 0,
+            "lb_VTUN": 1,
+            "lb_V0": 2,
+            "lb_RMAX": 2000
         },
         "default_bounds": "no",
         "optimization_method": "trf",

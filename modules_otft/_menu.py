@@ -26,8 +26,14 @@ class TFTMenu:
 
   def show_table_info(self, coeff, coeff_opt, coeff_error, curr_typic, curr_carry, resistance):
 
-      name_par = ['VTHO [V]', 'DELTA', 'N', 'L', 'LAMBDA', 'VGCRIT [V]',
-                  'JTH [μA cm^−1]', 'RS [kΩ]', 'JTH / LAMBDA * N [μA cm^−1]']
+      if len(coeff) >= 11:
+          name_par = [
+              'VTHO [V]', 'DELTA', 'N', 'L', 'LAMBDA', 'VGCRIT [V]',
+              'JTH [μA cm^−1]', 'RSO [kΩ]', 'VTUN [V]', 'V0 [V]', 'RMAX [kΩ]'
+          ]
+      else:
+          name_par = ['VTHO [V]', 'DELTA', 'N', 'L', 'LAMBDA', 'VGCRIT [V]',
+                      'JTH [μA cm^−1]', 'RS [kΩ]']
 
       print()
       print('---------------------------')
@@ -45,6 +51,9 @@ class TFTMenu:
       # Adjustments for RS [kΩ]
       data[7][1] = data[7][1] * (resistance / 1e3)  # res / 1e3
       data[7][2] = data[7][2] * (resistance / 1e3)  # res / 1e3
+      if len(data) > 10:
+          data[10][1] = data[10][1] * (resistance / 1e3)
+          data[10][2] = data[10][2] * (resistance / 1e3)
 
       # Calculate and add the value of JTH / LAMBDA * N for Initial Value
       jth_lambda_n_initial = data[6][1] / (data[4][1] * data[2][1])
@@ -82,10 +91,16 @@ class TFTMenu:
     # Formatar e imprimir os valores estilizados
     formatted_values = ["{:.4e}".format(val) for val in values]
     formatted_output = " │ ".join(formatted_values)
-    print('   VTHO     |    DELTA   |      N     |     L      |    LAMBDA  |   VGCRIT   |    JTH     |     RS    |')
-    print('-'*103)
+    if len(values) >= 11:
+        header = '   VTHO     |    DELTA   |      N     |     L      |    LAMBDA  |   VGCRIT   |    JTH     |    RSO     |    VTUN    |     V0     |    RMAX    |'
+        separator = '-' * len(header)
+    else:
+        header = '   VTHO     |    DELTA   |      N     |     L      |    LAMBDA  |   VGCRIT   |    JTH     |     RS    |'
+        separator = '-' * len(header)
+    print(header)
+    print(separator)
     print("[" + formatted_output + "]")
-    print('-'*103)
+    print(separator)
 
 
 

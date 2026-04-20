@@ -208,8 +208,12 @@ class ModelOptmization(ReadData):
 
     def _resolve_bounds(self, coeff, ub_max):
         if self.__DEFAULT_BOUNDS:
-            lb = np.array([0.0, 0, 1.0, 0, 10.0, 1.0, 1e-9, 0e7], dtype=float)
-            ub = np.array([ub_max, 1, 999, 4, 20000, ub_max, 1e4, 1e7], dtype=float)
+            if len(coeff) >= 11:
+                lb = np.array([0.0, 0.01, 10.0, 1.0, 1e2, 1.0, 1e-6, 0.0, 1.0, 2.0, 2e3], dtype=float)
+                ub = np.array([ub_max, 0.10, 1e2, 4.0, 1e6, ub_max, 1e2, 1e2, 5.0, 8.0, 6e3], dtype=float)
+            else:
+                lb = np.array([0.0, 0, 1.0, 0, 10.0, 1.0, 1e-9, 0e7], dtype=float)
+                ub = np.array([ub_max, 1, 999, 4, 20000, ub_max, 1e4, 1e7], dtype=float)
         else:
             lb = np.array(self.bounds[0], dtype=float) if self.bounds and self.bounds[0] else np.zeros(len(coeff), dtype=float)
             ub = np.array(self.bounds[1], dtype=float) if self.bounds and self.bounds[1] else np.full(len(coeff), ub_max, dtype=float)

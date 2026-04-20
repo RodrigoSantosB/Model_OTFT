@@ -1,0 +1,95 @@
+[
+    {
+        "path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/Cnts/tipo p",
+        "experimental_data_scale_transfer": "A",
+        "experimental_data_scale_output": "A",
+        "current_typic": "uA",
+        "type_curve_plot": "log",
+        "type_read_data_exp": "read interpolated data",
+        "enable_pre_processing": "no",
+        "apply_pre_process_global_shift": "yes",
+        "pre_process_shift_volt_data": "-1",
+        "apply_pre_process_threshold": "yes",
+        "pre_process_threshold_voltage": "0",
+        "apply_pre_process_hysteresis": "yes",
+        "apply_local_output_shift": "yes",
+        "selected_curves": "cnt-2VDS, cnt-3VDS, cnt-2VGS, cnt-3VGS, cnt-4VGS",
+        "pre_process_hysteresis_mode_transfer": "media",
+        "pre_process_hysteresis_mode_output": "maior",
+        "pre_process_global_shift_persisted": "yes",
+        "pre_process_global_shift_persisted_value": "-1.0"
+    },
+    {
+        "resistance_scale": "1e4",
+        "current_carry": "1e-6",
+        "with_transistor": "0.19",
+        "type_of_transistor": "pFET",
+        "loaded_parameters": {
+            "VTHO": 1.2,
+            "DELTA": 0.015,
+            "N": 10,
+            "L": 2,
+            "LAMBDA": 1200.0,
+            "VGCRIT": 28,
+            "JTH": 4e2,
+            "RS": 0.1
+        },
+        "idleak_mode": "more than one value idleak",
+        "loaded_idleak": {
+            "cnt-0.1VDS": "1e-9",
+            "cnt-1VDS": "1e-8",
+            "cnt-2VDS": "5e-8",
+            "cnt-3VDS": "2e-7"
+        }
+    },
+    {
+        "image_size_width": null,
+        "image_size_height": null,
+        "upper_bounds": {
+            "ub_VTHO": 1.6,
+            "ub_DELTA": 0.05,
+            "ub_N": 14,
+            "ub_L": 4,
+            "ub_LAMBDA": 4000,
+            "ub_VGCRIT": 50,
+            "ub_JTH": 5e3,
+            "ub_RS": 0.2
+        },
+        "lower_bounds": {
+            "lb_VTHO": 0.6,
+            "lb_DELTA": 0,
+            "lb_N": 1,
+            "lb_L": 1,
+            "lb_LAMBDA": 1,
+            "lb_VGCRIT": 4,
+            "lb_JTH": 1e1,
+            "lb_RS": 0
+        },
+        "default_bounds": "no",
+        "optimization_method": "trf",
+        "tolerance_factor": "4e-7",
+        "optimization_strategy": "trf",
+        "n_starts": 10,
+        "random_seed": 42,
+        "maxfev": 20000,
+        "enable_optuna": "no",
+        "optuna_trials": 30,
+        "hysteresis_weight_mode": "windows",
+        "hysteresis_weight_factor": 2.0,
+        "hysteresis_weight_windows": [
+            {
+                "min": -5.0,
+                "max": 5.0,
+                "weight": 2.5
+            }
+        ],
+        "vary_parameters": "",
+        "ga_population": 2000,
+        "ga_generations": 500,
+        "ga_mutation_rate": 0.01,
+        "ga_crossover_rate": 0.08,
+        "ga_elitism": 5,
+        "ga_stall_generations": 30,
+        "ga_seed": null
+    }
+]

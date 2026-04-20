@@ -8,18 +8,23 @@ from copy import deepcopy
 
 from modules_otft._model import TFTModel
 from modules_otft._read_data import ReadData
+from modules_otft._utils import (
+    configure_read_data_instance,
+    get_parameter_keys,
+    normalize_transistor_type,
+    resolve_model_class,
+)
 
 
 class SyntheticFromSettings:
-    # Mapeamento dos nomes das chaves para seus índices na lista self.base_params/self.bounds
-    PARAM_KEYS = ["VTHO", "DELTA", "N", "L", "LAMBDA", "VGCRIT", "JTH", "RS"]
-
     def __init__(self, settings: dict, model_cls=TFTModel, out_root="synthetic_from_settings"):
         self.settings = settings
         self.path = settings["path"]
-        self.model_cls = model_cls
+        self.transistor_type = normalize_transistor_type(settings.get("type_of_transistor", "nFET"))
+        self.PARAM_KEYS = get_parameter_keys(settings=settings)
+        self.model_cls = resolve_model_class(model_cls, settings=settings)
         self.out_root = out_root
-        self.reader = ReadData()
+        self.reader = configure_read_data_instance(ReadData(), settings)
 
         # -----------------------------
         # Função para garantir floats
@@ -33,25 +38,13 @@ class SyntheticFromSettings:
         lp = settings.get("loaded_parameters", {})
 
         # self.base_params agora usa PARAM_KEYS para garantir ordem consistente
-        self.base_params = self._ensure_float_params([
-            lp.get(k, 1.0) for k in self.PARAM_KEYS
-        ])
+        self.base_params = self._ensure_float_params([lp.get(k, 1.0) for k in self.PARAM_KEYS])
 
         # ----- bounds -----
         ub = settings.get("upper_bounds", {})
         lb = settings.get("lower_bounds", {})
 
-        # O mapping é interno, mas usamos as chaves do JSON
-        keys_map = [
-            ("ub_VTHO","lb_VTHO"),
-            ("ub_DELTA","lb_DELTA"),
-            ("ub_N","lb_N"),
-            ("ub_L","lb_L"),
-            ("ub_LAMBDA","lb_LAMBDA"),
-            ("ub_VGCRIT","lb_VGCRIT"),
-            ("ub_JTH","lb_JTH"),
-            ("ub_RS","lb_RS")
-        ]
+        keys_map = [(f"ub_{key}", f"lb_{key}") for key in self.PARAM_KEYS]
 
         self.bounds = []
         for i, (ub_k, lb_k) in enumerate(keys_map):
@@ -89,7 +82,7 @@ class SyntheticFromSettings:
 
     def _sample_params_within_bounds(self):
         """
-        Gera um conjunto de 8 parâmetros. 
+        Gera um conjunto de parâmetros na ordem do backend selecionado.
         Amostra aleatoriamente APENAS os parâmetros definidos em self.vary_keys.
         Os demais parâmetros usam o valor base fixo.
         """
@@ -212,12 +205,12 @@ class SyntheticFromSettings:
 
             # [Bloco de definição de metadados omitido para brevidade]
             path_clean = self.settings["path"].replace("\\", "/").split("/"); tech = path_clean[-2]
-            tipo_folder = "tipo_p" if "p" in os.path.basename(self.settings["path"]).lower() else "tipo_n"
+            tipo_folder = "tipo_n" if self.transistor_type == "nFET" else "tipo_p"
             mode_folder = "transfer" if is_transfer else "output"
             out_dir = os.path.join(self.out_root, tech, tipo_folder, mode_folder); os.makedirs(out_dir, exist_ok=True)
             type_data = 0 if is_transfer else 1; curv_transfer = 1 if is_transfer else 0
             scale_factor = scale_transfer if is_transfer else scale_output
-            type_transitor = -1 if "p" in os.path.basename(self.settings["path"]).lower() else 1
+            type_transitor = 1 if self.transistor_type == "nFET" else -1
             
             
             # 3. Execução da simulação
@@ -242,7 +235,24 @@ class SyntheticFromSettings:
                     sr_resistance=sr_resistance, curr_carry=curr_carry
                 )
 
-                Id_gen = m.calc_model(V_model, Vtho=params[0], Delta=params[1], N=params[2], L=params[3], Lambda=params[4], Vcrit=params[5], Jth=params[6], Rs=params[7])
+                param_kwargs = {
+                    "Vtho": params[0],
+                    "Delta": params[1],
+                    "N": params[2],
+                    "L": params[3],
+                    "Lambda": params[4],
+                    "Vcrit": params[5],
+                    "Jth": params[6],
+                    "Rs": params[7],
+                }
+                if len(params) > 8:
+                    param_kwargs.update({
+                        "Vtun": params[8],
+                        "V0": params[9],
+                        "Rmax": params[10],
+                    })
+
+                Id_gen = m.calc_model(V_model, **param_kwargs)
                 Id_gen = np.array(Id_gen).astype(float).ravel()
 
                 # [Bloco de salvamento de CSV/NPZ e INDEX (out_index.append) omitido para brevidade]
