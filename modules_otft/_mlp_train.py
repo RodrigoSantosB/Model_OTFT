@@ -155,8 +155,15 @@ class MLPModelTrain():
         X_scaled = self.scaler_X.fit_transform(X_all)
         y_scaled = self.scaler_y.fit_transform(y_all) 
 
-        X_train, X_test, y_train, y_test = train_test_split(
+        # ---> ALTERAÇÃO AQUI: Divisão em 3 conjuntos <---
+        # 1. Separa o bloco de treinamento e um bloco temporário
+        X_train, X_temp, y_train, y_temp = train_test_split(
             X_scaled, y_scaled, test_size=self.test_size, random_state=self.random_state
+        )
+        
+        # 2. Divide o bloco temporário entre validação (para Early Stopping) e teste (para métrica final)
+        X_val, X_test, y_val, y_test = train_test_split(
+            X_temp, y_temp, test_size=0.5, random_state=self.random_state
         )
         
         # ---> Cálculo e Log dos Parâmetros Baseados na Configuração <---
@@ -166,6 +173,7 @@ class MLPModelTrain():
         print(f"Iniciando treinamento customizado da MLP (Scikit-Learn)...")
         print(f"Arquitetura: Input({input_dim}) -> {self.hidden_layers} -> Output(1)")
         print(f"Total de Parâmetros Treináveis: {self.num_parameters}")
+        print(f"Amostras: Treino={len(X_train)} | Validação={len(X_val)} | Teste={len(X_test)}")
         
         self.model = self._create_model()
         n_samples = X_train.shape[0]
@@ -186,13 +194,14 @@ class MLPModelTrain():
                 y_batch = y_train_shuf[i:i + self.batch_size]
                 self.model.partial_fit(X_batch, y_batch.ravel())
 
+            # ---> ALTERAÇÃO AQUI: Usando apenas X_val e y_val para acompanhar o progresso <---
             y_pred_train = self.model.predict(X_train).reshape(-1, 1)
-            y_pred_val = self.model.predict(X_test).reshape(-1, 1)
+            y_pred_val = self.model.predict(X_val).reshape(-1, 1)
             
             t_loss = mean_squared_error(y_train, y_pred_train)
-            v_loss = mean_squared_error(y_test, y_pred_val)
+            v_loss = mean_squared_error(y_val, y_pred_val)
             t_acc = r2_score(y_train, y_pred_train)
-            v_acc = r2_score(y_test, y_pred_val)
+            v_acc = r2_score(y_val, y_pred_val)
             
             self.history['train_loss'].append(t_loss)
             self.history['val_loss'].append(v_loss)
@@ -215,6 +224,7 @@ class MLPModelTrain():
         if best_weights is not None:
             self.model = best_weights
 
+        # ---> Avaliação Final: Usando os dados de teste intocados (X_test, y_test) <---
         y_pred_final = self.model.predict(X_test).reshape(-1, 1)
         mse_test_scaled = mean_squared_error(y_test, y_pred_final)
         mae_test_scaled = mean_absolute_error(y_test, y_pred_final)
@@ -225,7 +235,7 @@ class MLPModelTrain():
         mse_real = mean_squared_error(y_test_inv, y_pred_inv)
         mae_real = mean_absolute_error(y_test_inv, y_pred_inv)
         
-        print(f"\nTreinamento Concluído. Resultados do Melhor Modelo:")
+        print(f"\nTreinamento Concluído. Resultados do Melhor Modelo no Conjunto de Teste:")
         print(f"MSE (Normalizado): {mse_test_scaled:.6e} | R2: {r2_test_scaled:.4f}")
         print(f"MSE (Escala Real): {mse_real:.6e} | MAE Real: {mae_real:.6e}\n")
         
@@ -275,7 +285,6 @@ class MLPModelTrain():
             json.dump(log_data, f, indent=4)
 
     def plot_training_metrics(self):
-        # ... (Mantido idêntico à sua versão com Matplotlib) ...
         if not self.history.get('train_loss'):
             print("Sem histórico para plotar.")
             return

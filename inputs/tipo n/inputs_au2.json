@@ -13,7 +13,7 @@
         "pre_process_threshold_voltage": "0",
         "apply_pre_process_hysteresis": "no",
         "apply_local_output_shift": "no",
-        "enable_manual_shift_data": "yes",
+        "enable_manual_shift_data": "no",
         "manual_shift_data": {
             "au2-60VDS": -10.0,
             "au22-60VDS": -10.0,

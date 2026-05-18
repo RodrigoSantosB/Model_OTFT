@@ -1,6 +1,6 @@
 [
     {
-        "path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/Cnts/originais",
+        "path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/Cnts/tipo n",
         "experimental_data_scale_transfer": "A",
         "experimental_data_scale_output": "A",
         "current_typic": "uA",
@@ -12,7 +12,7 @@
         "apply_pre_process_threshold": "no",
         "pre_process_threshold_voltage": "0",
         "apply_pre_process_hysteresis": "no",
-        "apply_local_output_shift": "no",
+        "apply_local_output_shift": "yes",
         "selected_curves": "",
         "pre_process_hysteresis_mode_transfer": "media",
         "pre_process_hysteresis_mode_output": "maior"
@@ -23,14 +23,14 @@
         "with_transistor": "0.19",
         "type_of_transistor": "nFET",
         "loaded_parameters": {
-            "VTHO": 1.63,
+            "VTHO": 1,
             "DELTA": 0.015,
             "N": 50,
             "L": 2.8,
             "LAMBDA": 1200.0,
             "VGCRIT": 28,
             "JTH": 10000.0,
-            "RS": 1
+            "RS": 0.1
         },
         "idleak_mode": "more than one value idleak",
         "loaded_idleak": {
@@ -44,7 +44,7 @@
         "image_size_width": null,
         "image_size_height": null,
         "upper_bounds": {
-            "ub_VTHO": 6,
+            "ub_VTHO": 2,
             "ub_DELTA": 0.05,
             "ub_N": 130,
             "ub_L": 4.0,
@@ -57,7 +57,7 @@
             "ub_RMAX": 6000
         },
         "lower_bounds": {
-            "lb_VTHO": 1,
+            "lb_VTHO": 0.1,
             "lb_DELTA": 0,
             "lb_N": 40,
             "lb_L": 1.5,
@@ -70,9 +70,9 @@
             "lb_RMAX": 2000
         },
         "default_bounds": "no",
-        "optimization_method": "ga",
+        "optimization_method": "trf",
         "tolerance_factor": "4e-7",
-        "optimization_strategy": "ga",
+        "optimization_strategy": "trf",
         "n_starts": 10,
         "random_seed": 42,
         "maxfev": 20000,

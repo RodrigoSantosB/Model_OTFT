@@ -16,6 +16,9 @@ from modules_otft._utils import (
 )
 
 
+_KNOWN_NON_CURVE_FILES = {"resumo_processamento.csv"}
+
+
 class SyntheticFromSettings:
     def __init__(self, settings: dict, model_cls=TFTModel, out_root="synthetic_from_settings"):
         self.settings = settings
@@ -75,6 +78,7 @@ class SyntheticFromSettings:
             os.path.join(self.path, f)
             for f in os.listdir(self.path)
             if f.lower().endswith(".csv")
+            and f.lower() not in _KNOWN_NON_CURVE_FILES
         ])
 
     def _inspect_curve(self, csv_path):
