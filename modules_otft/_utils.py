@@ -2,8 +2,17 @@ from modules_otft._imports import *
 from modules_otft._imports import *
 from modules_otft._grafics import  TFTGraphicsPlot
 from modules_otft._optmization import ModelOptmization
+from modules_otft._pre_processing_data import PreProcessingData
+from modules_otft._read_data import ReadData
+from modules_otft._idleak_resolve import resolve_idleak_for_transfers
 
 import json
+
+
+PERSISTED_GLOBAL_SHIFT_FLAG_KEY = "pre_process_global_shift_persisted"
+PERSISTED_GLOBAL_SHIFT_VALUE_KEY = "pre_process_global_shift_persisted_value"
+LEGACY_PARAM_KEYS = ["VTHO", "DELTA", "N", "L", "LAMBDA", "VGCRIT", "JTH", "RS"]
+MATLAB_N_PARAM_KEYS = LEGACY_PARAM_KEYS + ["VTUN", "V0", "RMAX"]
 
 def enter_with_json_file():
     print(200 * '-')
@@ -15,6 +24,8 @@ def enter_with_json_file():
 
     global settings
     settings = {}
+    settings["_json_path"] = json_path
+    settings["_json_blocks"] = inputs
 
     print('\n')
     print(83 * '_' + ' SETTINGS PRESENT IN THE JSON FILE:' + 83 * '_' + '\n')
@@ -26,28 +37,199 @@ def enter_with_json_file():
             print('|' + ' ' + f'{key}: {value}')
             print('--' * 100)
 
+    maybe_apply_preprocessing(settings)
+    return settings
+
+
+def _is_truthy_setting(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return default
+    return normalized in {"1", "true", "yes", "y", "sim", "on"}
+
+
+def _get_float_setting(settings, key, default=0.0):
+    value = settings.get(key, default)
+    if value in ("", None):
+        return default
+    return float(value)
+
+
+def _get_int_setting(settings, key, default=0):
+    value = settings.get(key, default)
+    if value in ("", None):
+        return default
+    return int(value)
+
+
+def _get_hysteresis_mode_setting(settings):
+    """Returns the hysteresis mode separated by curve type."""
+    transfer_mode = settings.get("pre_process_hysteresis_mode_transfer", "media")
+    output_mode = settings.get("pre_process_hysteresis_mode_output", "media")
+    return {
+        "transfer": transfer_mode if transfer_mode not in ("", None) else "media",
+        "output": output_mode if output_mode not in ("", None) else "media",
+        "default": "media",
+    }
+
+
+def _build_hysteresis_diagnostics(summary):
+    """Agrega flags de deteccao de histerese por ficheiro (transfer vs saida)."""
+    if not summary:
+        return {
+            "any_detected": False,
+            "transfer_any": False,
+            "output_any": False,
+            "per_file": [],
+        }
+    keys = (
+        "input_file",
+        "curve_type",
+        "hysteresis_detected",
+        "hysteresis_duplicate_groups",
+        "hysteresis_redundant_points",
+        "hysteresis_max_spread_abs",
+        "hysteresis_max_spread_rel",
+    )
+    per_file = [{k: row.get(k) for k in keys} for row in summary]
+    return {
+        "any_detected": any(row.get("hysteresis_detected") for row in summary),
+        "transfer_any": any(
+            row.get("hysteresis_detected") for row in summary if row.get("curve_type") == "transfer"
+        ),
+        "output_any": any(
+            row.get("hysteresis_detected") for row in summary if row.get("curve_type") == "output"
+        ),
+        "per_file": per_file,
+    }
+
+
+def _set_json_setting(blocks, key, value, default_block_index=0):
+    for block in blocks:
+        if isinstance(block, dict) and key in block:
+            block[key] = value
+            return
+
+    if blocks and isinstance(blocks[default_block_index], dict):
+        blocks[default_block_index][key] = value
+
+
+def _persist_settings_to_json(settings, updates):
+    for key, value in updates.items():
+        settings[key] = value
+
+    json_path = settings.get("_json_path")
+    json_blocks = settings.get("_json_blocks")
+    if not json_path or not isinstance(json_blocks, list):
+        return
+
+    persisted_blocks = json.loads(json.dumps(json_blocks))
+    for key, value in updates.items():
+        _set_json_setting(persisted_blocks, key, value)
+
+    with open(json_path, "w") as file:
+        json.dump(persisted_blocks, file, indent=4)
+
+    settings["_json_blocks"] = persisted_blocks
+
+
+def maybe_apply_preprocessing(settings):
+    """
+    Aplica o pre-processamento configurado no JSON diretamente no diretorio
+    dos dados experimentais, mantendo backup dos originais.
+    """
+    if not isinstance(settings, dict):
+        return settings
+
+    if settings.get("_preprocessing_applied"):
+        return settings
+
+    if not _is_truthy_setting(settings.get("enable_pre_processing"), default=False):
+        settings["_preprocessing_applied"] = False
+        settings["_hysteresis_diagnostics"] = _build_hysteresis_diagnostics([])
+        return settings
+
+    input_path = settings.get("path")
+    if not input_path:
+        settings["_preprocessing_applied"] = False
+        settings["_hysteresis_diagnostics"] = _build_hysteresis_diagnostics([])
+        return settings
+
+    transistor_type = str(settings.get("type_of_transistor", "nFET")).strip() or "nFET"
+    apply_global_shift = _is_truthy_setting(settings.get("apply_pre_process_global_shift"), default=False)
+    apply_threshold = _is_truthy_setting(settings.get("apply_pre_process_threshold"), default=False)
+    apply_hysteresis = _is_truthy_setting(settings.get("apply_pre_process_hysteresis"), default=False)
+    apply_generic_nfet_cleanup = normalize_transistor_type(transistor_type) == "nFET"
+
+    if not any((apply_global_shift, apply_threshold, apply_hysteresis, apply_generic_nfet_cleanup)):
+        settings["_preprocessing_applied"] = False
+        settings["_preprocessing_report"] = []
+        settings["_hysteresis_diagnostics"] = _build_hysteresis_diagnostics([])
+        return settings
+
+    global_shift_value = (
+        _get_float_setting(settings, "pre_process_shift_volt_data", 0.0)
+        if apply_global_shift else 0.0
+    )
+    processor = PreProcessingData()
+    summary = processor.process_directory_in_place(
+        input_path=input_path,
+        shift_voltage=global_shift_value,
+        threshold_voltage=_get_float_setting(settings, "pre_process_threshold_voltage", 0.0) if apply_threshold else None,
+        transistor_type=transistor_type,
+        hysteresis_mode=_get_hysteresis_mode_setting(settings),
+        apply_hysteresis=apply_hysteresis,
+        recursive=True,
+        hysteresis_detect_min_groups=max(1, _get_int_setting(settings, "hysteresis_detect_min_groups", 1)),
+        hysteresis_detect_min_rel_spread=_get_float_setting(
+            settings, "hysteresis_detect_min_rel_spread", 1e-6
+        ),
+        hysteresis_detect_min_abs_spread=_get_float_setting(
+            settings, "hysteresis_detect_min_abs_spread", 1e-12
+        ),
+    )
+
+    persisted_updates = {
+        "enable_pre_processing": "no",
+    }
+    if apply_global_shift:
+        persisted_updates.update({
+            PERSISTED_GLOBAL_SHIFT_FLAG_KEY: "yes",
+            PERSISTED_GLOBAL_SHIFT_VALUE_KEY: str(global_shift_value),
+        })
+
+    _persist_settings_to_json(settings, persisted_updates)
+    settings["_preprocessing_applied"] = True
+    settings["_preprocessing_report"] = summary
+    settings["_hysteresis_diagnostics"] = _build_hysteresis_diagnostics(summary)
     return settings
 
 
 def get_load_voltages(settings):
-    """Loads voltage values."""
+    """Returns curve voltages discovered directly from the experimental files."""
     
     if not isinstance(settings, dict):
         print("Error: settings must be a dictionary.")
         return []
     
-    if 'loaded_voltages' not in settings:
-        print("Error: 'loaded_voltages' key not found in settings.")
+    path = settings.get('path')
+    if not path:
+        print("Error: 'path' key not found in settings.")
         return []
 
     try:
-        value = eval(settings['loaded_voltages'])
-        if isinstance(value, int):
-            return [value]
-        elif isinstance(value, (list, tuple)) and len(value) > 2:
-            return list(value)
-    except (SyntaxError, NameError):
-        print("No parameters entered in --- settings['loaded_voltages'] ---, please load them\n")
+        read = configure_read_data_instance(ReadData(), settings)
+        path_voltages = read.read_files_experimental(path)
+        return [curve[2] for curve in path_voltages if len(curve) >= 3]
+    except (OSError, ValueError) as exc:
+        print(f"Unable to load voltages directly from experimental files: {exc}\n")
     
     return []
 
@@ -70,6 +252,183 @@ def get_type_plot(settings):
         return 'linear'
     
     
+def get_configured_output_shift_values(settings, output_count=None):
+  """Parses the manual per-output shift values from the JSON settings."""
+  if not isinstance(settings, dict):
+      return []
+
+  if output_count is None:
+      discovered_path_voltages = []
+      if settings.get('path'):
+          read_for_count = configure_read_data_instance(ReadData(), settings)
+          discovered_path_voltages = read_for_count.read_files_experimental(settings['path'])
+      output_count = sum(1 for _, curve_type, _ in discovered_path_voltages if curve_type == 1)
+
+  shift_key = 'output_shift_volt_data' if 'output_shift_volt_data' in settings else 'shift_volt_data'
+
+  def _normalize_shift_values(raw_values):
+      normalized_values = [float(value) for value in raw_values]
+      if len(normalized_values) < output_count:
+          normalized_values.extend([0.0] * (output_count - len(normalized_values)))
+      return normalized_values[:output_count]
+
+  try:
+      raw_shift = settings.get(shift_key, "")
+      if raw_shift == "":
+          return [0.0] * output_count
+
+      if isinstance(raw_shift, (int, float)):
+          return _normalize_shift_values([raw_shift])
+      if isinstance(raw_shift, (list, tuple)):
+          return _normalize_shift_values(list(raw_shift))
+
+      parsed_shift = eval(raw_shift)
+      if isinstance(parsed_shift, (int, float)):
+          return _normalize_shift_values([parsed_shift])
+      if isinstance(parsed_shift, (list, tuple)):
+          return _normalize_shift_values(list(parsed_shift))
+      return [0.0] * output_count
+  except (ValueError, SyntaxError, NameError, TypeError):
+      return []
+
+
+def get_configured_transfer_shift_values(settings, transfer_count=None):
+  """Parses the manual per-transfer shift values from the JSON settings."""
+  if not isinstance(settings, dict):
+      return []
+
+  if transfer_count is None:
+      discovered_path_voltages = []
+      if settings.get('path'):
+          read_for_count = configure_read_data_instance(ReadData(), settings)
+          discovered_path_voltages = read_for_count.read_files_experimental(settings['path'])
+      transfer_count = sum(1 for _, curve_type, _ in discovered_path_voltages if curve_type == 0)
+
+  def _normalize_shift_values(raw_values):
+      normalized_values = [float(value) for value in raw_values]
+      if len(normalized_values) < transfer_count:
+          normalized_values.extend([0.0] * (transfer_count - len(normalized_values)))
+      return normalized_values[:transfer_count]
+
+  try:
+      raw_shift = settings.get('transfer_shift_volt_data', "")
+      if raw_shift == "":
+          return [0.0] * transfer_count
+
+      if isinstance(raw_shift, (int, float)):
+          return _normalize_shift_values([raw_shift])
+      if isinstance(raw_shift, (list, tuple)):
+          return _normalize_shift_values(list(raw_shift))
+
+      parsed_shift = eval(raw_shift)
+      if isinstance(parsed_shift, (int, float)):
+          return _normalize_shift_values([parsed_shift])
+      if isinstance(parsed_shift, (list, tuple)):
+          return _normalize_shift_values(list(parsed_shift))
+      return [0.0] * transfer_count
+  except (ValueError, SyntaxError, NameError, TypeError):
+      return []
+
+
+def _normalize_curve_shift_key(value):
+  normalized = str(value).strip().replace("\\", "/").lower()
+  filename = os.path.basename(normalized)
+  stem = os.path.splitext(filename)[0]
+  return normalized, filename, stem
+
+
+def _parse_manual_shift_mapping(settings):
+  """Parses the new curve-name keyed manual shift map."""
+  if not isinstance(settings, dict):
+      return {}
+
+  raw_shift_data = settings.get('manual_shift_data', "")
+  if raw_shift_data in ("", None, {}):
+      return {}
+
+  shift_mapping = raw_shift_data
+  if isinstance(raw_shift_data, str):
+      try:
+          shift_mapping = eval(raw_shift_data)
+      except (ValueError, SyntaxError, NameError, TypeError):
+          return {}
+
+  if not isinstance(shift_mapping, dict):
+      return {}
+
+  normalized_mapping = {}
+  for curve_name, shift_value in shift_mapping.items():
+      for alias in _normalize_curve_shift_key(curve_name):
+          if alias:
+              normalized_mapping[alias] = float(shift_value)
+  return normalized_mapping
+
+
+def _build_legacy_manual_shift_mapping(settings, path_voltages):
+  """Builds a curve-name keyed shift map from legacy transfer/output keys."""
+  transfer_count = sum(1 for _, curve_type, _ in path_voltages if curve_type == 0)
+  output_count = sum(1 for _, curve_type, _ in path_voltages if curve_type == 1)
+  transfer_values = get_configured_transfer_shift_values(settings, transfer_count=transfer_count)
+  output_values = get_configured_output_shift_values(settings, output_count=output_count)
+
+  legacy_mapping = {}
+  transfer_index = 0
+  output_index = 0
+  for curve_path, curve_type, _ in path_voltages:
+      shift_value = 0.0
+      if curve_type == 0:
+          if transfer_index < len(transfer_values):
+              shift_value = float(transfer_values[transfer_index])
+          transfer_index += 1
+      else:
+          if output_index < len(output_values):
+              shift_value = float(output_values[output_index])
+          output_index += 1
+
+      if shift_value == 0.0:
+          continue
+
+      for alias in _normalize_curve_shift_key(curve_path):
+          if alias:
+              legacy_mapping[alias] = shift_value
+
+  return legacy_mapping
+
+
+def _resolve_ordered_manual_shift_values(settings, path_voltages):
+  """Resolves manual shifts aligned with discovered curves."""
+  manual_enabled = _is_truthy_setting(settings.get('enable_manual_shift_data'), default=False)
+  if not manual_enabled:
+      return [0.0] * len(path_voltages), False
+
+  shift_mapping = _parse_manual_shift_mapping(settings)
+  if not shift_mapping:
+      shift_mapping = _build_legacy_manual_shift_mapping(settings, path_voltages)
+
+  resolved_shifts = []
+  for curve_path, _, _ in path_voltages:
+      aliases = _normalize_curve_shift_key(curve_path)
+      shift_value = 0.0
+      for alias in aliases:
+          if alias in shift_mapping:
+              shift_value = float(shift_mapping[alias])
+              break
+      resolved_shifts.append(shift_value)
+
+  return resolved_shifts, True
+
+
+def _apply_shift_to_nominal_voltage(nominal_voltage, shift_value):
+  nominal_voltage = float(nominal_voltage)
+  shift_value = float(shift_value)
+  return nominal_voltage + shift_value if nominal_voltage >= 0 else nominal_voltage - shift_value
+
+
+def encode_output_shift_for_config(nominal_voltage, effective_shift):
+  """Converts an effective output-voltage delta into the JSON shift convention."""
+  return float(effective_shift if nominal_voltage >= 0 else -effective_shift)
+
+
 def calculate_shift_list(settings):
   """Calculates the displacement list."""
   
@@ -77,29 +436,234 @@ def calculate_shift_list(settings):
         print("Error: settings must be a dictionary.")
         return []
 
-  ld_voltages = get_load_voltages(settings)
-  max_curves = len(ld_voltages) - int(settings['curves_transfer'])
+  discovered_path_voltages = []
+  if settings.get('path'):
+      read_for_count = configure_read_data_instance(ReadData(), settings)
+      discovered_path_voltages = read_for_count.read_files_experimental(settings['path'])
+
+  output_count = sum(1 for _, curve_type, _ in discovered_path_voltages if curve_type == 1)
+  max_curves = output_count
+  shift_key = 'output_shift_volt_data' if 'output_shift_volt_data' in settings else 'shift_volt_data'
+  apply_local_shift = _is_truthy_setting(settings.get('apply_local_output_shift'), default=True)
+
+  def _normalize_shift_values(raw_values):
+      normalized_values = [float(value) for value in raw_values]
+      if len(normalized_values) < max_curves:
+          normalized_values.extend([0.0] * (max_curves - len(normalized_values)))
+      return normalized_values[:max_curves]
+
   try:
-      if settings['shift_volt_data'] =="":
-          return [0] * max_curves
-      elif isinstance(eval(settings['shift_volt_data']), int):
-          return [int(settings['shift_volt_data'])]
-      
-      elif len(settings['shift_volt_data']) > 1:
-          return list(eval(settings['shift_volt_data']))
-  except ValueError:
+      raw_shift = settings.get(shift_key, "")
+      if raw_shift == "":
+          manual_values = [0.0] * max_curves
+      else:
+          if isinstance(raw_shift, (int, float)):
+              manual_values = _normalize_shift_values([raw_shift])
+          elif isinstance(raw_shift, (list, tuple)):
+              manual_values = _normalize_shift_values(list(raw_shift))
+          else:
+              parsed_shift = eval(raw_shift)
+              if isinstance(parsed_shift, (int, float)):
+                  manual_values = _normalize_shift_values([parsed_shift])
+              elif isinstance(parsed_shift, (list, tuple)):
+                  manual_values = _normalize_shift_values(list(parsed_shift))
+              else:
+                  manual_values = [0.0] * max_curves
+  except (ValueError, SyntaxError, NameError, TypeError):
       print("No shift value passed, please enter a value\n")
       return []
+
+  cached_metadata = settings.get('_shift_metadata')
+  if not isinstance(cached_metadata, list) or len(cached_metadata) != max_curves:
+      cached_metadata = [
+          {
+              'manual': 0.0,
+              'automatic': 0.0,
+              'total': 0.0
+          }
+          for _ in range(max_curves)
+      ]
+
+  for shift_entry, manual_shift in zip(cached_metadata, manual_values):
+      shift_entry['manual'] = float(manual_shift)
+      shift_entry.setdefault('automatic', 0.0)
+      shift_entry['total'] = float(shift_entry['manual'] + shift_entry['automatic'])
+
+  settings['_shift_metadata'] = cached_metadata
+  return cached_metadata
   
+
+def build_manual_shift_estimate_report(read, settings, path_voltages=None):
+  """Builds a report comparing configured and estimated output shifts."""
+  if not isinstance(settings, dict):
+      return []
+
+  configure_read_data_instance(read, settings)
+  if path_voltages is None:
+      path_voltages = read.read_files_experimental(settings['path'])
+
+  output_count = sum(1 for _, curve_type, _ in path_voltages if curve_type == 1)
+  manual_values = get_configured_output_shift_values(settings, output_count=output_count)
+  raw_preprocess_shift = settings.get('pre_process_shift_volt_data')
+  pre_process_shift_volt_data = None if raw_preprocess_shift in ("", None) else float(raw_preprocess_shift)
+  global_display_shift = get_global_display_shift(settings)
+  current_typic = settings.get('current_typic', 'A')
+  scale_transfer = settings.get('experimental_data_scale_transfer', 'A')
+  scale_output = settings.get('experimental_data_scale_output', 'A')
+  estimated_values, estimated_details = read.estimate_output_curve_shifts(
+      path_voltages,
+      pre_process_shift_volt_data=pre_process_shift_volt_data,
+      global_display_shift=global_display_shift,
+      current_typic=current_typic,
+      scale_transfer=scale_transfer,
+      scale_output=scale_output,
+  )
+
+  report = []
+  for index, detail in enumerate(estimated_details):
+      nominal_voltage = float(detail.get('output_nominal_voltage', 0.0))
+      estimated_effective_shift = estimated_values[index] if index < len(estimated_values) else detail.get('estimated_shift', 0.0)
+      report.append({
+          **detail,
+          'configured_manual_shift': manual_values[index] if index < len(manual_values) else 0.0,
+          'estimated_effective_shift': estimated_effective_shift,
+          'estimated_shift': encode_output_shift_for_config(nominal_voltage, estimated_effective_shift),
+          'manual_shift_enabled': _is_truthy_setting(settings.get('apply_local_output_shift'), default=True),
+      })
+  return report
+
+
+def format_curve_consistency_log(consistency_report):
+  """Formats duplicate-output warnings for terminal/session logs."""
+  if not consistency_report:
+      return []
+
+  log_lines = []
+  for detail in consistency_report:
+      warning = detail.get('warning')
+      if warning:
+          log_lines.append(warning)
+  return log_lines
+
 
 def get_shift_list(read, settings):
   # Returns the shifted list with the passed voltage value [V]
-  curves_transfer = int(settings['curves_transfer'])
-  shift_list = calculate_shift_list(settings)
-  ld_voltages = get_load_voltages(settings)
+  configure_read_data_instance(read, settings)
+  path_voltages = read.read_files_experimental(settings['path'])
+  manual_shift_values, manual_mode = _resolve_ordered_manual_shift_values(settings, path_voltages)
+  apply_local_shift = _is_truthy_setting(settings.get('apply_local_output_shift'), default=True)
+  raw_preprocess_shift = settings.get('pre_process_shift_volt_data')
+  pre_process_shift_volt_data = None if raw_preprocess_shift in ("", None) else float(raw_preprocess_shift)
+  global_display_shift = get_global_display_shift(settings)
+  current_typic = settings.get('current_typic', 'A')
+  scale_transfer = settings.get('experimental_data_scale_transfer', 'A')
+  scale_output = settings.get('experimental_data_scale_output', 'A')
+  curve_consistency_report = read.detect_duplicate_output_curves(
+      path_voltages,
+      current_typic=current_typic,
+      scale_transfer=scale_transfer,
+      scale_output=scale_output,
+  )
+  curve_consistency_log = format_curve_consistency_log(curve_consistency_report)
 
-  list_tension_shift = read.apply_shifts(curves_transfer ,shift_list, ld_voltages)
+  automatic_shift_report = []
+  if apply_local_shift and not manual_mode:
+      automatic_shifts, automatic_shift_report = read.calculate_automatic_output_shifts(
+          path_voltages,
+          pre_process_shift_volt_data=pre_process_shift_volt_data,
+          global_display_shift=global_display_shift,
+          current_typic=current_typic,
+          scale_transfer=scale_transfer,
+          scale_output=scale_output,
+      )
+  else:
+      automatic_shifts = [0.0] * sum(1 for _, curve_type, _ in path_voltages if curve_type == 1)
+
+  shift_metadata = []
+  list_tension_shift = []
+  output_index = 0
+  for curve_index, (curve_path, curve_type, nominal_voltage) in enumerate(path_voltages):
+      manual_shift = manual_shift_values[curve_index] if curve_index < len(manual_shift_values) else 0.0
+      automatic_shift = 0.0
+      if curve_type == 1 and output_index < len(automatic_shifts):
+          automatic_shift = float(automatic_shifts[output_index])
+
+      applied_shift = float(manual_shift if manual_mode else manual_shift + automatic_shift)
+      shift_entry = {
+          'curve_name': os.path.basename(curve_path),
+          'curve_type': 'transfer' if curve_type == 0 else 'output',
+          'nominal_voltage': float(nominal_voltage),
+          'manual': float(manual_shift),
+          'automatic': float(0.0 if manual_mode else automatic_shift),
+          'total': applied_shift,
+          'mode': 'manual' if manual_mode else ('automatic' if automatic_shift != 0 else ('manual' if manual_shift != 0 else 'none')),
+      }
+
+      if curve_type == 1 and output_index < len(curve_consistency_report):
+          shift_entry['curve_consistency_status'] = curve_consistency_report[output_index].get('status')
+          shift_entry['curve_consistency_warning'] = curve_consistency_report[output_index].get('warning')
+          shift_entry['duplicate_of_file'] = curve_consistency_report[output_index].get('duplicate_of_file')
+          shift_entry['duplicate_of_nominal_voltage'] = curve_consistency_report[output_index].get('duplicate_of_nominal_voltage')
+          output_index += 1
+
+      shift_metadata.append(shift_entry)
+      list_tension_shift.append(_apply_shift_to_nominal_voltage(nominal_voltage, applied_shift))
+
+  if manual_mode:
+      settings['_manual_shift_estimate_report'] = []
+  else:
+      settings['_manual_shift_estimate_report'] = build_manual_shift_estimate_report(
+          read,
+          settings,
+          path_voltages=path_voltages,
+      )
+
+  settings['_shift_metadata'] = shift_metadata
+  settings['_automatic_shift_report'] = automatic_shift_report
+  settings['_curve_consistency_report'] = curve_consistency_report
+  settings['_curve_consistency_log'] = curve_consistency_log
+
+  for log_line in curve_consistency_log:
+      print(log_line)
+
   return list_tension_shift
+
+
+def get_global_display_shift(settings):
+  """Returns the configured global shift used only for nominal display values."""
+  if not isinstance(settings, dict):
+      return 0.0
+
+  if _is_truthy_setting(settings.get(PERSISTED_GLOBAL_SHIFT_FLAG_KEY), default=False):
+      return _get_float_setting(settings, PERSISTED_GLOBAL_SHIFT_VALUE_KEY, 0.0)
+
+  if not _is_truthy_setting(settings.get('apply_pre_process_global_shift'), default=False):
+      return 0.0
+
+  return _get_float_setting(settings, 'pre_process_shift_volt_data', 0.0)
+
+
+def apply_global_shift_to_output_display(list_tension, list_tension_shift, count_transfer, global_shift):
+  """
+  Applies the global preprocessing shift only to the displayed nominal values
+  of output curves, without modifying experimental points.
+  """
+  if global_shift == 0:
+      return list_tension, list_tension_shift
+
+  def _shift_output_tail(values):
+      if values is None:
+          return values
+
+      shifted_values = list(values)
+      for index in range(count_transfer, len(shifted_values)):
+          try:
+              shifted_values[index] = float(shifted_values[index]) + float(global_shift)
+          except (TypeError, ValueError):
+              continue
+      return shifted_values
+
+  return _shift_output_tail(list_tension), _shift_output_tail(list_tension_shift)
 
 
 # new curves calculation
@@ -110,6 +674,131 @@ def new_curves_calculation(path_voltages, voltages):
       filename = os.path.basename(tes)
       new_curves.append(filename)
     return new_curves
+
+
+def _split_selected_curve_tokens(raw_value):
+    """Normalizes the curve-selection setting into a flat list of tokens."""
+    if raw_value in ("", None, []):
+        return []
+
+    if isinstance(raw_value, str):
+        return [token.strip() for token in raw_value.split(",") if token.strip()]
+
+    if isinstance(raw_value, (list, tuple, set)):
+        normalized_tokens = []
+        for item in raw_value:
+            value = str(item).strip()
+            if value:
+                normalized_tokens.append(value)
+        return normalized_tokens
+
+    value = str(raw_value).strip()
+    return [value] if value else []
+
+
+def _is_integer_token(token):
+    candidate = str(token).strip()
+    if candidate.startswith(("+", "-")):
+        candidate = candidate[1:]
+    return candidate.isdigit() and candidate != ""
+
+
+def _resolve_selected_curve_names(settings, available_curves):
+    """Returns the canonical curve names selected by the user."""
+    selected_tokens = _split_selected_curve_tokens(settings.get('selected_curves'))
+    if selected_tokens:
+        return selected_tokens
+
+    legacy_tokens = _split_selected_curve_tokens(settings.get('select_files'))
+    if not legacy_tokens:
+        return []
+
+    print("Warning: `select_files` is deprecated. Use `selected_curves` with curve names.")
+
+    if not all(_is_integer_token(token) for token in legacy_tokens):
+        return legacy_tokens
+
+    raw_indices = [int(token) for token in legacy_tokens]
+    uses_zero_based = any(index == 0 for index in raw_indices)
+    normalized_indices = raw_indices if uses_zero_based else [index - 1 for index in raw_indices]
+    resolved_curves = []
+
+    for index in normalized_indices:
+        if index < 0 or index >= len(available_curves):
+            raise IndexError(
+                f"Legacy select_files index out of range: {index}. "
+                f"Valid range is 0 to {max(len(available_curves) - 1, 0)}."
+            )
+        resolved_curves.append(available_curves[index])
+
+    return resolved_curves
+
+
+def _filter_path_voltages_by_names(path_voltages, selected_curve_names):
+    """Filters already loaded curves in-memory to avoid re-reading the directory."""
+    if not selected_curve_names:
+        return path_voltages
+
+    alias_map = {}
+    for curve_info in path_voltages:
+        filename = os.path.basename(curve_info[0]).lower()
+        stem = os.path.splitext(filename)[0]
+        alias_map.setdefault(filename, curve_info)
+        alias_map.setdefault(stem, curve_info)
+
+    filtered_path_voltages = []
+    for selected_name in selected_curve_names:
+        normalized_name = str(selected_name).strip().lower()
+        curve_info = alias_map.get(normalized_name)
+        if curve_info is not None:
+            filtered_path_voltages.append(curve_info)
+
+    return filtered_path_voltages
+
+
+def normalize_transistor_type(value):
+    """Normalizes transistor type labels to `nFET` or `pFET`."""
+    normalized = str(value).strip().lower()
+    if normalized in {"nfet", "n", "n-type", "n_type", "ntft"}:
+        return "nFET"
+    if normalized in {"pfet", "p", "p-type", "p_type", "ptft"}:
+        return "pFET"
+    return "nFET" if normalized.startswith("n") else "pFET"
+
+
+def configure_read_data_instance(read, settings=None):
+    """Apply optional nFET curve-processing rules to a ReadData-like object."""
+    if read is not None and hasattr(read, "set_curve_processing_config"):
+        read.set_curve_processing_config(settings if isinstance(settings, dict) else None)
+    return read
+
+
+def uses_matlab_n_model(settings=None, tp_tst=None):
+    """Whether the dedicated n-type backend should be used."""
+    if tp_tst is not None:
+        return int(tp_tst) == 1
+    if isinstance(settings, dict):
+        transistor_type = normalize_transistor_type(settings.get("type_of_transistor", "nFET"))
+        return transistor_type == "nFET"
+    return False
+
+
+def get_parameter_keys(settings=None, tp_tst=None):
+    """Returns parameter names in the order expected by the selected backend."""
+    return MATLAB_N_PARAM_KEYS if uses_matlab_n_model(settings=settings, tp_tst=tp_tst) else LEGACY_PARAM_KEYS
+
+
+def resolve_model_class(model_cls, settings=None, tp_tst=None):
+    """Swaps the shared model for the n-type backend when requested."""
+    if model_cls is None or not uses_matlab_n_model(settings=settings, tp_tst=tp_tst):
+        return model_cls
+
+    if getattr(model_cls, "__name__", "") != "TFTModel" or getattr(model_cls, "__module__", "") != "modules_otft._model":
+        return model_cls
+
+    from modules_otft.model_tft_n import TFTModelN
+
+    return TFTModelN
 
 
 # filter files with the selected values
@@ -123,28 +812,18 @@ def filter_and_load_files(read, settings, path_voltages, list_tension_shift):
         print("Error: read must be an object.")
         return []
 
-    f_selection = []
-    list_tension_shift = get_shift_list(read, settings)
-    ld_voltages = get_load_voltages(settings)
+    ld_voltages = [curve[2] for curve in path_voltages]
     list_curves = new_curves_calculation(path_voltages, list_tension_shift)
-    
-    if settings['select_files'] == "":
-      return read.read_files_experimental(settings['path'], list_tension_shift), ld_voltages, list_tension_shift
-    try:
-        if isinstance(eval(settings['select_files']), int):
-            f_selection = [int(settings['select_files'])]
-        elif len(settings['select_files']) > 1:
-            f_selection = list(eval(settings['select_files']))
-        else:
-            print("No value available\n")
-            return None
-    except NameError:
-        print("No value available, please enter a valid value\n")
-        return None
+    selected_curve_names = _resolve_selected_curve_names(settings, list_curves)
+    settings['_selected_curve_names'] = selected_curve_names
+
+    if not selected_curve_names:
+      return path_voltages, ld_voltages, list_tension_shift
 
     new_files_filter, new_values_tension, new_list_tension = read.filter_files(
-                                                             f_selection, list_curves, list_tension_shift, ld_voltages)
-    path_voltages = read.read_files_experimental(settings['path'], new_values_tension, selected_files=new_files_filter)
+                                                             selected_curve_names, list_curves, list_tension_shift, ld_voltages)
+    path_voltages = _filter_path_voltages_by_names(path_voltages, new_files_filter)
+    settings['_selected_curve_names'] = new_files_filter
     return path_voltages, new_values_tension, new_list_tension
 
 
@@ -159,7 +838,7 @@ def get_transistor_type(settings):
         print("Error: 'type_of_transistor' key not found in settings.")
         return []
 
-    return 1 if settings['type_of_transistor'] == 'nFET' else -1
+    return 1 if normalize_transistor_type(settings['type_of_transistor']) == 'nFET' else -1
 
 
 def get_resistance(settings):
@@ -217,30 +896,67 @@ def load_coefficients(settings):
         print("Error: 'loaded_parameters' key not found in settings.")
         return []
     try:
-        return list(settings['loaded_parameters'].values())
+        loaded_parameters = settings['loaded_parameters']
+        param_keys = get_parameter_keys(settings=settings)
+        if isinstance(loaded_parameters, dict):
+            return [float(loaded_parameters.get(key, 1.0)) for key in param_keys]
+        return [float(value) for value in loaded_parameters]
     except SyntaxError:
         print("No parameters entered, please load them\n")
         return []
+
+
+def idleak_scalar_for_transfer_curve(load_idleak, mode_idleak, path_voltages, count_transfer, transfer_idx):
+    """Scalar idleak for one transfer curve (for single-curve TFTModel diagnostics)."""
+    if mode_idleak == 0:
+        return float(load_idleak)
+    if isinstance(load_idleak, dict):
+        seq = resolve_idleak_for_transfers(load_idleak, path_voltages, count_transfer)
+        return float(seq[int(transfer_idx)])
+    if isinstance(load_idleak, (list, tuple)):
+        return float(load_idleak[int(transfer_idx)])
+    return float(load_idleak)
 
 
 def load_idleak_parameters(settings):
-    """Loads idleak parameters."""
+    """Loads idleak parameters.
+
+    Returns (mode_idleak, value) where value is float (unique mode), list of floats,
+    or dict mapping curve ids to values (multi mode; resolve with path_voltages later).
+    Optional settings['mult_idleak'] truthy forces multi mode alongside idleak_mode.
+    """
     if not isinstance(settings, dict):
         print("Error: settings must be a dictionary.")
         return []
-    
+
     if 'idleak_mode' not in settings or 'loaded_idleak' not in settings:
         print("Error: 'idleak_mode' or loaded_idleak key not found in settings.")
         return []
-    
-    mode_idleak = 0 if settings['idleak_mode'] == 'unique idleak value' else 1
+
+    mult_flag = settings.get("mult_idleak")
+    force_multi = mult_flag in (True, 1, "1", "yes", "true", "True", "YES")
+    if force_multi:
+        mode_idleak = 1
+    else:
+        mode_idleak = 0 if settings['idleak_mode'] == 'unique idleak value' else 1
+
+    raw = settings['loaded_idleak']
     try:
         if mode_idleak == 0:
-            return mode_idleak, float(settings['loaded_idleak'])
-        else:
-            return mode_idleak, list(eval(settings['loaded_idleak']))
-    except SyntaxError:
-        print("No parameters entered, please load them\n")
+            return mode_idleak, float(raw)
+
+        if isinstance(raw, dict):
+            return mode_idleak, raw
+        if isinstance(raw, (list, tuple)):
+            return mode_idleak, [float(x) for x in raw]
+        if isinstance(raw, str):
+            ev = eval(raw)
+            if isinstance(ev, (list, tuple)):
+                return mode_idleak, [float(x) for x in ev]
+            return mode_idleak, [float(ev)]
+        return mode_idleak, [float(raw)]
+    except (SyntaxError, TypeError, ValueError) as err:
+        print("No parameters entered, please load them (%s)\n" % err)
         return mode_idleak, []
 
 
@@ -269,7 +985,16 @@ def get_bounds(settings):
     if 'lower_bounds' not in settings or 'upper_bounds' not in settings:
         print("Error: 'lower_bounds' or 'upper_bounds' key not found in settings.")
         return []
-    return list(settings['lower_bounds'].values()), list(settings['upper_bounds'].values())
+    parameter_keys = get_parameter_keys(settings=settings)
+    lower_bounds = settings['lower_bounds']
+    upper_bounds = settings['upper_bounds']
+
+    if isinstance(lower_bounds, dict) and isinstance(upper_bounds, dict):
+        lb = [float(lower_bounds.get(f"lb_{key}", 0.0)) for key in parameter_keys]
+        ub = [float(upper_bounds.get(f"ub_{key}", 0.0)) for key in parameter_keys]
+        return lb, ub
+
+    return list(lower_bounds.values()), list(upper_bounds.values())
 
 
 def get_tolerance_factor(settings):
@@ -301,13 +1026,25 @@ def configure_bounds(settings):
     return settings['lw_bounds'], settings['up_bounds']
 
 
+def _path_voltages_for_idleak_dict(path_voltages, read):
+    """Use explicit path_voltages, or the last list passed to read.load_data (same ReadData instance)."""
+    if path_voltages is not None:
+        return path_voltages
+    return getattr(read, "_last_path_voltages", None)
+
+
 def instance_model(read, TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv, load_idleak, width_t,
-                            count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current):
+                            count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current,
+                            path_voltages=None):
     """Creates an instance of the model with the provided data."""
-    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters, 
-                                    input_voltage, Vv, load_idleak, width_t, count_transfer, 
+    TFTModel = resolve_model_class(TFTModel, tp_tst=tp_tst)
+    if isinstance(load_idleak, dict):
+        path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
+    return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters,
+                                    input_voltage, Vv, load_idleak, width_t, count_transfer,
                                     tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
-                                    current_typic=current_typic, res=resistance, curr=current)
+                                    current_typic=current_typic, res=resistance, curr=current,
+                                    path_voltages=path_voltages)
 
 
 def load_experimental_data(read, count_transfer, Vv, Id, model, count_output):
@@ -317,41 +1054,52 @@ def load_experimental_data(read, count_transfer, Vv, Id, model, count_output):
     return in_model_data, in_exp_data, out_model_data, out_exp_data
 
 
-
 def create_model_opt(TFTModel, input_voltage, n_points, type_curve_plot, current_typic,
-                    experimental_data_scale_transfer, load_idleak, mode_idleak, count_transfer,
-                    type_data=0, type_transitor=-1, with_transistor=0.1, resistance=None, current=None):
+                     experimental_data_scale_transfer, load_idleak, mode_idleak, count_transfer,
+                     resistance, current, width_t=0.1, tp_tst=-1, path_voltages=None, read=None):
     """Creates an optimization model."""
-    model_id = TFTModel(input_voltage, n_points, type_curve_plot, current_typic=current_typic,
-                        scale_factor=experimental_data_scale_transfer, idleak=load_idleak,
-                        mult_idleak=mode_idleak,  curv_transfer=count_transfer,
-                        type_data=type_data, type_transitor=type_transitor,
-                        with_transistor=with_transistor,
-                        sr_resistance=resistance, curr_carry=current)
-    return model_id
+    TFTModel = resolve_model_class(TFTModel, tp_tst=tp_tst)
+    il = load_idleak
+    if mode_idleak == 1 and isinstance(load_idleak, dict):
+        path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
+        if path_voltages is None:
+            raise ValueError(
+                "path_voltages (or read=ReadData used in load_data) is required when load_idleak is a dict."
+            )
+        il = resolve_idleak_for_transfers(load_idleak, path_voltages, count_transfer)
+    return TFTModel(input_voltage, n_points, type_curve_plot, current_typic=current_typic,
+                    scale_factor=experimental_data_scale_transfer, idleak=il,
+                    mult_idleak=mode_idleak, curv_transfer=count_transfer,
+                    with_transistor=width_t, type_transitor=tp_tst,
+                    sr_resistance=resistance, curr_carry=current)
 
 
 def create_optimizer(settings, path_voltages, type_curve_plot):
     """Creates and configures the optimizer instance."""
     lw_bounds, up_bounds = get_bounds(settings)
-    
+    opt_method = str(settings['optimization_method']).strip().lower()
+    if opt_method == "genetic":
+        opt_method = "ga"
 
-    optimizer = ModelOptmization(current_typic=settings['current_typic'], scale_transfer=settings['experimental_data_scale_transfer'], 
-                                 scale_output=settings['experimental_data_scale_output'], path_voltages=path_voltages, 
-                                 type_read=settings['type_read_data_exp'],
-                                 type_curve=type_curve_plot, method=settings['optimization_method'], 
-                                 bounds=(lw_bounds, up_bounds))
+    optimizer = ModelOptmization(current_typic=settings['current_typic'],
+                               scale_transfer=settings['experimental_data_scale_transfer'],
+                               scale_output=settings['experimental_data_scale_output'],
+                               path_voltages=path_voltages,
+                               type_read=settings['type_read_data_exp'],
+                               type_curve=type_curve_plot,
+                               method=opt_method,
+                               bounds=(lw_bounds, up_bounds))
+    configure_read_data_instance(optimizer, settings)
     return optimizer
-
 
 def configure_optimizer(optimizer, settings):
     """Configures the optimizer parameters."""
     tlr_factor = get_tolerance_factor(settings)
+    
     optimizer.set_default_bounds(settings['default_bounds'])
     optimizer.set_ftol_param(tlr_factor)
 
-
-def optimize_model(optimizer, model_id, load_parameters, *path_voltages):
+def optimize_model(optimizer, model_id, load_parameters, *path_voltages, **kwargs):
     """Performs model optimization."""
     coeff_opt, coeff_error, text_verbose = optimizer.optimize_all(model_id, load_parameters, *path_voltages)
     return coeff_opt, coeff_error, text_verbose
@@ -383,15 +1131,19 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt,
     print('\n\n\n')
 
 
-def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt, 
-                           input_voltage, Vv, load_idleak, width_t, count_transfer, 
-                           tp_tst, experimental_data_scale_transfer, 
-                           current_typic, resistance, current):
+def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt,
+                           input_voltage, Vv, load_idleak, width_t, count_transfer,
+                           tp_tst, experimental_data_scale_transfer,
+                           current_typic, resistance, current, path_voltages=None):
     """Creates the model with the optimized coefficients."""
-    return read.create_models_datas(TFTModel, n_points, type_curve_plot, coeff_opt, 
-                                    input_voltage, Vv, load_idleak, width_t, count_transfer, 
+    TFTModel = resolve_model_class(TFTModel, tp_tst=tp_tst)
+    if isinstance(load_idleak, dict):
+        path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
+    return read.create_models_datas(TFTModel, n_points, type_curve_plot, coeff_opt,
+                                    input_voltage, Vv, load_idleak, width_t, count_transfer,
                                     tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
-                                    current_typic=current_typic, res=resistance, curr=current)
+                                    current_typic=current_typic, res=resistance, curr=current,
+                                    path_voltages=path_voltages)
     
 
 def get_model_data(read, count_transfer, count_output, Vv, Id, model_opt, model=None, compare=False):
@@ -409,64 +1161,80 @@ def get_model_data(read, count_transfer, count_output, Vv, Id, model_opt, model=
 
 def plot_curves(option, plot, list_tension, list_tension_shift, count_transfer, 
                 in_model_data, out_model_data, in_exp_data, out_exp_data, shift_list, 
-                select_files,current_typic, type_curve_plot, compare=False):
+                selected_curves,current_typic, type_curve_plot, compare=False):
     """Plots the curves according to the selected option."""
     clear_output(wait=True)  # clear displayed content
+
+    shift_plot_data = shift_list
+    display_tension = list_tension
+    display_tension_shift = list_tension_shift
+    if isinstance(globals().get('settings'), dict):
+        current_settings = globals()['settings']
+        shift_plot_data = current_settings.get('_shift_metadata', shift_list)
+        selected_curves = current_settings.get('_selected_curve_names', selected_curves)
+        global_display_shift = get_global_display_shift(current_settings)
+        display_tension, display_tension_shift = apply_global_shift_to_output_display(
+            list_tension,
+            list_tension_shift,
+            count_transfer,
+            global_display_shift,
+        )
+
     if option == 'Show transfer curve opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, selected_curves, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot)
     
     elif option == 'Show output curve opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, selected_curves, *out_exp_data, 
                           sample_unit=current_typic, plot_type='linear')
     
     elif option == 'Show both curves opt':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, selected_curves, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, selected_curves, *out_exp_data, 
                           sample_unit=current_typic)
     
     elif option == 'Show transfer curve comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, selected_curves, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot, 
                           compare=True)
     
     elif option == 'Show output curve comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, selected_curves, *out_exp_data, 
                           sample_unit=current_typic, compare=True)
     
     elif option == 'Show both curves comp' and compare:
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, selected_curves, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot, 
                           compare=True)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, selected_curves, *out_exp_data, 
                           sample_unit=current_typic, compare=True)
     
     elif option == 'Show transfer curve':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, selected_curves, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot)
     elif option == 'Show output curve':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, selected_curves, *out_exp_data, 
                           sample_unit=current_typic, plot_type='linear')
     elif option == 'Show both curves':
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 0, count_transfer, 
-                          in_model_data, shift_list, select_files, *in_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 
+                          in_model_data, shift_plot_data, selected_curves, *in_exp_data, 
                           sample_unit=current_typic, plot_type=type_curve_plot)
         print()
-        plot.plot_vgs_vds(list_tension, list_tension_shift, 1, count_transfer, 
-                          out_model_data, shift_list, select_files, *out_exp_data, 
+        plot.plot_vgs_vds(display_tension, display_tension_shift, 1, count_transfer, 
+                          out_model_data, shift_plot_data, selected_curves, *out_exp_data, 
                           sample_unit=current_typic, plot_type='linear')
     else:
         print("No option choice\n")
@@ -517,6 +1285,7 @@ def vtho_calculation(in_model_data, signal_of_data=1):
     fig.show()
 
        
+#aposentado   
 def absolute_difference_calculation(Id, model):
     absolute_difference = []
     Id_vector = []
@@ -526,6 +1295,8 @@ def absolute_difference_calculation(Id, model):
             absolute_difference.append(abs_diff)
             Id_vector.append(k)
     return absolute_difference, Id_vector
+
+
 
 # compute the relative error
 def relative_error(model_curve, exp_curve):
@@ -561,9 +1332,9 @@ def error(in_exp_data, in_model_data, out_exp_data, out_model_data):
     transfer_rel_dist, transfer_abs_dist = compute_error_per_data(in_model_data, in_exp_data)
     print('**'*73)
     print()
-    print('|' + f"TRANSFER ABS ERROR CURVES: {transfer_abs_dist:.4f}")
+    print('|' + f"TRANSFER ABSOLUT ERROR CURVES: {transfer_abs_dist:.4f}")
     print()
-    print('|' + f"TRANSFER RELATIVE ERROR CURVES: {transfer_abs_dist:.4f}")
+    print('|' + f"TRANSFER RELATIVE ERROR CURVES: {transfer_rel_dist:.4f}")
     print()
     print('**'*73)
     
@@ -571,7 +1342,7 @@ def error(in_exp_data, in_model_data, out_exp_data, out_model_data):
     output_rel_dist, output_abs_dist = compute_error_per_data(out_model_data, out_exp_data)
     print('**'*73)
     print()
-    print('|' + f"OUTPUT ABS ERROR CURVES: {output_abs_dist:.4f}")
+    print('|' + f"OUTPUT ABSOLUT ERROR CURVES: {output_abs_dist:.4f}")
     print()
     print('|' + f"OUTPUT RELATIVE ERROR CURVES: {output_rel_dist:.4f}")
     print()
@@ -587,4 +1358,3 @@ def error(in_exp_data, in_model_data, out_exp_data, out_model_data):
     print('|' + f"RELATIVE ERROR CURVES: {absolut_rel_dis:.4f}")
     print()
     print('**'*73)
-
