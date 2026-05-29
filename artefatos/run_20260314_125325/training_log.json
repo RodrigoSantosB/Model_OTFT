@@ -1,0 +1,21 @@
+{
+    "parameters": {
+        "total_trainable_parameters": 29,
+        "hidden_layers": [
+            4
+        ],
+        "activation": "relu",
+        "learning_rate_init": 0.009672445050230337,
+        "batch_size": 16,
+        "max_iter": 5000,
+        "patience": 150,
+        "epochs_trained": 281
+    },
+    "final_metrics": {
+        "mse_scaled": 0.007862546481192112,
+        "mae_scaled": 0.05605344846844673,
+        "r2_scaled": 0.9922060370445251,
+        "mse_real": 0.11331029236316681,
+        "mae_real": 0.2127920389175415
+    }
+}

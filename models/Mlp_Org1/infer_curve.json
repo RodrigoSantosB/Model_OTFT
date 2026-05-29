@@ -1,0 +1,17 @@
+[
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_from_settings/Org1/tipo_p/transfer/transfer-neg34V_synth_007.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_from_settings/Org1/tipo_p/transfer/transfer-neg34V_synth_007.csv",
+    "fixed_voltage_simulated": -34,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  }
+]

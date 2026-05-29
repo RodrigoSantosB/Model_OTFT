@@ -1,0 +1,62 @@
+[
+  {
+    "npz_path": "synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg4V_synth_000.npz",
+    "csv_path": "synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg4V_synth_000.csv",
+    "fixed_voltage_simulated": -4.0,
+    "params": {
+      "VTHO": 5.53,
+      "DELTA": 0.0029,
+      "N": 5.14,
+      "L": 2.4,
+      "LAMBDA": 586.0,
+      "VGCRIT": 14.7,
+      "JTH": 0.4,
+      "RS": 0.313
+    }
+  },
+  {
+    "npz_path": "synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg16V_synth_006.npz",
+    "csv_path": "synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg16V_synth_006.csv",
+    "fixed_voltage_simulated": -16.0,
+    "params": {
+      "VTHO": 5.53,
+      "DELTA": 0.0029,
+      "N": 5.14,
+      "L": 2.4,
+      "LAMBDA": 586.0,
+      "VGCRIT": 14.7,
+      "JTH": 0.4,
+      "RS": 0.313
+    }
+  },
+  {
+    "npz_path": "synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg36V_synth_016.npz",
+    "csv_path": "synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg36V_synth_016.csv",
+    "fixed_voltage_simulated": -36.0,
+    "params": {
+      "VTHO": 5.53,
+      "DELTA": 0.0029,
+      "N": 5.14,
+      "L": 2.4,
+      "LAMBDA": 586.0,
+      "VGCRIT": 14.7,
+      "JTH": 0.4,
+      "RS": 0.313
+    }
+  },
+    {
+    "npz_path": "synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg64V_synth_030.npz",
+    "csv_path": "synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg64V_synth_030.csv",
+    "fixed_voltage_simulated": -64.0,
+    "params": {
+      "VTHO": 5.53,
+      "DELTA": 0.0029,
+      "N": 5.14,
+      "L": 2.4,
+      "LAMBDA": 586.0,
+      "VGCRIT": 14.7,
+      "JTH": 0.4,
+      "RS": 0.313
+    }
+  }
+]

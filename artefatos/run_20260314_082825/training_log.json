@@ -1,0 +1,21 @@
+{
+    "parameters": {
+        "total_trainable_parameters": 8,
+        "hidden_layers": [
+            1
+        ],
+        "activation": "tanh",
+        "learning_rate_init": 0.0018595821359034916,
+        "batch_size": 64,
+        "max_iter": 5000,
+        "patience": 150,
+        "epochs_trained": 645
+    },
+    "final_metrics": {
+        "mse_scaled": 0.02045014128088951,
+        "mae_scaled": 0.10712744295597076,
+        "r2_scaled": 0.9797282218933105,
+        "mse_real": 0.29471513628959656,
+        "mae_real": 0.4066809117794037
+    }
+}
