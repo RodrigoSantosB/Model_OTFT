@@ -1,5 +1,7 @@
 
 # datas
+synthetic_from_settings/
+synthetic_inference_runs/
 
 # cache files
 __pycache__

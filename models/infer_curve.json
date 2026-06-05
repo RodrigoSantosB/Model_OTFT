@@ -1,8 +1,8 @@
 [
   {
-    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg10V_synth_003.npz",
-    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_from_settings/Org3/tipo_p/transfer/transfer-neg10V_synth_003.csv",
-    "fixed_voltage_simulated": -10.0,
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg44V_synth_001.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg44V_synth_001.csv",
+    "fixed_voltage_simulated": -44.0,
     "params": {
       "VTHO": 8.44,
       "DELTA": 0.0032,

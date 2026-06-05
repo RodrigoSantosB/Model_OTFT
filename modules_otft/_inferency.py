@@ -99,8 +99,9 @@ def load_data_for_inference(csv_path: str) -> Tuple[np.ndarray, np.ndarray]:
         
         # Carregar dados do CSV
         df_exp = pd.read_csv(csv_path)
-        V_data = df_exp.iloc[:, 0].to_numpy()  # Coluna de V
-        I_data = df_exp.iloc[:, 1].to_numpy()  # Coluna de I
+        V_data = df_exp.iloc[:, 0].to_numpy()   # VGS ou V (sempre coluna 0)
+        I_data = df_exp.iloc[:, -1].to_numpy()  # ID ou I (sempre última coluna)
+        break  # Usar apenas o primeiro item do JSON
     return V_data, I_data, v_fixed, is_transfer
 
 

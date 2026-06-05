@@ -33,7 +33,7 @@
             "RS": 1
         },
         "idleak_mode": "more than one value idleak",
-        "loaded_idleak": "4e-10,  3e-9"
+        "loaded_idleak": "4e-10"
     },
     {
         "image_size_width": null,

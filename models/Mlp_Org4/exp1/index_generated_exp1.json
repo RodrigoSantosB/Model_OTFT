@@ -1,0 +1,77 @@
+[
+  {
+    "npz_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg42V_synth_000.npz",
+    "csv_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg42V_synth_000.csv",
+    "fixed_voltage_simulated": -42.0,
+    "params": {
+      "VTHO": 10.0,
+      "DELTA": 0.0,
+      "N": 50.0,
+      "L": 2.73,
+      "LAMBDA": 4790.0,
+      "VGCRIT": 36.2,
+      "JTH": 9.69,
+      "RS": 4.18
+    }
+  },
+  {
+    "npz_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg52V_synth_005.npz",
+    "csv_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg52V_synth_005.csv",
+    "fixed_voltage_simulated": -52.0,
+    "params": {
+      "VTHO": 10.0,
+      "DELTA": 0.0,
+      "N": 50.0,
+      "L": 2.73,
+      "LAMBDA": 4790.0,
+      "VGCRIT": 36.2,
+      "JTH": 9.69,
+      "RS": 4.18
+    }
+  },
+  {
+    "npz_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg60V_synth_009.npz",
+    "csv_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg60V_synth_009.csv",
+    "fixed_voltage_simulated": -60.0,
+    "params": {
+      "VTHO": 10.0,
+      "DELTA": 0.0,
+      "N": 50.0,
+      "L": 2.73,
+      "LAMBDA": 4790.0,
+      "VGCRIT": 36.2,
+      "JTH": 9.69,
+      "RS": 4.18
+    }
+  },
+  {
+    "npz_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg66V_synth_012.npz",
+    "csv_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg66V_synth_012.csv",
+    "fixed_voltage_simulated": -66.0,
+    "params": {
+      "VTHO": 10.0,
+      "DELTA": 0.0,
+      "N": 50.0,
+      "L": 2.73,
+      "LAMBDA": 4790.0,
+      "VGCRIT": 36.2,
+      "JTH": 9.69,
+      "RS": 4.18
+    }
+  },
+  {
+    "npz_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg70V_synth_014.npz",
+    "csv_path": "synthetic_from_settings/Org4/tipo_p/transfer/transfer-neg70V_synth_014.csv",
+    "fixed_voltage_simulated": -70.0,
+    "params": {
+      "VTHO": 10.0,
+      "DELTA": 0.0,
+      "N": 50.0,
+      "L": 2.73,
+      "LAMBDA": 4790.0,
+      "VGCRIT": 36.2,
+      "JTH": 9.69,
+      "RS": 4.18
+    }
+  }
+]
