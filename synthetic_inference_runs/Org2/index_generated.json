@@ -1,0 +1,377 @@
+[
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg22V_synth_000.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg22V_synth_000.csv",
+    "fixed_voltage_simulated": -22.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg24V_synth_001.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg24V_synth_001.csv",
+    "fixed_voltage_simulated": -24.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg26V_synth_002.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg26V_synth_002.csv",
+    "fixed_voltage_simulated": -26.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg28V_synth_003.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg28V_synth_003.csv",
+    "fixed_voltage_simulated": -28.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg30V_synth_004.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg30V_synth_004.csv",
+    "fixed_voltage_simulated": -30.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg32V_synth_000.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg32V_synth_000.csv",
+    "fixed_voltage_simulated": -32.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg34V_synth_001.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg34V_synth_001.csv",
+    "fixed_voltage_simulated": -34.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg36V_synth_002.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg36V_synth_002.csv",
+    "fixed_voltage_simulated": -36.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg38V_synth_003.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg38V_synth_003.csv",
+    "fixed_voltage_simulated": -38.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg40V_synth_004.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg40V_synth_004.csv",
+    "fixed_voltage_simulated": -40.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg42V_synth_000.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg42V_synth_000.csv",
+    "fixed_voltage_simulated": -42.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg44V_synth_001.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg44V_synth_001.csv",
+    "fixed_voltage_simulated": -44.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg46V_synth_002.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg46V_synth_002.csv",
+    "fixed_voltage_simulated": -46.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg48V_synth_003.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg48V_synth_003.csv",
+    "fixed_voltage_simulated": -48.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg50V_synth_004.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg50V_synth_004.csv",
+    "fixed_voltage_simulated": -50.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg42V_synth_000.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg42V_synth_000.csv",
+    "fixed_voltage_simulated": -42.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg44V_synth_001.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg44V_synth_001.csv",
+    "fixed_voltage_simulated": -44.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg46V_synth_002.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg46V_synth_002.csv",
+    "fixed_voltage_simulated": -46.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg48V_synth_003.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg48V_synth_003.csv",
+    "fixed_voltage_simulated": -48.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg50V_synth_004.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/output/output-neg50V_synth_004.csv",
+    "fixed_voltage_simulated": -50.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg7V_synth_000.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg7V_synth_000.csv",
+    "fixed_voltage_simulated": -7.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg9V_synth_001.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg9V_synth_001.csv",
+    "fixed_voltage_simulated": -9.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg11V_synth_002.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg11V_synth_002.csv",
+    "fixed_voltage_simulated": -11.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg13V_synth_003.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg13V_synth_003.csv",
+    "fixed_voltage_simulated": -13.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg15V_synth_004.npz",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/synthetic_inference_runs/Org2/Org2/tipo_p/transfer/transfer-neg15V_synth_004.csv",
+    "fixed_voltage_simulated": -15.0,
+    "params": {
+      "VTHO": 8.44,
+      "DELTA": 0.0032,
+      "N": 57.4,
+      "L": 2.14,
+      "LAMBDA": 3010.0,
+      "VGCRIT": 15.8,
+      "JTH": 5.68,
+      "RS": 1.0
+    }
+  }
+]
