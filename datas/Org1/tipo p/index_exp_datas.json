@@ -1,0 +1,32 @@
+[
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/Org1/tipo p/org1_2VDS.csv",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/Org1/tipo p/org1_2VDS.csv",
+    "fixed_voltage_simulated": -2.0,
+    "params": {
+      "VTHO": 10.0,
+      "DELTA": 0.0,
+      "N": 50.0,
+      "L": 2.73,
+      "LAMBDA": 4790.0,
+      "VGCRIT": 36.2,
+      "JTH": 9.69,
+      "RS": 4.18
+    }
+  },
+  {
+    "npz_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/Org1/tipo p/org1_50VDS.csv",
+    "csv_path": "/home/rsb6/Desktop/TCC/TCC implementation/Model_OTFT/datas/Org1/tipo p/org1_50VDS.csv",
+    "fixed_voltage_simulated": -50.0,
+    "params": {
+      "VTHO": 10.0,
+      "DELTA": 0.0,
+      "N": 50.0,
+      "L": 2.73,
+      "LAMBDA": 4790.0,
+      "VGCRIT": 36.2,
+      "JTH": 9.69,
+      "RS": 4.18
+    }
+  }
+] 

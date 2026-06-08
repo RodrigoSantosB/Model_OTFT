@@ -105,6 +105,42 @@ class MLPModelTrain():
             random_state=self.random_state
         )
     
+    def _load_csv_file(self, csv_path, item):
+        """Carrega um arquivo CSV e retorna arrays compatíveis com o pipeline de treinamento.
+
+        Suporta dois formatos:
+        - Formato A (vírgula, 3 colunas VGS/VDS/ID): retorna (V_g, V_d, I, None)
+        - Formato B (ponto-e-vírgula, 2 colunas, decimal europeu): retorna (V, None, I, is_transfer)
+        """
+        with open(csv_path, 'r') as f:
+            first_line = f.readline()
+
+        if ';' in first_line:
+            # Formato B: duas colunas, separador ponto-e-vírgula, decimal europeu
+            rows = []
+            with open(csv_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split(';')
+                    v = float(parts[0].replace(',', '.'))
+                    i = float(parts[1].replace(',', '.'))
+                    rows.append((v, i))
+            arr = np.array(rows, dtype=np.float32)
+            V, I = arr[:, 0], arr[:, 1]
+            is_transfer = item.get("is_transfer")
+            if is_transfer is None:
+                is_transfer = 'transfer' in os.path.basename(csv_path).lower()
+            return V, None, I, is_transfer
+        else:
+            # Formato A: três colunas VGS, VDS, ID com duas linhas de cabeçalho
+            df = pd.read_csv(csv_path, skiprows=2, header=None, names=['VGS', 'VDS', 'ID'])
+            V_g = df['VGS'].values.astype(np.float32)
+            V_d = df['VDS'].values.astype(np.float32)
+            I = df['ID'].values.astype(np.float32)
+            return V_g, V_d, I, None
+
     def load_and_prepare_data(self):
         print(f"Carregando índice de dados em: {self.index_path}")
         if not os.path.exists(self.index_path):
@@ -119,27 +155,61 @@ class MLPModelTrain():
 
         for item in index_data:
             npz_path = item.get("npz_path")
-            
-            if not npz_path or not os.path.exists(npz_path):
-                arquivos_com_erro += 1
-                continue
-                
-            try:
-                data = np.load(npz_path, allow_pickle=True)
-                V_model = data["V"].ravel(); I_model = data["I"].ravel()
-                V_fixed = item["fixed_voltage_simulated"] 
-                is_transfer = data['meta'].tolist()['is_transfer']
-            except Exception:
+            csv_path = item.get("csv_path")
+
+            loaded = False
+            V_model = I_model = V_fixed = is_transfer = None
+
+            # Tenta NPZ primeiro
+            if npz_path and os.path.exists(npz_path):
+                try:
+                    data = np.load(npz_path, allow_pickle=True)
+                    V_model = data["V"].ravel()
+                    I_model = data["I"].ravel()
+                    V_fixed = item["fixed_voltage_simulated"]
+                    is_transfer = data['meta'].tolist()['is_transfer']
+                    loaded = True
+                except Exception:
+                    pass
+
+            # Fallback para CSV
+            if not loaded and csv_path and os.path.exists(csv_path):
+                try:
+                    result = self._load_csv_file(csv_path, item)
+                    if result[1] is None and result[3] is not None:
+                        # Formato B: (V, None, I, is_transfer)
+                        V_model, _, I_model, is_transfer = result
+                        V_fixed = item.get("fixed_voltage_simulated", 0.0)
+                        loaded = True
+                    elif result[1] is not None:
+                        # Formato A: (V_g, V_d, I, None) — V_G e V_D já separados
+                        V_g_arr, V_d_arr, I_arr, _ = result
+                        for V_G, V_D, I_exp in zip(V_g_arr, V_d_arr, I_arr):
+                            X_vec = [V_G, V_D, V_G**2, V_D**2, V_G * V_D]
+                            Y_label = np.log(max(np.abs(I_exp), self.scale_factor_min))
+                            X_features_ponto.append(X_vec)
+                            Y_labels_ponto.append(Y_label)
+                        loaded = True
+                        continue
+                    else:
+                        # Formato A sem V_d (só 2 valores retornados como None) — não deveria ocorrer
+                        pass
+                except Exception:
+                    pass
+
+            if not loaded:
                 arquivos_com_erro += 1
                 continue
 
             for V_exp, I_exp in zip(V_model, I_model):
-                if is_transfer: V_G = V_exp; V_D = V_fixed
-                else: V_G = V_fixed; V_D = V_exp
-                
+                if is_transfer:
+                    V_G = V_exp; V_D = V_fixed
+                else:
+                    V_G = V_fixed; V_D = V_exp
+
                 X_vec = [V_G, V_D, V_G**2, V_D**2, V_G * V_D]
-                Y_label = np.log(max(np.abs(I_exp), self.scale_factor_min)) 
-                
+                Y_label = np.log(max(np.abs(I_exp), self.scale_factor_min))
+
                 X_features_ponto.append(X_vec)
                 Y_labels_ponto.append(Y_label)
 

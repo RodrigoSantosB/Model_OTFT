@@ -110,19 +110,66 @@ import plotly.graph_objects as go
 from typing import Optional, Tuple, Callable
 
 def plot_curve_comparison(
-    V_data: np.ndarray, 
-    I_real: np.ndarray,
-    V_fixed: float,
-    is_transfer: bool,
-    # !!! ALTERAÇÃO 1: A tupla agora espera 4 itens, incluindo o scaler_y
-    mlp_model: Optional[Tuple[Callable, object, object, object]] = None, 
-    yscale: str = "log", 
-    title: Optional[str] = None
+    V_data: Optional[np.ndarray] = None,
+    I_real: Optional[np.ndarray] = None,
+    V_fixed: Optional[float] = None,
+    is_transfer: Optional[bool] = None,
+    mlp_model: Optional[Tuple[Callable, object, object, object]] = None,
+    yscale: str = "log",
+    title: Optional[str] = None,
+    csv_path: Optional[str] = None,
+    npz_path: Optional[str] = None,
 ):
     """
     Plota a curva real e a previsão da MLP (com suporte a Y escalado).
     mlp_model deve ser: (prepare_X_func, model, scaler_X, scaler_y)
+    Aceita arrays pré-carregados (V_data, I_real) ou caminhos diretos (csv_path / npz_path).
     """
+    # --- Load from NPZ ---
+    if npz_path is not None:
+        _npz = np.load(npz_path, allow_pickle=True)
+        V_data = _npz["V"].ravel()
+        I_real = _npz["I"].ravel()
+        if is_transfer is None:
+            is_transfer = _npz['meta'].tolist()['is_transfer']
+
+    # --- Load from CSV ---
+    if csv_path is not None:
+        _header = pd.read_csv(csv_path, nrows=0)
+        _cols = [c.strip().upper() for c in _header.columns]
+        if {'VDS', 'VGS', 'ID'}.issubset(set(_cols)):
+            # Formato estruturado (3 colunas + linha de unidades)
+            df = pd.read_csv(csv_path, skiprows=[1])
+            df.columns = _cols
+            df = df.apply(pd.to_numeric, errors='coerce').dropna()
+            if _cols[0] == 'VDS':          # VDS fixo → curva de transferência (VGS varre)
+                V_data = df['VGS'].to_numpy(dtype=np.float32)
+                if is_transfer is None:
+                    is_transfer = True
+                if V_fixed is None:
+                    V_fixed = float(df['VDS'].iloc[0])
+            else:                           # VGS fixo → curva de saída (VDS varre)
+                V_data = df['VDS'].to_numpy(dtype=np.float32)
+                if is_transfer is None:
+                    is_transfer = False
+                if V_fixed is None:
+                    V_fixed = float(df['VGS'].iloc[0])
+            I_real = df['ID'].to_numpy(dtype=np.float32)
+        else:
+            # Formato genérico: col 0 = V, última col = I
+            df = pd.read_csv(csv_path)
+            V_data = df.iloc[:, 0].to_numpy()
+            I_real = df.iloc[:, -1].to_numpy()
+            if is_transfer is None:
+                is_transfer = 'transfer' in os.path.basename(csv_path).lower()
+
+    # --- Validação ---
+    if V_data is None or I_real is None:
+        raise ValueError("Forneça 'csv_path', 'npz_path', ou os arrays 'V_data' e 'I_real'.")
+    if is_transfer is None:
+        raise ValueError("Não foi possível determinar 'is_transfer'. Forneça explicitamente.")
+    if V_fixed is None:
+        raise ValueError("Forneça 'V_fixed' (não foi possível extraí-lo automaticamente).")
 
     fig = go.Figure()
     
@@ -131,10 +178,36 @@ def plot_curve_comparison(
     is_log_scale = y_scale in ("log", "logarithmic")
     y_axis_title = "Corrente Absoluta (A)" if is_log_scale else "Corrente (A)"
     
+    # ==========================================
+    # TRATAMENTO DE DADOS DO CSV (Remove Cabeçalhos e converte para Float)
+    # ==========================================
+    v_clean = []
+    i_clean = []
+    
+    # Itera sobre os dois arrays simultaneamente
+    for v, i in zip(V_data, I_real):
+        try:
+            # Tenta converter trocando vírgula por ponto (caso seja string)
+            v_val = float(str(v).replace(',', '.'))
+            i_val = float(str(i).replace(',', '.'))
+            
+            # Se der certo, adiciona na lista limpa
+            v_clean.append(v_val)
+            i_clean.append(i_val)
+        except ValueError:
+            # Se falhar (ex: encontrou a letra 'V' ou 'I'), simplesmente ignora a linha
+            continue
+            
+    # Substitui as variáveis originais pelos arrays limpos e numéricos
+    V_data = np.array(v_clean)
+    I_real = np.array(i_clean)
+    # ==========================================
+
     # -------------------------------
     # PREPARAÇÃO DA CURVA REAL
     # -------------------------------
     I_plot_real = np.abs(I_real)
+    
     # Evita log(0) ou valores negativos no plot log
     if is_log_scale:
         mask = I_plot_real > 0
@@ -154,7 +227,6 @@ def plot_curve_comparison(
     # PREVISÃO DA MLP
     # -------------------------------
     if mlp_model is not None:
-        # !!! ALTERAÇÃO 2: Desempacotar o scaler_y
         prepare_X_func, model, scaler_X, scaler_y = mlp_model
         
         # 1. Preparar features X
@@ -189,9 +261,7 @@ def plot_curve_comparison(
         ))
         
         # Calcula MAE na escala logarítmica (Unidade Real: ln(A))
-        # Nota: I_real deve ser convertido para log para comparar com Y_pred_ln
         I_real_ln_safe = np.log(I_plot_real) # Usando a versão tratada > 0
-        
         mae = np.mean(np.abs(I_real_ln_safe - Y_pred_ln))
         
         if title is None:
