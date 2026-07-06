@@ -1,6 +1,9 @@
 from ._imports import *
 from ._read_data import ReadData
 
+LEGACY_PARAM_KEYS = ["VTHO", "DELTA", "N", "L", "LAMBDA", "VGCRIT", "JTH", "RS"]
+
+
 class ModelOptmization(ReadData):
     """
     Class for optimizing models based on experimental data.
@@ -54,6 +57,13 @@ class ModelOptmization(ReadData):
         self.hysteresis_weight_mode = "none"
         self.hysteresis_weight_factor = 1.0
         self.hysteresis_weight_windows = []
+        self.transfer_curve_weight = 1.0
+        self.loss_mode = "fixed"
+        self.adaptive_iterations = 5
+        self.adaptive_beta = 1.0
+        self.point_loss = "linear"
+        self.f_scale = 0.1
+        self.fixed_parameters = []
         self.ga_population = 60
         self.ga_generations = 150
         self.ga_mutation_rate = 0.1
@@ -136,6 +146,24 @@ class ModelOptmization(ReadData):
             self.hysteresis_weight_factor = 1.0
 
         self.hysteresis_weight_windows = self._parse_windows(config.get("hysteresis_weight_windows", []))
+        transfer_weight = self._safe_float(
+            config.get("transfer_curve_weight", self.transfer_curve_weight), self.transfer_curve_weight
+        )
+        self.transfer_curve_weight = transfer_weight if transfer_weight > 0 else 1.0
+
+        loss_mode = str(config.get("loss_mode", self.loss_mode)).strip().lower()
+        self.loss_mode = loss_mode if loss_mode in {"fixed", "adaptive_curve"} else "fixed"
+        self.adaptive_iterations = max(1, self._safe_int(
+            config.get("adaptive_iterations", self.adaptive_iterations), self.adaptive_iterations
+        ))
+        self.adaptive_beta = max(0.01, self._safe_float(
+            config.get("adaptive_beta", self.adaptive_beta), self.adaptive_beta
+        ))
+        point_loss = str(config.get("point_loss", self.point_loss)).strip().lower()
+        self.point_loss = point_loss if point_loss in {"linear", "soft_l1", "huber", "cauchy", "arctan"} else "linear"
+        self.f_scale = max(1e-12, self._safe_float(config.get("f_scale", self.f_scale), self.f_scale))
+        self.fixed_parameters = self._parse_fixed_parameter_names(config.get("fixed_parameters", []))
+
         self.ga_population = max(4, self._safe_int(config.get("ga_population", self.ga_population), self.ga_population))
         self.ga_generations = max(1, self._safe_int(config.get("ga_generations", self.ga_generations), self.ga_generations))
         self.ga_mutation_rate = min(1.0, max(0.0, self._safe_float(config.get("ga_mutation_rate", self.ga_mutation_rate), self.ga_mutation_rate)))
@@ -225,7 +253,170 @@ class ModelOptmization(ReadData):
         ub = np.maximum(ub, lb + 1e-15)
         return lb, ub
 
-    def _build_hysteresis_weights(self, vv_flat):
+    def _param_names(self, count):
+        if count <= len(LEGACY_PARAM_KEYS):
+            return LEGACY_PARAM_KEYS[:count]
+        extra = [f"p{idx}" for idx in range(len(LEGACY_PARAM_KEYS), count)]
+        return LEGACY_PARAM_KEYS + extra
+
+    def _parse_fixed_parameter_names(self, raw_fixed, n_params=None):
+        if raw_fixed in (None, "", []):
+            return []
+
+        entries = raw_fixed
+        if isinstance(raw_fixed, str):
+            entries = [part.strip() for part in raw_fixed.split(",") if part.strip()]
+
+        if not isinstance(entries, (list, tuple)):
+            return []
+
+        if n_params is None:
+            return [str(entry).strip().upper() for entry in entries if str(entry).strip()]
+
+        names = self._param_names(n_params)
+        name_to_idx = {name.upper(): idx for idx, name in enumerate(names)}
+        fixed_indices = []
+        for entry in entries:
+            key = str(entry).strip().upper()
+            if key in name_to_idx:
+                fixed_indices.append(name_to_idx[key])
+        return sorted(set(fixed_indices))
+
+    def _resolve_fixed_indices(self, coeff):
+        if not self.fixed_parameters:
+            return []
+        if all(isinstance(item, int) for item in self.fixed_parameters):
+            return sorted(set(int(i) for i in self.fixed_parameters if 0 <= int(i) < len(coeff)))
+        return self._parse_fixed_parameter_names(self.fixed_parameters, len(coeff))
+
+    def _reduce_coeff_space(self, coeff, lb, ub, fixed_indices):
+        if not fixed_indices:
+            return np.asarray(coeff, dtype=float), np.asarray(lb, dtype=float), np.asarray(ub, dtype=float), []
+
+        fixed_set = set(fixed_indices)
+        free_indices = [idx for idx in range(len(coeff)) if idx not in fixed_set]
+        coeff_arr = np.asarray(coeff, dtype=float)
+        lb_arr = np.asarray(lb, dtype=float)
+        ub_arr = np.asarray(ub, dtype=float)
+        return coeff_arr[free_indices], lb_arr[free_indices], ub_arr[free_indices], free_indices
+
+    def _merge_free_coeffs(self, free_coeff, template_coeff, free_indices):
+        result = np.asarray(template_coeff, dtype=float).copy()
+        free_coeff = np.asarray(free_coeff, dtype=float)
+        for idx, param_idx in enumerate(free_indices):
+            result[param_idx] = free_coeff[idx]
+        return result
+
+    def _wrap_model_fixed_params(self, model_fn, template_coeff, fixed_indices, free_indices):
+        if not fixed_indices:
+            return model_fn
+
+        template_coeff = np.asarray(template_coeff, dtype=float)
+
+        def wrapped(vv_flat, *free_coeff):
+            full_coeff = self._merge_free_coeffs(free_coeff, template_coeff, free_indices)
+            return model_fn(vv_flat, *full_coeff)
+
+        return wrapped
+
+    def _expand_fit_result(self, free_coeff, free_errors, template_coeff, fixed_indices, free_indices):
+        full_coeff = self._merge_free_coeffs(free_coeff, template_coeff, free_indices)
+        full_errors = np.full(len(template_coeff), np.nan, dtype=float)
+        if free_errors is not None:
+            free_errors = np.asarray(free_errors, dtype=float)
+            if free_errors.size == len(free_indices):
+                for idx, param_idx in enumerate(free_indices):
+                    full_errors[param_idx] = free_errors[idx]
+        return full_coeff, full_errors
+
+    def _compute_per_curve_rmse(self, pred_matrix, id_matrix):
+        pred_matrix = np.asarray(pred_matrix, dtype=float)
+        id_matrix = np.asarray(id_matrix, dtype=float)
+        if pred_matrix.ndim != 2 or id_matrix.ndim != 2:
+            return np.array([], dtype=float)
+
+        n_curves = pred_matrix.shape[1]
+        rmses = []
+        for curve_index in range(n_curves):
+            residual = pred_matrix[:, curve_index] - id_matrix[:, curve_index]
+            rmses.append(float(np.sqrt(np.mean(np.square(residual)))))
+        return np.asarray(rmses, dtype=float)
+
+    def _build_weights_with_curve_multipliers(self, id_matrix, vv_flat, count_transfer, curve_multipliers):
+        id_matrix = np.asarray(id_matrix, dtype=float)
+        n_points, n_curves = id_matrix.shape
+        base_flat = self._build_curve_balance_weights(id_matrix, count_transfer)
+        base_2d = base_flat.reshape(n_points, n_curves)
+        multipliers = np.asarray(curve_multipliers, dtype=float)
+        if multipliers.size != n_curves:
+            multipliers = np.ones(n_curves, dtype=float)
+        weighted_2d = base_2d * multipliers[np.newaxis, :]
+        weighted_flat = weighted_2d.ravel()
+
+        transfer_mask = None
+        if count_transfer is not None:
+            transfer_mask = (np.arange(id_matrix.size) % n_curves) < count_transfer
+        hysteresis_weights = self._build_hysteresis_weights(vv_flat, transfer_mask)
+        combined = weighted_flat * hysteresis_weights
+        mean_weight = float(np.mean(combined))
+        if mean_weight > 0:
+            combined /= mean_weight
+        return combined
+
+    def _update_curve_multipliers(self, curve_multipliers, curve_rmses, beta):
+        multipliers = np.asarray(curve_multipliers, dtype=float)
+        rmses = np.asarray(curve_rmses, dtype=float)
+        if multipliers.size != rmses.size or rmses.size == 0:
+            return multipliers
+
+        mean_rmse = float(np.mean(rmses))
+        if mean_rmse <= 0:
+            return multipliers
+
+        updated = multipliers * np.power(rmses / mean_rmse, beta)
+        total = float(np.sum(updated))
+        if total > 0:
+            updated *= len(updated) / total
+        return updated
+
+    def _format_curve_rmse_report(self, curve_rmses, count_transfer=None):
+        lines = []
+        for idx, rmse in enumerate(curve_rmses):
+            kind = "transfer" if count_transfer is not None and idx < count_transfer else "output"
+            lines.append(f"  {kind}[{idx}] rmse={float(rmse):.6e}")
+        return "\n".join(lines)
+
+    def _build_curve_balance_weights(self, id_matrix, count_transfer=None):
+        """
+        Per-curve weights so transfer (log) and output (linear) contribute comparably.
+        Transfer curves can be emphasized via `transfer_curve_weight`.
+        """
+        id_matrix = np.asarray(id_matrix, dtype=float)
+        if id_matrix.ndim != 2:
+            return np.ones(id_matrix.size, dtype=float)
+
+        n_points, n_curves = id_matrix.shape
+        weights_2d = np.zeros_like(id_matrix, dtype=float)
+        for curve_index in range(n_curves):
+            column = id_matrix[:, curve_index]
+            scale = float(np.sqrt(np.mean(np.square(column))))
+            scale = max(scale, 1e-12)
+            weights_2d[:, curve_index] = 1.0 / (n_curves * n_points * scale * scale)
+            if count_transfer is not None and curve_index < count_transfer:
+                weights_2d[:, curve_index] *= self.transfer_curve_weight
+
+        weights_flat = weights_2d.ravel()
+        total = float(np.sum(weights_flat))
+        if total > 0:
+            weights_flat *= len(weights_flat) / total
+        return weights_flat
+
+    def _build_hysteresis_weights(self, vv_flat, transfer_mask=None):
+        """
+        Voltage-window weights. Windows target the transfer-curve VGS axis, so
+        when `transfer_mask` is given, output points (whose axis is VDS and
+        overlaps the same numeric range) are excluded from window boosting.
+        """
         weights = np.ones_like(vv_flat, dtype=float)
         mode = self.hysteresis_weight_mode
 
@@ -236,10 +427,61 @@ class ModelOptmization(ReadData):
         if mode == "windows":
             for window in self.hysteresis_weight_windows:
                 mask = (vv_flat >= window["min"]) & (vv_flat <= window["max"])
+                if transfer_mask is not None:
+                    mask &= transfer_mask
                 weights[mask] *= window["weight"]
             return weights
 
         return weights
+
+    def _combine_residual_weights(self, id_matrix, vv_flat, count_transfer=None):
+        transfer_mask = None
+        if count_transfer is not None:
+            id_matrix_arr = np.asarray(id_matrix, dtype=float)
+            if id_matrix_arr.ndim == 2:
+                n_curves = id_matrix_arr.shape[1]
+                # Row-major ravel of (n_points, n_curves): column = flat_index % n_curves.
+                transfer_mask = (np.arange(id_matrix_arr.size) % n_curves) < count_transfer
+        curve_weights = self._build_curve_balance_weights(id_matrix, count_transfer)
+        hysteresis_weights = self._build_hysteresis_weights(vv_flat, transfer_mask)
+        combined = curve_weights * hysteresis_weights
+        mean_weight = float(np.mean(combined))
+        if mean_weight > 0:
+            combined /= mean_weight
+        return combined
+
+    def _format_saturated_bounds_report(self, coeff, lb, ub):
+        lines = []
+        names = self._param_names(len(coeff))
+        for name, value, lower, upper in zip(names, coeff, lb, ub):
+            span = float(upper - lower)
+            if span <= 0:
+                continue
+            relative_lower = abs(float(value) - float(lower)) / span
+            relative_upper = abs(float(value) - float(upper)) / span
+            if relative_lower <= 0.01:
+                lines.append(
+                    f"WARNING: {name}={float(value):.6g} saturated at lower bound ({float(lower):.6g})"
+                )
+            if relative_upper <= 0.01:
+                lines.append(
+                    f"WARNING: {name}={float(value):.6g} saturated at upper bound ({float(upper):.6g})"
+                )
+        if not lines:
+            return "No parameters within 1% of optimization bounds."
+        return "\n".join(lines)
+
+    def _coeff_errors_from_covariance(self, mat_covar, coeff_size):
+        if mat_covar is None:
+            return np.full(coeff_size, np.nan)
+        mat_covar = np.asarray(mat_covar, dtype=float)
+        if mat_covar.ndim != 2:
+            return np.full(coeff_size, np.nan)
+        diag = np.diag(mat_covar)
+        diag = np.where(diag >= 0, diag, np.nan)
+        if diag.size != coeff_size:
+            return np.full(coeff_size, np.nan)
+        return np.sqrt(diag)
 
     def _weighted_rmse(self, residuals, weights):
         safe_weights = np.clip(weights, 1e-12, np.inf)
@@ -319,6 +561,16 @@ class ModelOptmization(ReadData):
                 fit_kwargs["max_nfev"] = maxfev
             else:
                 fit_kwargs["maxfev"] = maxfev
+        if method in {"trf", "dogbox"}:
+            # Parameters span several orders of magnitude; scale each one so the
+            # trust region treats them comparably (improves TRF conditioning).
+            span = np.asarray(ub, dtype=float) - np.asarray(lb, dtype=float)
+            span = np.where(np.isfinite(span) & (span > 0), span, 1.0)
+            x_scale = np.maximum(np.abs(np.asarray(coeff, dtype=float)), 1e-3 * span)
+            fit_kwargs["x_scale"] = x_scale
+            if self.point_loss != "linear":
+                fit_kwargs["loss"] = self.point_loss
+                fit_kwargs["f_scale"] = self.f_scale
         with contextlib.redirect_stdout(output_verbose):
             coeff_opt, mat_covar = curve_fit(
                 model,
@@ -335,6 +587,225 @@ class ModelOptmization(ReadData):
                 **fit_kwargs,
             )
         return coeff_opt, mat_covar, output_verbose.getvalue()
+
+    def _prepare_optimization_space(self, model_fn, coeff, lb, ub):
+        template_coeff = np.asarray(coeff, dtype=float)
+        fixed_indices = self._resolve_fixed_indices(template_coeff)
+        free_coeff, free_lb, free_ub, free_indices = self._reduce_coeff_space(
+            template_coeff, lb, ub, fixed_indices
+        )
+        wrapped_model = self._wrap_model_fixed_params(
+            model_fn, template_coeff, fixed_indices, free_indices
+        )
+        return wrapped_model, template_coeff, fixed_indices, free_indices, free_coeff, free_lb, free_ub
+
+    def _finalize_optimization_result(self, free_coeff, free_errors, template_coeff, fixed_indices, free_indices, lb, ub):
+        full_coeff, full_errors = self._expand_fit_result(
+            free_coeff, free_errors, template_coeff, fixed_indices, free_indices
+        )
+        bounds_report = self._format_saturated_bounds_report(full_coeff, lb, ub)
+        return full_coeff, full_errors, bounds_report
+
+    def _run_multistart_fit(
+        self,
+        model_fn,
+        vv_flat,
+        id_flat,
+        coeff,
+        lb,
+        ub,
+        sigma,
+        weights,
+        id_matrix,
+        count_transfer,
+    ):
+        wrapped_model, template_coeff, fixed_indices, free_indices, free_coeff, free_lb, free_ub = (
+            self._prepare_optimization_space(model_fn, coeff, lb, ub)
+        )
+
+        candidate_logs = []
+        if fixed_indices:
+            fixed_names = [self._param_names(len(template_coeff))[idx] for idx in fixed_indices]
+            candidate_logs.append(f"Fixed parameters: {', '.join(fixed_names)}")
+
+        candidates = self._build_multistart_candidates(free_coeff, free_lb, free_ub)
+        optuna_candidates, optuna_logs = self._build_optuna_candidates(
+            wrapped_model, vv_flat, id_flat, free_lb, free_ub, weights
+        )
+        candidate_logs.extend(optuna_logs)
+        candidates.extend(optuna_candidates)
+
+        unique_candidates = []
+        seen = set()
+        for candidate in candidates:
+            key = tuple(np.round(candidate, 12))
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_candidates.append(candidate)
+
+        best_fit = None
+        best_score = np.inf
+        best_fallback = None
+        best_fallback_score = np.inf
+
+        for idx, p0 in enumerate(unique_candidates):
+            if not self._is_feasible(p0, free_lb, free_ub):
+                candidate_logs.append(f"Candidate {idx + 1}: infeasible p0 discarded.")
+                continue
+
+            try:
+                preview = wrapped_model(vv_flat, *p0)
+                preview_score = self._weighted_rmse(preview - id_flat, weights)
+                if preview_score < best_fallback_score:
+                    best_fallback_score = preview_score
+                    best_fallback = p0.copy()
+            except Exception as exc:
+                candidate_logs.append(f"Candidate {idx + 1}: preview failed ({exc}).")
+                continue
+
+            try:
+                coeff_opt, mat_covar, text_verbose = self._fit_once(
+                    wrapped_model, vv_flat, id_flat, p0, free_lb, free_ub, self.method, sigma
+                )
+                fit_pred = wrapped_model(vv_flat, *coeff_opt)
+                score = self._weighted_rmse(fit_pred - id_flat, weights)
+                candidate_logs.append(
+                    f"Candidate {idx + 1}: success, weighted_rmse={score:.6e}."
+                )
+
+                if score < best_score:
+                    best_score = score
+                    best_fit = {
+                        "free_coeff": np.array(coeff_opt, dtype=float),
+                        "mat_covar": np.array(mat_covar, dtype=float) if mat_covar is not None else None,
+                        "text_verbose": text_verbose,
+                    }
+            except (ValueError, RuntimeError) as exc:
+                candidate_logs.append(f"Candidate {idx + 1}: fit failed ({exc}).")
+            except Exception as exc:
+                candidate_logs.append(f"Candidate {idx + 1}: unexpected fit error ({exc}).")
+
+        if best_fit is not None:
+            free_errors = self._coeff_errors_from_covariance(best_fit["mat_covar"], len(free_indices))
+            full_coeff, full_errors, bounds_report = self._finalize_optimization_result(
+                best_fit["free_coeff"],
+                free_errors,
+                template_coeff,
+                fixed_indices,
+                free_indices,
+                lb,
+                ub,
+            )
+            text_verbose = (
+                best_fit["text_verbose"]
+                + "\n"
+                + "\n".join(candidate_logs)
+                + "\n"
+                + bounds_report
+            )
+            return full_coeff, full_errors, text_verbose, best_score
+
+        if best_fallback is not None:
+            full_coeff, full_errors, bounds_report = self._finalize_optimization_result(
+                best_fallback,
+                np.full(len(free_indices), np.nan),
+                template_coeff,
+                fixed_indices,
+                free_indices,
+                lb,
+                ub,
+            )
+            fallback_log = "\n".join(
+                candidate_logs + ["All curve_fit attempts failed. Returning best feasible preview candidate.", bounds_report]
+            )
+            return full_coeff, full_errors, fallback_log, best_fallback_score
+
+        fail_free = np.clip(free_coeff, free_lb, free_ub)
+        full_coeff, full_errors, bounds_report = self._finalize_optimization_result(
+            fail_free,
+            np.full(len(free_indices), np.nan),
+            template_coeff,
+            fixed_indices,
+            free_indices,
+            lb,
+            ub,
+        )
+        fail_log = "\n".join(
+            candidate_logs + ["No valid candidate generated. Returning clipped initial coefficients.", bounds_report]
+        )
+        return full_coeff, full_errors, fail_log, np.inf
+
+    def _optimize_adaptive(
+        self,
+        model_fn,
+        vv_flat,
+        id_flat,
+        coeff,
+        lb,
+        ub,
+        sigma,
+        id_matrix,
+        count_transfer,
+    ):
+        n_points, n_curves = id_matrix.shape
+        curve_multipliers = np.ones(n_curves, dtype=float)
+        logs = [
+            "ADAPTIVE CURVE LOSS (min-max reweighting)",
+            f"iterations={self.adaptive_iterations}, beta={self.adaptive_beta}",
+        ]
+
+        best_result = None
+        best_max_rmse = np.inf
+        current_p0 = np.array(coeff, dtype=float)
+
+        for iteration in range(self.adaptive_iterations):
+            weights = self._build_weights_with_curve_multipliers(
+                id_matrix, vv_flat, count_transfer, curve_multipliers
+            )
+            iter_sigma = sigma
+
+            full_coeff, full_errors, text_verbose, score = self._run_multistart_fit(
+                model_fn,
+                vv_flat,
+                id_flat,
+                current_p0,
+                lb,
+                ub,
+                iter_sigma,
+                weights,
+                id_matrix,
+                count_transfer,
+            )
+
+            pred_matrix = model_fn(vv_flat, *full_coeff).reshape(n_points, n_curves)
+            curve_rmses = self._compute_per_curve_rmse(pred_matrix, id_matrix)
+            max_rmse = float(np.max(curve_rmses)) if curve_rmses.size else np.inf
+
+            logs.append(f"Iteration {iteration + 1}: weighted_rmse={score:.6e}, max_curve_rmse={max_rmse:.6e}")
+            logs.append(self._format_curve_rmse_report(curve_rmses, count_transfer))
+
+            if max_rmse < best_max_rmse:
+                best_max_rmse = max_rmse
+                best_result = {
+                    "coeff": full_coeff,
+                    "errors": full_errors,
+                    "verbose": text_verbose,
+                    "curve_rmses": curve_rmses,
+                }
+
+            current_p0 = full_coeff
+            if iteration + 1 < self.adaptive_iterations:
+                curve_multipliers = self._update_curve_multipliers(
+                    curve_multipliers, curve_rmses, self.adaptive_beta
+                )
+
+        if best_result is None:
+            return current_p0, np.full(len(current_p0), np.nan), "\n".join(logs)
+
+        logs.append(f"Selected solution with min max_curve_rmse={best_max_rmse:.6e}")
+        verbose = "\n".join(logs) + "\n" + best_result["verbose"]
+        return best_result["coeff"], best_result["errors"], verbose
 
     def _run_genetic_optimization(self, model, vv_flat, id_flat, coeff, lb, ub, weights):
         rng_seed = self.ga_seed if self.ga_seed is not None else self.random_seed
@@ -443,13 +914,14 @@ class ModelOptmization(ReadData):
         """
 
         # Load experimental data
-        Vv, Id, voltages, _, _, _ = super().load_data(self.type_read, self.path_voltages,
-                                                      self.current_typic, self.scale_transfer,
-                                                      self.scale_output, self.type_curve)
+        Vv, Id, voltages, _, count_transfer, _ = super().load_data(
+            self.type_read, self.path_voltages, self.current_typic,
+            self.scale_transfer, self.scale_output, self.type_curve)
 
-        # Flatten data arrays
-        Vv_flat = np.ravel(Vv)
-        Id_flat = np.ravel(Id)
+        id_matrix = np.asarray(Id, dtype=float)
+        vv_matrix = np.asarray(Vv, dtype=float)
+        Vv_flat = vv_matrix.ravel()
+        Id_flat = id_matrix.ravel()
 
         # Determine maximum absolute voltage
         vv_max = np.max(abs(Vv_flat))
@@ -486,94 +958,68 @@ class ModelOptmization(ReadData):
                 print()
 
         model_fn = Model.calc_model
-        weights = self._build_hysteresis_weights(Vv_flat)
+        weights = self._combine_residual_weights(id_matrix, Vv_flat, count_transfer)
         sigma = error_id / np.sqrt(np.clip(weights, 1e-12, np.inf))
+
+        if self.loss_mode == "adaptive_curve" and not use_ga:
+            return self._optimize_adaptive(
+                model_fn, Vv_flat, Id_flat, coeff, lb, ub, sigma, id_matrix, count_transfer
+            )
+
         if use_ga:
             print()
             print('--' * 50)
             print('GENETIC ALGORITHM (GA) MODE')
             print('--' * 50)
             print()
-            ga_coeff, ga_score, ga_logs = self._run_genetic_optimization(
-                model_fn, Vv_flat, Id_flat, coeff, lb, ub, weights
+            wrapped_model, template_coeff, fixed_indices, free_indices, free_coeff, free_lb, free_ub = (
+                self._prepare_optimization_space(model_fn, coeff, lb, ub)
             )
-            ga_error = np.full(len(ga_coeff), np.nan)
-            ga_verbose = "\n".join(ga_logs + [f"Final GA weighted_rmse={ga_score:.6e}"])
+            ga_coeff, ga_score, ga_logs = self._run_genetic_optimization(
+                wrapped_model, Vv_flat, Id_flat, free_coeff, free_lb, free_ub, weights
+            )
+            ga_logs.append(f"GA best weighted_rmse={ga_score:.6e}; starting TRF polish.")
+
+            try:
+                polished_coeff, mat_covar, trf_verbose = self._fit_once(
+                    wrapped_model, Vv_flat, Id_flat, ga_coeff, free_lb, free_ub, "trf", sigma
+                )
+                polished_pred = wrapped_model(Vv_flat, *polished_coeff)
+                polished_score = self._weighted_rmse(polished_pred - Id_flat, weights)
+                if np.isfinite(polished_score) and polished_score <= ga_score:
+                    ga_coeff = np.array(polished_coeff, dtype=float)
+                    ga_score = polished_score
+                    ga_logs.append(f"TRF polish accepted: weighted_rmse={polished_score:.6e}")
+                    if trf_verbose.strip():
+                        ga_logs.append(trf_verbose.strip())
+                else:
+                    ga_logs.append(
+                        "TRF polish rejected (worse than GA); keeping GA solution."
+                    )
+            except (ValueError, RuntimeError) as exc:
+                ga_logs.append(f"TRF polish failed ({exc}); keeping GA solution.")
+            except Exception as exc:
+                ga_logs.append(f"TRF polish unexpected error ({exc}); keeping GA solution.")
+
+            free_errors = np.full(len(free_indices), np.nan)
+            ga_coeff, ga_error, bounds_report = self._finalize_optimization_result(
+                ga_coeff, free_errors, template_coeff, fixed_indices, free_indices, lb, ub
+            )
+            ga_verbose = "\n".join(
+                ga_logs + [f"Final weighted_rmse={ga_score:.6e}", bounds_report]
+            )
             return ga_coeff, ga_error, ga_verbose
 
-        candidate_logs = []
-        candidates = self._build_multistart_candidates(coeff, lb, ub)
-        optuna_candidates, optuna_logs = self._build_optuna_candidates(
-            model_fn, Vv_flat, Id_flat, lb, ub, weights
+        coeff_opt, error_coeff, text_verbose, _ = self._run_multistart_fit(
+            model_fn,
+            Vv_flat,
+            Id_flat,
+            coeff,
+            lb,
+            ub,
+            sigma,
+            weights,
+            id_matrix,
+            count_transfer,
         )
-        candidate_logs.extend(optuna_logs)
-        candidates.extend(optuna_candidates)
-
-        unique_candidates = []
-        seen = set()
-        for candidate in candidates:
-            key = tuple(np.round(candidate, 12))
-            if key in seen:
-                continue
-            seen.add(key)
-            unique_candidates.append(candidate)
-
-        best_fit = None
-        best_score = np.inf
-        best_fallback = None
-        best_fallback_score = np.inf
-
-        for idx, p0 in enumerate(unique_candidates):
-            if not self._is_feasible(p0, lb, ub):
-                candidate_logs.append(f"Candidate {idx + 1}: infeasible p0 discarded.")
-                continue
-
-            try:
-                preview = model_fn(Vv_flat, *p0)
-                preview_score = self._weighted_rmse(preview - Id_flat, weights)
-                if preview_score < best_fallback_score:
-                    best_fallback_score = preview_score
-                    best_fallback = p0.copy()
-            except Exception as exc:
-                candidate_logs.append(f"Candidate {idx + 1}: preview failed ({exc}).")
-                continue
-
-            try:
-                coeff_opt, mat_covar, text_verbose = self._fit_once(
-                    model_fn, Vv_flat, Id_flat, p0, lb, ub, self.method, sigma
-                )
-                fit_pred = model_fn(Vv_flat, *coeff_opt)
-                score = self._weighted_rmse(fit_pred - Id_flat, weights)
-                candidate_logs.append(
-                    f"Candidate {idx + 1}: success, weighted_rmse={score:.6e}."
-                )
-
-                if score < best_score:
-                    best_score = score
-                    best_fit = {
-                        "coeff_opt": np.array(coeff_opt, dtype=float),
-                        "mat_covar": np.array(mat_covar, dtype=float),
-                        "text_verbose": text_verbose,
-                    }
-            except (ValueError, RuntimeError) as exc:
-                candidate_logs.append(f"Candidate {idx + 1}: fit failed ({exc}).")
-            except Exception as exc:
-                candidate_logs.append(f"Candidate {idx + 1}: unexpected fit error ({exc}).")
-
-        if best_fit is not None:
-            mat_covar = best_fit["mat_covar"]
-            diag = np.diag(mat_covar) if mat_covar.ndim == 2 else np.array([])
-            diag = np.where(diag >= 0, diag, np.nan)
-            error_coeff = np.sqrt(diag) if diag.size else np.full(len(coeff), np.nan)
-            text_verbose = best_fit["text_verbose"] + "\n" + "\n".join(candidate_logs)
-            return best_fit["coeff_opt"], error_coeff, text_verbose
-
-        if best_fallback is not None:
-            fallback_error = np.full(len(best_fallback), np.nan)
-            fallback_log = "\n".join(candidate_logs + ["All curve_fit attempts failed. Returning best feasible preview candidate."])
-            return best_fallback, fallback_error, fallback_log
-
-        fail_coeff = np.clip(coeff, lb, ub)
-        fail_error = np.full(len(fail_coeff), np.nan)
-        fail_log = "\n".join(candidate_logs + ["No valid candidate generated. Returning clipped initial coefficients."])
-        return fail_coeff, fail_error, fail_log
+        return coeff_opt, error_coeff, text_verbose

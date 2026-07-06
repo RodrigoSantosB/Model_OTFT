@@ -87,12 +87,14 @@ class TFTGraphicsPlot():
 
 
   def __format_shift_display(self, shift_value):
-    """Formats the effective applied shift with two decimal places."""
+    """Formats per-curve display delta (effective - nominal) with sign."""
     if isinstance(shift_value, dict):
+      if 'display_delta' in shift_value:
+        return f'{float(shift_value["display_delta"]):+.2f}V'
       applied_shift = float(shift_value.get('total', shift_value.get('automatic', 0.0)))
-      return f'{applied_shift:.2f}V'
+      return f'{applied_shift:+.2f}V'
 
-    return f'{float(shift_value):.2f}V'
+    return f'{float(shift_value):+.2f}V'
 
 
   def __format_voltage_display(self, voltage_value):
@@ -211,15 +213,7 @@ class TFTGraphicsPlot():
 
     volt = safe_index(volt_data, j)
     base_name = '<b>Exp <b>' + ' ' + f'<b>{self.__format_voltage_display(volt)}<b>'
-    if no_shift or not shift_list:
-      return str(base_name)
-
-    shift = safe_index(shift_list, j, None)
-    if shift is None:
-      return str(base_name)
-    shift_text = self.__format_shift_display(shift)
-    consistency_text = self.__format_consistency_display(shift)
-    return str(base_name + ' ' + f'<b> ({shift_text})<b>' + consistency_text)
+    return str(base_name)
 
   # Function to generate legend text
   def __legend_text(self, xlegend, volt_data, exp_data, shift_list, j, no_shift=False):
@@ -259,15 +253,7 @@ class TFTGraphicsPlot():
 
     volt = safe_index(volt_data, j)
     base_text = [f'{xlegend}={self.__format_voltage_display(volt)}']
-    if no_shift or not shift_list:
-      return base_text
-
-    shift = safe_index(shift_list, j, None)
-    if shift is None:
-      return base_text
-    shift_text = self.__format_shift_display(shift)
-    consistency_text = self.__format_consistency_display(shift)
-    return [base_text[0] + ' ' + f'({shift_text})' + consistency_text]
+    return base_text
 
 
   def plot_vgs_vds( self, list_tension, input_tension_shift, type_data, count, model_data,
@@ -404,15 +390,21 @@ class TFTGraphicsPlot():
                 legend_voltage = volt_data[i] if i < len(volt_data) else volt_data[-1]
             else:
                 legend_voltage = 0.0
-            if shift_list_update:
+            if shift_list_update and type_data == curv_out:
                 base_output_count = len(new_volt) // 2 if compare else len(new_volt)
                 output_count = max(1, base_output_count)
                 shift_index = i % output_count
-                if shift_index < len(shift_list_update):
-                    shift_text = self.__format_shift_display(shift_list_update[shift_index])
+                shift_entry = shift_list_update[shift_index] if shift_index < len(shift_list_update) else {}
+                shift_text = self.__format_shift_display(shift_entry)
+                consistency_text = self.__format_consistency_display(shift_entry)
+                display_delta = float(shift_entry.get('display_delta', 0.0)) if isinstance(shift_entry, dict) else 0.0
+                if display_delta != 0.0:
+                    model_name = (
+                        name + ' ' + f'<b>{self.__format_voltage_display(legend_voltage)}<b>'
+                        + ' ' + f'<b>({shift_text})<b>' + consistency_text
+                    )
                 else:
-                    shift_text = self.__format_shift_display(0.0)
-                model_name = name + ' ' + f'<b>{self.__format_voltage_display(legend_voltage)}<b>' + ' ' + f'<b>({shift_text})<b>'
+                    model_name = name + ' ' + f'<b>{self.__format_voltage_display(legend_voltage)}<b>'
             else:
                 model_name = name + ' ' + f'<b>{self.__format_voltage_display(legend_voltage)}<b>'
 
@@ -453,7 +445,7 @@ class TFTGraphicsPlot():
         fig.add_trace(go.Scatter(x=exp_data[i], y=data,
                                 mode='markers+text',
                                 name=self.__legend_name(new_volt, exp_data, shift_list_update, j, no_shift),
-                                text=self.__legend_text(xlegend, volt_data, exp_data, shift_list_update, j, no_shift),
+                                text=self.__legend_text(xlegend, new_volt, exp_data, shift_list_update, j, no_shift),
                                 textposition='top right',
                                 textfont=dict(
                                     family="Times New Roman",

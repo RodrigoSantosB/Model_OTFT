@@ -241,9 +241,7 @@ class TFTModel:
         # at = tau / (2 - tau) # 1/(1+2*ll)
         at = 1 / (1+2*ll)
         Fsat = at * (1 - np.exp(-Vds / self.__PHIT)) / (1 + at * np.exp(-Vds / self.__PHIT))
-        # print(Fsat)
-        # Fsat = np.nan_to_num(Fsat)
-        # print("Hello1")
+        Fsat = np.clip(np.nan_to_num(Fsat, nan=0.0, posinf=0.0, neginf=0.0), 0.0, 1.0)
         return Fsat , eta
 
       except ValueError as e:

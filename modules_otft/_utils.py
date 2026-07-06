@@ -606,8 +606,13 @@ def get_shift_list(read, settings):
           shift_entry['duplicate_of_nominal_voltage'] = curve_consistency_report[output_index].get('duplicate_of_nominal_voltage')
           output_index += 1
 
+      effective_voltage = _apply_shift_to_nominal_voltage(nominal_voltage, applied_shift)
+      shift_entry['effective_voltage'] = float(effective_voltage)
+      shift_entry['display_delta'] = (
+          float(effective_voltage - nominal_voltage) if curve_type == 1 else 0.0
+      )
       shift_metadata.append(shift_entry)
-      list_tension_shift.append(_apply_shift_to_nominal_voltage(nominal_voltage, applied_shift))
+      list_tension_shift.append(effective_voltage)
 
   if manual_mode:
       settings['_manual_shift_estimate_report'] = []
@@ -643,27 +648,22 @@ def get_global_display_shift(settings):
   return _get_float_setting(settings, 'pre_process_shift_volt_data', 0.0)
 
 
-def apply_global_shift_to_output_display(list_tension, list_tension_shift, count_transfer, global_shift):
-  """
-  Applies the global preprocessing shift only to the displayed nominal values
-  of output curves, without modifying experimental points.
-  """
-  if global_shift == 0:
-      return list_tension, list_tension_shift
+def apply_effective_voltages_to_path(path_voltages_nominal, effective_voltages):
+  """Builds path_voltages tuples with effective bias voltages for model/optimizer."""
+  merged = []
+  for index, (curve_path, curve_type, nominal_voltage) in enumerate(path_voltages_nominal):
+      effective_voltage = (
+          effective_voltages[index]
+          if index < len(effective_voltages)
+          else nominal_voltage
+      )
+      merged.append((curve_path, curve_type, effective_voltage))
+  return merged
 
-  def _shift_output_tail(values):
-      if values is None:
-          return values
 
-      shifted_values = list(values)
-      for index in range(count_transfer, len(shifted_values)):
-          try:
-              shifted_values[index] = float(shifted_values[index]) + float(global_shift)
-          except (TypeError, ValueError):
-              continue
-      return shifted_values
-
-  return _shift_output_tail(list_tension), _shift_output_tail(list_tension_shift)
+def extract_nominal_voltages(path_voltages):
+  """Returns nominal bias voltages from path_voltages tuples."""
+  return [curve[2] for curve in path_voltages]
 
 
 # new curves calculation
@@ -774,7 +774,11 @@ def configure_read_data_instance(read, settings=None):
 
 
 def uses_matlab_n_model(settings=None, tp_tst=None):
-    """Whether the dedicated n-type backend should be used."""
+    """Whether the extended backend (TFTModelN) should be used."""
+    if isinstance(settings, dict):
+        backend = str(settings.get("model_backend", "")).strip().lower()
+        if backend == "contact":
+            return True
     if tp_tst is not None:
         return int(tp_tst) == 1
     if isinstance(settings, dict):
@@ -783,13 +787,8 @@ def uses_matlab_n_model(settings=None, tp_tst=None):
     return False
 
 
-def get_parameter_keys(settings=None, tp_tst=None):
-    """Returns parameter names in the order expected by the selected backend."""
-    return MATLAB_N_PARAM_KEYS if uses_matlab_n_model(settings=settings, tp_tst=tp_tst) else LEGACY_PARAM_KEYS
-
-
 def resolve_model_class(model_cls, settings=None, tp_tst=None):
-    """Swaps the shared model for the n-type backend when requested."""
+    """Swaps the shared model for the extended backend when requested."""
     if model_cls is None or not uses_matlab_n_model(settings=settings, tp_tst=tp_tst):
         return model_cls
 
@@ -801,8 +800,13 @@ def resolve_model_class(model_cls, settings=None, tp_tst=None):
     return TFTModelN
 
 
+def get_parameter_keys(settings=None, tp_tst=None):
+    """Returns parameter names in the order expected by the selected backend."""
+    return MATLAB_N_PARAM_KEYS if uses_matlab_n_model(settings=settings, tp_tst=tp_tst) else LEGACY_PARAM_KEYS
+
+
 # filter files with the selected values
-def filter_and_load_files(read, settings, path_voltages, list_tension_shift):
+def filter_and_load_files(read, settings, path_voltages, list_tension_shift, list_tension_nominal=None):
     """Filters and loads files."""
 
     if not isinstance(settings, dict):
@@ -812,13 +816,17 @@ def filter_and_load_files(read, settings, path_voltages, list_tension_shift):
         print("Error: read must be an object.")
         return []
 
-    ld_voltages = [curve[2] for curve in path_voltages]
+    ld_voltages = (
+        list(list_tension_nominal)
+        if list_tension_nominal is not None
+        else [curve[2] for curve in path_voltages]
+    )
     list_curves = new_curves_calculation(path_voltages, list_tension_shift)
     selected_curve_names = _resolve_selected_curve_names(settings, list_curves)
     settings['_selected_curve_names'] = selected_curve_names
 
     if not selected_curve_names:
-      return path_voltages, ld_voltages, list_tension_shift
+      return path_voltages, list_tension_shift, ld_voltages
 
     new_files_filter, new_values_tension, new_list_tension = read.filter_files(
                                                              selected_curve_names, list_curves, list_tension_shift, ld_voltages)
@@ -873,7 +881,7 @@ def get_current(settings):
     return float(settings['current_carry'])
 
 
-def get_transistor_width(settigs):
+def get_transistor_width(settings):
     """Gets the width of the transistor."""
     if not isinstance(settings, dict):
         print("Error: settings must be a dictionary.")
@@ -1035,16 +1043,16 @@ def _path_voltages_for_idleak_dict(path_voltages, read):
 
 def instance_model(read, TFTModel, n_points, type_curve_plot, load_parameters, input_voltage, Vv, load_idleak, width_t,
                             count_transfer, tp_tst, experimental_data_scale_transfer, current_typic, resistance, current,
-                            path_voltages=None):
+                            path_voltages=None, settings=None):
     """Creates an instance of the model with the provided data."""
-    TFTModel = resolve_model_class(TFTModel, tp_tst=tp_tst)
+    TFTModel = resolve_model_class(TFTModel, settings=settings, tp_tst=tp_tst)
     if isinstance(load_idleak, dict):
         path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
     return read.create_models_datas(TFTModel, n_points, type_curve_plot, load_parameters,
                                     input_voltage, Vv, load_idleak, width_t, count_transfer,
                                     tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
                                     current_typic=current_typic, res=resistance, curr=current,
-                                    path_voltages=path_voltages)
+                                    path_voltages=path_voltages, settings=settings)
 
 
 def load_experimental_data(read, count_transfer, Vv, Id, model, count_output):
@@ -1056,9 +1064,9 @@ def load_experimental_data(read, count_transfer, Vv, Id, model, count_output):
 
 def create_model_opt(TFTModel, input_voltage, n_points, type_curve_plot, current_typic,
                      experimental_data_scale_transfer, load_idleak, mode_idleak, count_transfer,
-                     resistance, current, width_t=0.1, tp_tst=-1, path_voltages=None, read=None):
+                     resistance, current, width_t=0.1, tp_tst=-1, path_voltages=None, read=None, settings=None):
     """Creates an optimization model."""
-    TFTModel = resolve_model_class(TFTModel, tp_tst=tp_tst)
+    TFTModel = resolve_model_class(TFTModel, settings=settings, tp_tst=tp_tst)
     il = load_idleak
     if mode_idleak == 1 and isinstance(load_idleak, dict):
         path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
@@ -1121,6 +1129,44 @@ def create_optimizer(settings, path_voltages, type_curve_plot):
     configure_read_data_instance(optimizer, settings)
     return optimizer
 
+def _log_optimizer_effective_config(optimizer, settings):
+    """Prints the optimization settings actually applied to the optimizer."""
+    if not hasattr(optimizer, "set_hybrid_config"):
+        return
+
+    method = getattr(optimizer, "method", settings.get("optimization_method", "unknown"))
+    print("\n" + 50 * "-")
+    print("OPTIMIZER EFFECTIVE CONFIGURATION")
+    print(50 * "-")
+    print(f"| method                 : {method}")
+    print(f"| optimization_strategy  : {getattr(optimizer, 'optimization_strategy', 'n/a')}")
+    print(f"| default_bounds         : {settings.get('default_bounds', 'n/a')}")
+    print(f"| tolerance_factor       : {settings.get('tolerance_factor', 'n/a')}")
+    print(f"| maxfev                 : {getattr(optimizer, 'maxfev', 'n/a')}")
+    print(f"| n_starts               : {getattr(optimizer, 'n_starts', 'n/a')}")
+    print(f"| random_seed            : {getattr(optimizer, 'random_seed', 'n/a')}")
+    print(f"| hysteresis_weight_mode : {getattr(optimizer, 'hysteresis_weight_mode', 'n/a')}")
+    print(f"| hysteresis_weight_factor: {getattr(optimizer, 'hysteresis_weight_factor', 'n/a')}")
+    print(f"| hysteresis_weight_windows: {getattr(optimizer, 'hysteresis_weight_windows', 'n/a')}")
+    print(f"| transfer_curve_weight  : {getattr(optimizer, 'transfer_curve_weight', 'n/a')}")
+    print(f"| loss_mode              : {getattr(optimizer, 'loss_mode', 'n/a')}")
+    print(f"| adaptive_iterations    : {getattr(optimizer, 'adaptive_iterations', 'n/a')}")
+    print(f"| adaptive_beta          : {getattr(optimizer, 'adaptive_beta', 'n/a')}")
+    print(f"| point_loss             : {getattr(optimizer, 'point_loss', 'n/a')}")
+    print(f"| f_scale                : {getattr(optimizer, 'f_scale', 'n/a')}")
+    print(f"| fixed_parameters       : {getattr(optimizer, 'fixed_parameters', 'n/a')}")
+
+    if str(method).lower() in {"ga", "genetic"}:
+        print(f"| ga_population          : {getattr(optimizer, 'ga_population', 'n/a')}")
+        print(f"| ga_generations         : {getattr(optimizer, 'ga_generations', 'n/a')}")
+        print(f"| ga_mutation_rate       : {getattr(optimizer, 'ga_mutation_rate', 'n/a')}")
+        print(f"| ga_crossover_rate      : {getattr(optimizer, 'ga_crossover_rate', 'n/a')}")
+        print(f"| ga_elitism             : {getattr(optimizer, 'ga_elitism', 'n/a')}")
+        print(f"| ga_stall_generations   : {getattr(optimizer, 'ga_stall_generations', 'n/a')}")
+        print(f"| ga_seed                : {getattr(optimizer, 'ga_seed', 'n/a')}")
+    print(50 * "-" + "\n")
+
+
 def configure_optimizer(optimizer, settings):
     """Configures the optimizer parameters."""
     tlr_factor = get_tolerance_factor(settings)
@@ -1133,6 +1179,9 @@ def configure_optimizer(optimizer, settings):
         # Configurações para o otimizador tradicional
         optimizer.set_default_bounds(settings['default_bounds'])
         optimizer.set_ftol_param(tlr_factor)
+        if hasattr(optimizer, "set_hybrid_config"):
+            optimizer.set_hybrid_config(settings)
+            _log_optimizer_effective_config(optimizer, settings)
 
 def optimize_model(optimizer, model_id, load_parameters, *path_voltages, **kwargs):
     """Performs model optimization."""
@@ -1179,16 +1228,16 @@ def show_model_parameters_optimized(menu, option, load_parameters, coeff_opt,
 def create_optimized_model(read, TFTModel, n_points, type_curve_plot, coeff_opt,
                            input_voltage, Vv, load_idleak, width_t, count_transfer,
                            tp_tst, experimental_data_scale_transfer,
-                           current_typic, resistance, current, path_voltages=None):
+                           current_typic, resistance, current, path_voltages=None, settings=None):
     """Creates the model with the optimized coefficients."""
-    TFTModel = resolve_model_class(TFTModel, tp_tst=tp_tst)
+    TFTModel = resolve_model_class(TFTModel, settings=settings, tp_tst=tp_tst)
     if isinstance(load_idleak, dict):
         path_voltages = _path_voltages_for_idleak_dict(path_voltages, read)
     return read.create_models_datas(TFTModel, n_points, type_curve_plot, coeff_opt,
                                     input_voltage, Vv, load_idleak, width_t, count_transfer,
                                     tp_tst=tp_tst, scale_factor=experimental_data_scale_transfer,
                                     current_typic=current_typic, res=resistance, curr=current,
-                                    path_voltages=path_voltages)
+                                    path_voltages=path_voltages, settings=settings)
     
 
 def get_model_data(read, count_transfer, count_output, Vv, Id, model_opt, model=None, compare=False):
@@ -1217,13 +1266,6 @@ def plot_curves(option, plot, list_tension, list_tension_shift, count_transfer,
         current_settings = globals()['settings']
         shift_plot_data = current_settings.get('_shift_metadata', shift_list)
         selected_curves = current_settings.get('_selected_curve_names', selected_curves)
-        global_display_shift = get_global_display_shift(current_settings)
-        display_tension, display_tension_shift = apply_global_shift_to_output_display(
-            list_tension,
-            list_tension_shift,
-            count_transfer,
-            global_display_shift,
-        )
 
     if option == 'Show transfer curve opt':
         plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 

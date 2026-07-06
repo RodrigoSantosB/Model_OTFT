@@ -107,7 +107,7 @@ class TFTModelN(TFTModel):
             Fsat = at * (1.0 - np.exp(-Vds / self._TFTModel__PHIT)) / (
                 1.0 + at * np.exp(-Vds / self._TFTModel__PHIT)
             )
-        Fsat = np.nan_to_num(Fsat, nan=0.0, posinf=0.0, neginf=0.0)
+        Fsat = np.clip(np.nan_to_num(Fsat, nan=0.0, posinf=0.0, neginf=0.0), 0.0, 1.0)
         return Fsat, eta
 
     def _matlab_rel_change(self, current, previous):
@@ -322,12 +322,12 @@ class TFTModelN(TFTModel):
 
             if self.type_curve == "log":
                 if trsf_curve:
-                    safe_vals = np.maximum(Idx, 1e-30)
+                    safe_vals = np.maximum(np.abs(Idx), 1e-30)
                     chain_matrix_id[:, i] = np.log10(safe_vals)
                 elif out_curve:
                     chain_matrix_id[:, i] = current_sign * Idx / curr_typic
                 elif trsf_curve_vet:
-                    safe_vals = np.maximum(Idx, 1e-30)
+                    safe_vals = np.maximum(np.abs(Idx), 1e-30)
                     chain_matrix_id = np.log10(safe_vals)
                 elif out_curve_vet:
                     chain_matrix_id = current_sign * Idx / curr_typic

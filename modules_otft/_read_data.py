@@ -821,7 +821,7 @@ class ReadData:
   # CRIA INSTÂNCIAS DO MODELO
   def create_models_datas(self, model, n_points, type_curve, parameters, tensions, Vv, idleak,
                           w, count, tp_tst, current_typic='A', scale_factor='A',
-                          res=None, curr=None, path_voltages=None):
+                          res=None, curr=None, path_voltages=None, settings=None):
     """
       Creates model instances based on input data and provided parameters.
 
@@ -876,9 +876,12 @@ class ReadData:
           [<MyModel object at 0x7f84ac50b610>, <MyModel object at 0x7f84ac50b5e0>]
     """
 
-    if getattr(model, "__name__", "") == "TFTModel" and getattr(model, "__module__", "") == "modules_otft._model" and int(tp_tst) == 1:
-      from .model_tft_n import TFTModelN
-      model = TFTModelN
+    if getattr(model, "__name__", "") == "TFTModel" and getattr(model, "__module__", "") == "modules_otft._model":
+      from ._utils import uses_matlab_n_model, MATLAB_N_PARAM_KEYS
+      param_count = len(parameters) if hasattr(parameters, "__len__") else 0
+      if uses_matlab_n_model(settings=settings, tp_tst=tp_tst) or param_count == len(MATLAB_N_PARAM_KEYS):
+        from .model_tft_n import TFTModelN
+        model = TFTModelN
 
     if isinstance(idleak, dict):
       if path_voltages is None:
@@ -1590,11 +1593,7 @@ class ReadData:
 
       delta_vgs = float(vgs_effective_limited - output_nominal_voltage)
       automatic_shift_base = float(output_nominal_voltage - vgs_effective_limited)
-      automatic_shift, adjusted_by_preprocess = self._adjust_shift_with_preprocess(
-          output_nominal_voltage,
-          vgs_effective_limited,
-          global_display_shift=global_display_shift,
-      )
+      automatic_shift = automatic_shift_base
 
       detail.update({
           'vgs_effective_raw': vgs_effective_raw,
@@ -1604,7 +1603,7 @@ class ReadData:
           'automatic_shift': automatic_shift,
           'pre_process_shift_volt_data': pre_process_shift_volt_data,
           'global_display_shift': float(global_display_shift or 0.0),
-          'automatic_shift_adjusted_by_preprocess': adjusted_by_preprocess,
+          'automatic_shift_adjusted_by_preprocess': False,
           'status': 'matched_with_monotonicity_limit' if was_limited else 'matched',
           'warning': warning,
       })

@@ -7,17 +7,17 @@
         "type_curve_plot": "log",
         "type_read_data_exp": "read interpolated data",
         "enable_pre_processing": "no",
-        "apply_pre_process_global_shift": "yes",
-        "pre_process_shift_volt_data": "-1",
-        "apply_pre_process_threshold": "yes",
+        "apply_pre_process_global_shift": "no",
+        "pre_process_shift_volt_data": "",
+        "apply_pre_process_threshold": "no",
         "pre_process_threshold_voltage": "0",
-        "apply_pre_process_hysteresis": "yes",
+        "apply_pre_process_hysteresis": "no",
         "apply_local_output_shift": "yes",
         "selected_curves": "cnt-0.1VDS, cnt-3VDS, cnt-2VGS, cnt-3VGS, cnt-4VGS",
         "pre_process_hysteresis_mode_transfer": "media",
         "pre_process_hysteresis_mode_output": "maior",
-        "pre_process_global_shift_persisted": "yes",
-        "pre_process_global_shift_persisted_value": "-1.0"
+        "pre_process_global_shift_persisted": "no",
+        "pre_process_global_shift_persisted_value": ""
     },
     {
         "resistance_scale": "1e4",
@@ -46,29 +46,29 @@
         "image_size_width": null,
         "image_size_height": null,
         "upper_bounds": {
-            "ub_VTHO": 0.8,
+            "ub_VTHO": 1.2,
             "ub_DELTA": 0,
             "ub_N": 14,
             "ub_L": 3,
             "ub_LAMBDA": 1000,
-            "ub_VGCRIT": 10,
+            "ub_VGCRIT": 50,
             "ub_JTH": 4e3,
-            "ub_RS": 0.1
+            "ub_RS": 5
         },
         "lower_bounds": {
             "lb_VTHO": 0.6,
             "lb_DELTA": -0.3,
             "lb_N": 1,
-            "lb_L": 1,
+            "lb_L": 0.5,
             "lb_LAMBDA": 1,
             "lb_VGCRIT": 1,
             "lb_JTH": 4e1,
             "lb_RS": 0
         },
         "default_bounds": "no",
-        "optimization_method": "ga",
+        "optimization_method": "trf",
         "tolerance_factor": "4e-7",
-        "optimization_strategy": "ga",
+        "optimization_strategy": "hybrid",
         "n_starts": 10,
         "random_seed": 42,
         "maxfev": 20000,
@@ -78,18 +78,25 @@
         "hysteresis_weight_factor": 2.0,
         "hysteresis_weight_windows": [
             {
-                "min": -5.0,
-                "max": 5.0,
+                "min": -4.0,
+                "max": -0.5,
                 "weight": 2.5
             }
         ],
+        "transfer_curve_weight": 3.0,
+        "loss_mode": "adaptive_curve",
+        "adaptive_iterations": 5,
+        "adaptive_beta": 1.0,
+        "point_loss": "soft_l1",
+        "f_scale": 0.1,
+        "fixed_parameters": ["VGCRIT"],
         "vary_parameters": "",
         "ga_population": 2000,
         "ga_generations": 500,
         "ga_mutation_rate": 0.01,
         "ga_crossover_rate": 0.08,
         "ga_elitism": 5,
-        "ga_stall_generations": 30,
-        "ga_seed": null
+        "ga_stall_generations": 80,
+        "ga_seed": 42
     }
 ]
