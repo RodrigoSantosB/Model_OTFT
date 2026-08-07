@@ -13,6 +13,13 @@
         "pre_process_threshold_voltage": "0.0",
         "apply_pre_process_hysteresis": "no",
         "apply_local_output_shift": "yes",
+        "enable_manual_shift_data": "no",
+        "manual_shift_data": {
+            "org3-2VDS": 0.0,
+            "org3-8VGS": 0.0,
+            "org3-16VGS": 0.0,
+            "org3-20VGS": 0.0
+        },
         "selected_curves": "",
         "pre_process_hysteresis_mode_transfer": "media",
         "pre_process_hysteresis_mode_output": "media"
