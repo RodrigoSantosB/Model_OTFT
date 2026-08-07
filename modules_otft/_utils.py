@@ -589,6 +589,9 @@ def get_shift_list(read, settings):
           automatic_shift = float(automatic_shifts[output_index])
 
       applied_shift = float(manual_shift if manual_mode else manual_shift + automatic_shift)
+      shift_base = float(nominal_voltage)
+      if curve_type == 1:
+          shift_base = float(nominal_voltage) + global_display_shift
       shift_entry = {
           'curve_name': os.path.basename(curve_path),
           'curve_type': 'transfer' if curve_type == 0 else 'output',
@@ -606,8 +609,12 @@ def get_shift_list(read, settings):
           shift_entry['duplicate_of_nominal_voltage'] = curve_consistency_report[output_index].get('duplicate_of_nominal_voltage')
           output_index += 1
 
+      effective_voltage = _apply_shift_to_nominal_voltage(shift_base, applied_shift)
+      if curve_type == 1:
+          shift_entry['operational_shift'] = float(effective_voltage - float(nominal_voltage))
+
       shift_metadata.append(shift_entry)
-      list_tension_shift.append(_apply_shift_to_nominal_voltage(nominal_voltage, applied_shift))
+      list_tension_shift.append(effective_voltage)
 
   if manual_mode:
       settings['_manual_shift_estimate_report'] = []
@@ -630,7 +637,7 @@ def get_shift_list(read, settings):
 
 
 def get_global_display_shift(settings):
-  """Returns the configured global shift used only for nominal display values."""
+  """Returns the persisted global preprocessing shift for the technology."""
   if not isinstance(settings, dict):
       return 0.0
 
@@ -641,29 +648,6 @@ def get_global_display_shift(settings):
       return 0.0
 
   return _get_float_setting(settings, 'pre_process_shift_volt_data', 0.0)
-
-
-def apply_global_shift_to_output_display(list_tension, list_tension_shift, count_transfer, global_shift):
-  """
-  Applies the global preprocessing shift only to the displayed nominal values
-  of output curves, without modifying experimental points.
-  """
-  if global_shift == 0:
-      return list_tension, list_tension_shift
-
-  def _shift_output_tail(values):
-      if values is None:
-          return values
-
-      shifted_values = list(values)
-      for index in range(count_transfer, len(shifted_values)):
-          try:
-              shifted_values[index] = float(shifted_values[index]) + float(global_shift)
-          except (TypeError, ValueError):
-              continue
-      return shifted_values
-
-  return _shift_output_tail(list_tension), _shift_output_tail(list_tension_shift)
 
 
 # new curves calculation
@@ -802,7 +786,7 @@ def resolve_model_class(model_cls, settings=None, tp_tst=None):
 
 
 # filter files with the selected values
-def filter_and_load_files(read, settings, path_voltages, list_tension_shift):
+def filter_and_load_files(read, settings, path_voltages, list_tension_shift, list_tension=None):
     """Filters and loads files."""
 
     if not isinstance(settings, dict):
@@ -812,7 +796,9 @@ def filter_and_load_files(read, settings, path_voltages, list_tension_shift):
         print("Error: read must be an object.")
         return []
 
-    ld_voltages = [curve[2] for curve in path_voltages]
+    if list_tension is None:
+        list_tension = [curve[2] for curve in path_voltages]
+    ld_voltages = list(list_tension)
     list_curves = new_curves_calculation(path_voltages, list_tension_shift)
     selected_curve_names = _resolve_selected_curve_names(settings, list_curves)
     settings['_selected_curve_names'] = selected_curve_names
@@ -1133,6 +1119,7 @@ def configure_optimizer(optimizer, settings):
         # Configurações para o otimizador tradicional
         optimizer.set_default_bounds(settings['default_bounds'])
         optimizer.set_ftol_param(tlr_factor)
+        optimizer.set_hybrid_config(settings)
 
 def optimize_model(optimizer, model_id, load_parameters, *path_voltages, **kwargs):
     """Performs model optimization."""
@@ -1217,13 +1204,6 @@ def plot_curves(option, plot, list_tension, list_tension_shift, count_transfer,
         current_settings = globals()['settings']
         shift_plot_data = current_settings.get('_shift_metadata', shift_list)
         selected_curves = current_settings.get('_selected_curve_names', selected_curves)
-        global_display_shift = get_global_display_shift(current_settings)
-        display_tension, display_tension_shift = apply_global_shift_to_output_display(
-            list_tension,
-            list_tension_shift,
-            count_transfer,
-            global_display_shift,
-        )
 
     if option == 'Show transfer curve opt':
         plot.plot_vgs_vds(display_tension, display_tension_shift, 0, count_transfer, 

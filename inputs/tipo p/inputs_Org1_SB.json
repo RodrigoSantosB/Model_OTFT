@@ -60,6 +60,7 @@
         },
         "default_bounds": "no",
         "optimization_method": "trf",
+        "sigma": "relative",
         "tolerance_factor": "4e-7",
         "vary_parameters": "",
         "optimization_strategy": "curve_fit",

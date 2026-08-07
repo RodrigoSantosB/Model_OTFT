@@ -1388,26 +1388,6 @@ class ReadData:
     return float(target_voltage - nominal_voltage)
 
 
-  def _adjust_shift_with_preprocess(self, nominal_voltage, effective_voltage, global_display_shift=0.0):
-    """
-      Calculates the local shift needed so the displayed output gate voltage
-      matches the effective VGS after the global visual shift is applied.
-    """
-    nominal_voltage = float(nominal_voltage)
-    effective_voltage = float(effective_voltage)
-    global_display_shift = float(global_display_shift or 0.0)
-
-    display_signal = -1.0 if nominal_voltage < 0 else 1.0
-    target_display_voltage = display_signal * abs(effective_voltage)
-    target_voltage_before_global_display = target_display_voltage - global_display_shift
-    local_shift = self._calculate_shift_for_target_voltage(
-        nominal_voltage,
-        target_voltage_before_global_display,
-    )
-    adjusted_by_preprocess = not np.isclose(global_display_shift, 0.0)
-    return float(local_shift), adjusted_by_preprocess
-
-
   def estimate_output_shifts(self, path_voltages, min_gate_separation=0.5,
                              pre_process_shift_volt_data=None, global_display_shift=0.0,
                              current_typic='A',
@@ -1588,23 +1568,25 @@ class ReadData:
           min_gate_separation=min_gate_separation,
       )
 
-      delta_vgs = float(vgs_effective_limited - output_nominal_voltage)
-      automatic_shift_base = float(output_nominal_voltage - vgs_effective_limited)
-      automatic_shift, adjusted_by_preprocess = self._adjust_shift_with_preprocess(
-          output_nominal_voltage,
+      global_shift = float(global_display_shift or 0.0)
+      nominal_disk_voltage = float(output_nominal_voltage + global_shift)
+      delta_vgs = float(vgs_effective_limited - nominal_disk_voltage)
+      automatic_shift_base = float(nominal_disk_voltage - vgs_effective_limited)
+      automatic_shift = self._calculate_shift_for_target_voltage(
+          nominal_disk_voltage,
           vgs_effective_limited,
-          global_display_shift=global_display_shift,
       )
 
       detail.update({
+          'vgs_nominal_disk': nominal_disk_voltage,
           'vgs_effective_raw': vgs_effective_raw,
           'vgs_effective_limited': float(vgs_effective_limited),
           'delta_vgs': delta_vgs,
           'automatic_shift_base': automatic_shift_base,
           'automatic_shift': automatic_shift,
           'pre_process_shift_volt_data': pre_process_shift_volt_data,
-          'global_display_shift': float(global_display_shift or 0.0),
-          'automatic_shift_adjusted_by_preprocess': adjusted_by_preprocess,
+          'global_display_shift': global_shift,
+          'automatic_shift_adjusted_by_preprocess': False,
           'status': 'matched_with_monotonicity_limit' if was_limited else 'matched',
           'warning': warning,
       })

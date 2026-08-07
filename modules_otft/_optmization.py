@@ -61,6 +61,7 @@ class ModelOptmization(ReadData):
         self.ga_elitism = 2
         self.ga_stall_generations = 30
         self.ga_seed = None
+        self.sigma_mode = "relative"
 
     def set_default_bounds(self, opt):
         """
@@ -143,6 +144,12 @@ class ModelOptmization(ReadData):
         self.ga_elitism = max(1, self._safe_int(config.get("ga_elitism", self.ga_elitism), self.ga_elitism))
         self.ga_stall_generations = max(1, self._safe_int(config.get("ga_stall_generations", self.ga_stall_generations), self.ga_stall_generations))
         self.ga_seed = self._safe_int(config.get("ga_seed", self.ga_seed), self.ga_seed, allow_none=True)
+
+        sigma_cfg = str(config.get("sigma", self.sigma_mode)).strip().lower()
+        if sigma_cfg in {"absolute", "relative"}:
+            self.sigma_mode = sigma_cfg
+        elif config.get("sigma") is not None:
+            print(f"Invalid sigma value '{config.get('sigma')}'. Using default '{self.sigma_mode}'.")
 
     def _to_bool(self, value):
         if isinstance(value, bool):
@@ -487,7 +494,11 @@ class ModelOptmization(ReadData):
 
         model_fn = Model.calc_model
         weights = self._build_hysteresis_weights(Vv_flat)
-        sigma = error_id / np.sqrt(np.clip(weights, 1e-12, np.inf))
+        if self.sigma_mode == "absolute":
+            sigma = np.ones_like(Id_flat, dtype=float)
+        else:
+            sigma = np.maximum(np.abs(Id_flat), 1e-30)
+
         if use_ga:
             print()
             print('--' * 50)

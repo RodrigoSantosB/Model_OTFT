@@ -87,12 +87,15 @@ class TFTGraphicsPlot():
 
 
   def __format_shift_display(self, shift_value):
-    """Formats the effective applied shift with two decimal places."""
+    """Formats the operational shift (effective minus nominal) with explicit sign."""
     if isinstance(shift_value, dict):
-      applied_shift = float(shift_value.get('total', shift_value.get('automatic', 0.0)))
-      return f'{applied_shift:.2f}V'
+      applied_shift = float(shift_value.get(
+          'operational_shift',
+          shift_value.get('total', shift_value.get('automatic', 0.0)),
+      ))
+      return f'{applied_shift:+.2f}V'
 
-    return f'{float(shift_value):.2f}V'
+    return f'{float(shift_value):+.2f}V'
 
 
   def __format_voltage_display(self, voltage_value):
@@ -440,20 +443,17 @@ class TFTGraphicsPlot():
         colors = list_colors[j % len(list_colors)]
         if type_data == curv_transfer and scale == 'log':
             data = 10**(exp_data[i + 1])
-            no_shift = not bool(shift_list_update)
 
         elif type_data == curv_transfer and scale == 'linear':
             data = exp_data[i + 1]
-            no_shift = not bool(shift_list_update)
 
         else:
             data = exp_data[i + 1]
-            no_shift = not bool(shift_list_update)
 
         fig.add_trace(go.Scatter(x=exp_data[i], y=data,
                                 mode='markers+text',
-                                name=self.__legend_name(new_volt, exp_data, shift_list_update, j, no_shift),
-                                text=self.__legend_text(xlegend, volt_data, exp_data, shift_list_update, j, no_shift),
+                                name=self.__legend_name(new_volt, exp_data, shift_list_update, j, no_shift=True),
+                                text=self.__legend_text(xlegend, volt_data, exp_data, shift_list_update, j, no_shift=True),
                                 textposition='top right',
                                 textfont=dict(
                                     family="Times New Roman",

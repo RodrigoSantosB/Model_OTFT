@@ -11,7 +11,7 @@
         "pre_process_shift_volt_data": "",
         "apply_pre_process_threshold": "no",
         "pre_process_threshold_voltage": "0",
-        "apply_pre_process_hysteresis": "no",
+        "apply_pre_process_hysteresis": "yes",
         "apply_local_output_shift": "no",
         "enable_manual_shift_data": "no",
         "manual_shift_data": {

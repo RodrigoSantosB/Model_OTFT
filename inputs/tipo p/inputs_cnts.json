@@ -8,16 +8,16 @@
         "type_read_data_exp": "read interpolated data",
         "enable_pre_processing": "no",
         "apply_pre_process_global_shift": "yes",
-        "pre_process_shift_volt_data": "-1",
+        "pre_process_shift_volt_data": "-2",
         "apply_pre_process_threshold": "yes",
         "pre_process_threshold_voltage": "0",
         "apply_pre_process_hysteresis": "yes",
         "apply_local_output_shift": "yes",
-        "selected_curves": "cnt-0.1VDS, cnt-3VDS, cnt-2VGS, cnt-3VGS, cnt-4VGS",
+        "selected_curves": "cnt-3VDS, cnt-2VGS, cnt-3VGS, cnt-4VGS",
         "pre_process_hysteresis_mode_transfer": "media",
         "pre_process_hysteresis_mode_output": "maior",
         "pre_process_global_shift_persisted": "yes",
-        "pre_process_global_shift_persisted_value": "-1.0"
+        "pre_process_global_shift_persisted_value": "-2.0"
     },
     {
         "resistance_scale": "1e4",
@@ -25,14 +25,14 @@
         "with_transistor": "0.19",
         "type_of_transistor": "pFET",
         "loaded_parameters": {
-            "VTHO": 0.8,
-            "DELTA": -0.2,
-            "N": 7,
-            "L": 1.4,
-            "LAMBDA": 500,
-            "VGCRIT": 3,
-            "JTH": 6e2,
-            "RS": 0
+            "VTHO": 0.01,
+            "DELTA": 0.01,
+            "N": 11,
+            "L": 1.2,
+            "LAMBDA": 23,
+            "VGCRIT": 2,
+            "JTH": 1.3e2,
+            "RS": 0.28
         },
         "idleak_mode": "more than one value idleak",
         "loaded_idleak": {
@@ -47,18 +47,18 @@
         "image_size_height": null,
         "upper_bounds": {
             "ub_VTHO": 0.8,
-            "ub_DELTA": 0,
+            "ub_DELTA": 0.1,
             "ub_N": 14,
             "ub_L": 3,
             "ub_LAMBDA": 1000,
-            "ub_VGCRIT": 10,
+            "ub_VGCRIT": 1000,
             "ub_JTH": 4e3,
-            "ub_RS": 0.1
+            "ub_RS": 0.4
         },
         "lower_bounds": {
-            "lb_VTHO": 0.6,
-            "lb_DELTA": -0.3,
-            "lb_N": 1,
+            "lb_VTHO": 0,
+            "lb_DELTA": 0,
+            "lb_N": 4,
             "lb_L": 1,
             "lb_LAMBDA": 1,
             "lb_VGCRIT": 1,

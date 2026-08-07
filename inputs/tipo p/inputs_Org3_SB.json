@@ -59,6 +59,7 @@
             "lb_RS": 0
         },
         "default_bounds": "no",
+        "sigma": "relative",
         "optimization_method": "trf",
         "tolerance_factor": "4e-7",
         "optimization_strategy": "curve_fit",
